@@ -1,0 +1,57 @@
+import 'package:equatable/equatable.dart';
+
+abstract class RestaurantDetailsEvent extends Equatable {
+  const RestaurantDetailsEvent();
+  @override
+  List<Object?> get props => [];
+}
+
+class RestaurantNameChanged extends RestaurantDetailsEvent {
+  final String name;
+  const RestaurantNameChanged(this.name);
+  @override
+  List<Object?> get props => [name];
+}
+
+class AddressChanged extends RestaurantDetailsEvent {
+  final String address;
+  const AddressChanged(this.address);
+  @override
+  List<Object?> get props => [address];
+}
+
+class PhoneNumberChanged extends RestaurantDetailsEvent {
+  final String phoneNumber;
+  const PhoneNumberChanged(this.phoneNumber);
+  @override
+  List<Object?> get props => [phoneNumber];
+}
+
+class EmailChanged extends RestaurantDetailsEvent {
+  final String email;
+  const EmailChanged(this.email);
+  @override
+  List<Object?> get props => [email];
+}
+
+class UseCurrentLocationPressed extends RestaurantDetailsEvent {}
+
+// New event for selecting a location from the address picker
+class LocationSelected extends RestaurantDetailsEvent {
+  final String address;
+  final double latitude;
+  final double longitude;
+  
+  const LocationSelected({
+    required this.address,
+    required this.latitude,
+    required this.longitude,
+  });
+  
+  @override
+  List<Object?> get props => [address, latitude, longitude];
+}
+
+class NextPressed extends RestaurantDetailsEvent {}
+
+class LoadSavedDataEvent extends RestaurantDetailsEvent {}
