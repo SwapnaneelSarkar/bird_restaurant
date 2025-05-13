@@ -1,6 +1,9 @@
 // lib/presentation/resources/router/router.dart
 
+import 'package:bird_restaurant/presentation/screens/add_product/view.dart';
 import 'package:bird_restaurant/presentation/screens/add_resturant_info/view.dart';
+import 'package:bird_restaurant/presentation/screens/attributes/view.dart';
+import 'package:bird_restaurant/presentation/screens/orders/view.dart';
 import 'package:bird_restaurant/presentation/screens/signin/view.dart';
 import 'package:flutter/material.dart';
 
@@ -22,6 +25,11 @@ class Routes {
   static const String applicationStatus = '/applicationStatus';
   static const String profile = '/profile';
   static const String homePage = '/home';
+
+  static const String attributes = '/attributes';
+  static const String addProduct = '/addProduct';
+  static const String orders = '/orders';
+
   static const String blank = '/blank';
 }
 
@@ -36,15 +44,12 @@ class RouteGenerator {
     try {
       switch (name) {
         case Routes.splash:
-        case '/':
           return MaterialPageRoute(builder: (_) => const SplashView());
           
         case Routes.signin:
-        case '/signin':
           return MaterialPageRoute(builder: (_) => const LoginView());
 
         case Routes.otp:
-        case '/otp':
           final String? phoneNumber = routeSettings.arguments as String?;
           return MaterialPageRoute(
             builder: (_) => OtpView(mobileNumber: phoneNumber),
@@ -52,19 +57,15 @@ class RouteGenerator {
           );
 
         case Routes.detailsAdd:
-        case '/detailsAdd':
           return MaterialPageRoute(builder: (_) => const RestaurantDetailsAddView());
 
         case Routes.detailsAdd2:
-        case '/detailsAdd2':
           return MaterialPageRoute(builder: (_) => const RestaurantCategoryView());
 
         case Routes.detailsAdd3:
-        case '/detailsAdd3':
           return MaterialPageRoute(builder: (_) => const RestaurantDocumentsSubmitView());
 
         case Routes.applicationStatus:
-        case '/applicationStatus':
           final String? mobileNumber = routeSettings.arguments as String?;
           return MaterialPageRoute(
             builder: (_) => ApplicationStatusView(mobileNumber: mobileNumber ?? ''),
@@ -72,12 +73,20 @@ class RouteGenerator {
           );
 
         case Routes.profile:
-        case '/profile':
           return MaterialPageRoute(builder: (_) => const RestaurantProfileView());
 
         case Routes.homePage:
-        case '/home':
           return MaterialPageRoute(builder: (_) => const HomeView());
+
+        case Routes.attributes:
+          return MaterialPageRoute(builder: (_) => const AttributesScreen());
+
+        case Routes.addProduct:
+          return MaterialPageRoute(builder: (_) => const AddProductScreen());
+
+        case Routes.orders:
+          return MaterialPageRoute(builder: (_) => const OrdersScreen());
+        
 
         default:
           return unDefinedRoute();

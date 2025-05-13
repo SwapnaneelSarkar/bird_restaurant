@@ -8,8 +8,7 @@ import '../../../ui_components/custom_button_locatin.dart';
 import '../../../ui_components/custom_textField.dart';
 import '../../../ui_components/operations_card.dart';
 import '../../../ui_components/profile_button.dart';
-import '../../../ui_components/custom_button_slim.dart';
-import '../../address bottomSheet/view.dart';
+import '../address bottomSheet/view.dart';
 import '../../resources/colors.dart';
 import '../../resources/font.dart';
 

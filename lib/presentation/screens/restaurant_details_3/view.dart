@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'dart:io';
 
-import '../../../ui_components/Custom_button_slim.dart';
+import '../../../ui_components/custom_button_slim.dart';
 import '../../../ui_components/legal_card.dart';
 import '../../../../ui_components/proggress_bar.dart';
 import '../../resources/colors.dart';

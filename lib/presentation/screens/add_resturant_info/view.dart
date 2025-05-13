@@ -9,7 +9,7 @@ import '../../../ui_components/proggress_bar.dart';
 import '../../resources/colors.dart';
 import '../../resources/font.dart';
 import '../../resources/router/router.dart';
-import '../../../presentation/address bottomSheet/view.dart';
+import '../address bottomSheet/view.dart';
 import 'bloc.dart';
 import 'event.dart';
 import 'state.dart';

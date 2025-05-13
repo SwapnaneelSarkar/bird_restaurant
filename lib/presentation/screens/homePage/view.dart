@@ -1,16 +1,18 @@
-// lib/presentation/screens/homePage/view.dart
-
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:fl_chart/fl_chart.dart';
 
-import '../../../services/token_service.dart';
 import '../../resources/colors.dart';
-import '../../resources/font.dart';
-import '../../resources/router/router.dart';
-import '../restaurant_profile/view.dart';
+
+import 'bloc.dart';
+import 'event.dart';
+
+import 'sidebar/side_bar_opener.dart';
+import 'sidebar/sidebar_drawer.dart';
+import 'state.dart';
 
 class HomeView extends StatefulWidget {
   const HomeView({Key? key}) : super(key: key);
@@ -20,7 +22,7 @@ class HomeView extends StatefulWidget {
 }
 
 class _HomeViewState extends State<HomeView> {
-  bool _acceptingOrders = false;
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
   Future<void> _handleLogout(BuildContext context) async {
     try {
@@ -28,12 +30,12 @@ class _HomeViewState extends State<HomeView> {
       bool confirm = await showDialog(
         context: context,
         builder: (context) => AlertDialog(
-          title: Text('Logout', style: TextStyle(fontWeight: FontWeight.bold)),
-          content: Text('Are you sure you want to logout?'),
+          title: const Text('Logout', style: TextStyle(fontWeight: FontWeight.bold)),
+          content: const Text('Are you sure you want to logout?'),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(false),
-              child: Text('Cancel'),
+              child: const Text('Cancel'),
             ),
             TextButton(
               onPressed: () => Navigator.of(context).pop(true),
@@ -49,10 +51,10 @@ class _HomeViewState extends State<HomeView> {
       final prefs = await SharedPreferences.getInstance();
       await prefs.clear();
       
-      // Navigate to signin and remove all previous routes
+      // Navigate to login and remove all previous routes
       if (context.mounted) {
         Navigator.of(context).pushNamedAndRemoveUntil(
-          Routes.signin,
+          '/login',
           (route) => false,
         );
       }
@@ -61,7 +63,7 @@ class _HomeViewState extends State<HomeView> {
       // Still attempt to navigate even if clearing fails
       if (context.mounted) {
         Navigator.of(context).pushNamedAndRemoveUntil(
-          Routes.signin,
+          '/login',
           (route) => false,
         );
       }
@@ -70,205 +72,232 @@ class _HomeViewState extends State<HomeView> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.grey[50],
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        title: Padding(
-          padding: const EdgeInsets.only(left: 8.0),
-          child: SvgPicture.asset(
-            'assets/svg/logo_text.svg',
-            height: 30,
+    return BlocProvider(
+      create: (context) => HomeBloc()..add(LoadHomeData()),
+      child: Scaffold(
+        key: _scaffoldKey,
+        backgroundColor: Colors.grey[50],
+        drawer: const SidebarDrawer(activePage: 'home'),
+        appBar: AppBar(
+          backgroundColor: Colors.white,
+          elevation: 0,
+          leading: SidebarOpener(
+            scaffoldKey: _scaffoldKey,
+            iconColor: Colors.black87,
+            padding: const EdgeInsets.all(12),
           ),
-        ),
-        actions: [
-          // Profile Icon
-          IconButton(
-            icon: CircleAvatar(
-              backgroundColor: Colors.grey[200],
-              radius: 16,
-              child: Icon(
-                Icons.person,
-                color: Colors.grey[700],
-                size: 20,
-              ),
+          title: Padding(
+            padding: const EdgeInsets.only(left: 8.0),
+            child: SvgPicture.asset(
+              'assets/svg/logo_text.svg',
+              height: 30,
             ),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => RestaurantProfileView(),
+          ),
+          actions: [
+            // Logout Icon
+            IconButton(
+              icon: Icon(
+                Icons.logout,
+                color: Colors.grey[700],
+              ),
+              onPressed: () => _handleLogout(context),
+            ),
+            const SizedBox(width: 8),
+          ],
+        ),
+        body: BlocBuilder<HomeBloc, HomeState>(
+          builder: (context, state) {
+            if (state is HomeLoading) {
+              return const Center(child: CircularProgressIndicator());
+            } else if (state is HomeLoaded) {
+              return _buildHomeContent(context, state);
+            } else if (state is HomeError) {
+              return Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      state.message,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        color: Colors.red,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    ElevatedButton(
+                      onPressed: () {
+                        context.read<HomeBloc>().add(LoadHomeData());
+                      },
+                      child: const Text('Retry'),
+                    ),
+                  ],
                 ),
               );
-            },
-          ),
-          // Logout Icon
-          IconButton(
-            icon: Icon(
-              Icons.logout,
-              color: Colors.grey[700],
-            ),
-            onPressed: () => _handleLogout(context),
-          ),
-          const SizedBox(width: 8),
-        ],
+            }
+            
+            // Initial state
+            return const Center(
+              child: CircularProgressIndicator(),
+            );
+          },
+        ),
       ),
-      body: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: 20),
-              
-              // Accepting Orders Toggle
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
-                      blurRadius: 10,
-                      spreadRadius: 0,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
+    );
+  }
+
+  Widget _buildHomeContent(BuildContext context, HomeLoaded state) {
+    return SingleChildScrollView(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: 20),
+            
+            // Accepting Orders Toggle
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 10,
+                    spreadRadius: 0,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Accepting Orders',
+                        style: GoogleFonts.poppins(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.black87,
+                        ),
+                      ),
+                      Text(
+                        'Toggle to start accepting orders',
+                        style: GoogleFonts.poppins(
+                          fontSize: 14,
+                          color: Colors.black54,
+                        ),
+                      ),
+                    ],
+                  ),
+                  Switch(
+                    value: state.isAcceptingOrders,
+                    onChanged: (value) {
+                      context.read<HomeBloc>().add(ToggleOrderAcceptance(value));
+                    },
+                    activeColor: ColorManager.primary,
+                  ),
+                ],
+              ),
+            ),
+            
+            const SizedBox(height: 20),
+            
+            // Stats Row 1
+            Row(
+              children: [
+                // Orders Stats
+                Expanded(
+                  child: _buildStatCard(
+                    'Orders',
+                    state.ordersCount.toString(),
+                    Colors.orange[50]!,
+                    Icons.shopping_bag_outlined,
+                    Colors.orange[300]!,
+                  ),
                 ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Accepting Orders',
-                          style: GoogleFonts.poppins(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.black87,
-                          ),
-                        ),
-                        Text(
-                          'Toggle to start accepting orders',
-                          style: GoogleFonts.poppins(
-                            fontSize: 14,
-                            color: Colors.black54,
-                          ),
-                        ),
-                      ],
-                    ),
-                    Switch(
-                      value: _acceptingOrders,
-                      onChanged: (value) {
-                        setState(() {
-                          _acceptingOrders = value;
-                        });
-                      },
-                      activeColor: ColorManager.primary,
-                    ),
-                  ],
+                const SizedBox(width: 16),
+                // Products Stats
+                Expanded(
+                  child: _buildStatCard(
+                    'Products',
+                    state.productsCount.toString(),
+                    Colors.amber[50]!,
+                    Icons.restaurant_menu,
+                    Colors.amber[300]!,
+                  ),
                 ),
-              ),
-              
-              const SizedBox(height: 20),
-              
-              // Stats Row 1
-              Row(
-                children: [
-                  // Orders Stats
-                  Expanded(
-                    child: _buildStatCard(
-                      'Orders',
-                      '248',
-                      Colors.orange[50]!,
-                      Icons.shopping_bag_outlined,
-                      Colors.orange[300]!,
-                    ),
+              ],
+            ),
+            
+            const SizedBox(height: 16),
+            
+            // Stats Row 2
+            Row(
+              children: [
+                // Tags Stats
+                Expanded(
+                  child: _buildStatCard(
+                    'Tags',
+                    state.tagsCount.toString(),
+                    Colors.green[50]!,
+                    Icons.local_offer_outlined,
+                    Colors.green[300]!,
                   ),
-                  const SizedBox(width: 16),
-                  // Products Stats
-                  Expanded(
-                    child: _buildStatCard(
-                      'Products',
-                      '86',
-                      Colors.amber[50]!,
-                      Icons.restaurant_menu,
-                      Colors.amber[300]!,
-                    ),
+                ),
+                const SizedBox(width: 16),
+                // Rating Stats
+                Expanded(
+                  child: _buildStatCard(
+                    'Rating',
+                    state.rating.toString(),
+                    Colors.yellow[50]!,
+                    Icons.star_border,
+                    Colors.yellow[600]!,
                   ),
-                ],
-              ),
-              
-              const SizedBox(height: 16),
-              
-              // Stats Row 2
-              Row(
-                children: [
-                  // Tags Stats
-                  Expanded(
-                    child: _buildStatCard(
-                      'Tags',
-                      '12',
-                      Colors.green[50]!,
-                      Icons.local_offer_outlined,
-                      Colors.green[300]!,
-                    ),
+                ),
+              ],
+            ),
+            
+            const SizedBox(height: 24),
+            
+            // Product Sales Section
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Product Sales',
+                  style: GoogleFonts.poppins(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black87,
                   ),
-                  const SizedBox(width: 16),
-                  // Rating Stats
-                  Expanded(
-                    child: _buildStatCard(
-                      'Rating',
-                      '4.8',
-                      Colors.yellow[50]!,
-                      Icons.star_border,
-                      Colors.yellow[600]!,
-                    ),
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  height: 250,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.05),
+                        blurRadius: 10,
+                        spreadRadius: 0,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-              
-              const SizedBox(height: 24),
-              
-              // Product Sales Section
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Product Sales',
-                    style: GoogleFonts.poppins(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.black87,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Container(
-                    height: 250,
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.05),
-                          blurRadius: 10,
-                          spreadRadius: 0,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: _buildSalesChart(),
-                  ),
-                ],
-              ),
-              
-              const SizedBox(height: 30),
-            ],
-          ),
+                  child: _buildSalesChart(state.salesData),
+                ),
+              ],
+            ),
+            
+            const SizedBox(height: 30),
+          ],
         ),
       ),
     );
@@ -327,20 +356,14 @@ class _HomeViewState extends State<HomeView> {
     );
   }
   
-  Widget _buildSalesChart() {
-    // Sample data
-    final List<FlSpot> spots = [
-      FlSpot(0, 800), // Monday
-      FlSpot(1, 920), // Tuesday
-      FlSpot(2, 900), // Wednesday
-      FlSpot(3, 950), // Thursday
-      FlSpot(4, 1250), // Friday
-      FlSpot(5, 1300), // Saturday
-      FlSpot(6, 1290), // Sunday
-    ];
+  Widget _buildSalesChart(List<Map<String, dynamic>> salesData) {
+    // Convert sales data to spots
+    final List<FlSpot> spots = salesData.asMap().entries.map((entry) {
+      return FlSpot(entry.key.toDouble(), entry.value['sales'].toDouble());
+    }).toList();
     
     // Days of the week
-    final List<String> days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    final List<String> days = salesData.map((data) => data['day'] as String).toList();
     
     return LineChart(
       LineChartData(
@@ -413,13 +436,12 @@ class _HomeViewState extends State<HomeView> {
             dotData: FlDotData(show: true),
             belowBarData: BarAreaData(
               show: true,
-              color: ColorManager.primary!.withOpacity(0.15),
+              color: ColorManager.primary.withOpacity(0.15),
             ),
           ),
         ],
         lineTouchData: LineTouchData(
           touchTooltipData: LineTouchTooltipData(
-            // tooltipBgColor: Colors.blueGrey.withOpacity(0.8),
             getTooltipItems: (List<LineBarSpot> touchedBarSpots) {
               return touchedBarSpots.map((barSpot) {
                 final dayIndex = barSpot.x.toInt();

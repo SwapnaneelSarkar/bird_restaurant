@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:lottie/lottie.dart';
-import '../resources/font.dart';
+import '../../resources/font.dart';
 import 'bloc.dart';
 import 'event.dart';
 import 'state.dart';
