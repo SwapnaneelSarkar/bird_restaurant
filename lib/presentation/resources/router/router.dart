@@ -3,6 +3,7 @@
 import 'package:bird_restaurant/presentation/screens/add_product/view.dart';
 import 'package:bird_restaurant/presentation/screens/add_resturant_info/view.dart';
 import 'package:bird_restaurant/presentation/screens/attributes/view.dart';
+import 'package:bird_restaurant/presentation/screens/item_list/view.dart';
 import 'package:bird_restaurant/presentation/screens/orders/view.dart';
 import 'package:bird_restaurant/presentation/screens/signin/view.dart';
 import 'package:flutter/material.dart';
@@ -29,6 +30,7 @@ class Routes {
   static const String attributes = '/attributes';
   static const String addProduct = '/addProduct';
   static const String orders = '/orders';
+  static const String editMenu = '/editMenu';
 
   static const String blank = '/blank';
 }
@@ -86,6 +88,9 @@ class RouteGenerator {
 
         case Routes.orders:
           return MaterialPageRoute(builder: (_) => const OrdersScreen());
+
+        case Routes.editMenu:
+          return MaterialPageRoute(builder: (_) => const EditMenuView());
         
 
         default:

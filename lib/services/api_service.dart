@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/io_client.dart';
@@ -185,74 +186,98 @@ class ApiServices {
     }
   }
 
-  // Comprehensive updatePartnerWithAllFields method that includes all possible fields
-  Future<ApiResponse> updatePartnerWithAllFields({
-    required String restaurantName,
-    required String address,
-    required String email,
-    required String category,
-    required String operationalHours,
-    required String ownerName,
-    required String latitude,
-    required String longitude,
-    required String vegNonveg,
-    required String cookingTime,
-    File? fssaiLicense,
-    File? gstCertificate,
-    File? panCard,
-    List<File>? restaurantPhotos,
-  }) async {
-    try {
-      final token = await TokenService.getToken();
-      final partnerId = await TokenService.getUserId();
-      
-      if (token == null || partnerId == null) {
-        throw UnauthorizedException('No token or user ID found. Please login again.');
-      }
+Future<ApiResponse> updatePartnerWithAllFields({
+  required String restaurantName,
+  required String address,
+  required String email,
+  required String category,
+  required String operationalHours,
+  required String ownerName,
+  required String latitude,
+  required String longitude,
+  required String vegNonveg,
+  required String cookingTime,
+  File? fssaiLicense,
+  File? gstCertificate,
+  File? panCard,
+  List<File>? restaurantPhotos,
+  int retryCount = 0, // Track retries to prevent infinite loops
+}) async {
+  try {
+    // Limit retries to prevent infinite loops
+    if (retryCount >= 3) {
+      return ApiResponse(
+        success: false,
+        message: "Failed after multiple attempts. Please try again later.",
+        status: "ERROR",
+      );
+    }
 
-      final url = Uri.parse('${ApiConstants.baseUrl}/partner/updatePartner');
+    final token = await TokenService.getToken();
+    final partnerId = await TokenService.getUserId();
+    
+    if (token == null || partnerId == null) {
+      throw UnauthorizedException('No token or user ID found. Please login again.');
+    }
+
+    debugPrint('Token retrieved successfully: ${token.substring(0, min(20, token.length))}...');
+    debugPrint('User ID retrieved successfully: $partnerId');
+
+    final url = Uri.parse('${ApiConstants.baseUrl}/partner/updatePartner');
+    
+    // Create multipart request
+    var request = http.MultipartRequest('POST', url);
+    
+    // Add headers
+    request.headers.addAll({
+      'Authorization': 'Bearer $token',
+    });
+    
+    // Add all form fields
+    request.fields['partnerId'] = partnerId.toString();
+    request.fields['restaurant_name'] = restaurantName;
+    request.fields['address'] = address;
+    request.fields['email'] = email;
+    request.fields['category'] = category;
+    request.fields['operational_hours'] = operationalHours;
+    request.fields['owner_name'] = ownerName;
+    
+    // Ensure coordinates are included
+    request.fields['latitude'] = latitude;
+    request.fields['longitude'] = longitude;
+    debugPrint('Adding coordinates to API request - Latitude: $latitude, Longitude: $longitude');
+    
+    request.fields['veg-nonveg'] = vegNonveg;
+    request.fields['cooking_time'] = cookingTime;
+    
+    // Add mobile field explicitly from shared preferences
+    final prefs = await SharedPreferences.getInstance();
+    final mobile = prefs.getString('mobile');
+    if (mobile != null && mobile.isNotEmpty) {
+      request.fields['mobile'] = mobile;
       
-      // Create multipart request
-      var request = http.MultipartRequest('POST', url);
-      
-      // Add headers
-      request.headers.addAll({
-        'Authorization': 'Bearer $token',
-      });
-      
-      // Add all form fields as shown in the screenshot
-      request.fields['partnerId'] = partnerId.toString();
-      request.fields['restaurant_name'] = restaurantName;
-      request.fields['address'] = address;
-      request.fields['email'] = email;
-      request.fields['category'] = category;
-      request.fields['operational_hours'] = operationalHours;
-      request.fields['owner_name'] = ownerName;
-      
-      // Ensure coordinates are included
-      request.fields['latitude'] = latitude;
-      request.fields['longitude'] = longitude;
-      debugPrint('Adding coordinates to API request - Latitude: $latitude, Longitude: $longitude');
-      
-      request.fields['veg-nonveg'] = vegNonveg;
-      request.fields['cooking_time'] = cookingTime;
-      
-      // Add files if they exist
-      if (fssaiLicense != null) {
+      // Also add partner_id from shared preferences
+      request.fields['partner_id'] = partnerId;
+    }
+    
+    // Check that files still exist before adding them
+    try {
+      // Add files if they exist and are still accessible
+      if (fssaiLicense != null && await fssaiLicense.exists()) {
         request.files.add(await _createMultipartFile(
           'fssai_license_doc',
           fssaiLicense,
         ));
       }
       
-      if (gstCertificate != null) {
+      if (gstCertificate != null && await gstCertificate.exists()) {
         request.files.add(await _createMultipartFile(
           'gst_certificate_doc',
           gstCertificate,
         ));
       }
       
-      if (panCard != null) {
+      if (panCard != null && await panCard.exists()) {
         request.files.add(await _createMultipartFile(
           'pan_card_doc',
           panCard,
@@ -261,73 +286,169 @@ class ApiServices {
       
       if (restaurantPhotos != null && restaurantPhotos.isNotEmpty) {
         for (var i = 0; i < restaurantPhotos.length; i++) {
-          request.files.add(await _createMultipartFile(
-            'restaurant_photos',
-            restaurantPhotos[i],
-          ));
+          if (await restaurantPhotos[i].exists()) {
+            request.files.add(await _createMultipartFile(
+              'restaurant_photos',
+              restaurantPhotos[i],
+            ));
+          }
         }
       }
-      
-      // Debug print request
-      debugPrint('Update Partner With All Fields Request:');
-      debugPrint('URL: $url');
-      debugPrint('Headers: ${request.headers}');
-      debugPrint('Fields: ${request.fields}');
-      debugPrint('Files: ${request.files.map((f) => '${f.field}: ${f.filename}').toList()}');
-      
-      // Send request using the client that bypasses SSL verification
-      final streamedResponse = await _client.send(request);
-      final response = await http.Response.fromStream(streamedResponse);
-      
-      // Debug print response
-      debugPrint('Update Partner Response:');
-      debugPrint('Status Code: ${response.statusCode}');
-      debugPrint('Body: ${response.body}');
-      
-      final responseBody = jsonDecode(response.body);
-
-      if (response.statusCode == 413) {
-        throw ApiException('The total size of files is too large. Please compress your images or reduce the number of files.');
-      }
-
-      // Update the error handling for HTML responses:
-      if (response.body.trim().startsWith('<') || 
-          response.body.contains('<!DOCTYPE') || 
-          response.body.contains('<html')) {
-        if (response.statusCode == 413) {
-          throw ApiException('Request too large. Please reduce the file sizes.');
-        }
-        throw ApiException('Server returned HTML instead of JSON. Status: ${response.statusCode}');
-      }
-      
-      if (response.statusCode == 200) {
-        final status = responseBody['status'];
-        final message = responseBody['message'] ?? '';
-        final data = responseBody['data'];
-        
-        return ApiResponse(
-          success: status == 'SUCCESS',
-          data: data,
-          message: message,
-          status: status,
-        );
-      } else if (response.statusCode == 401) {
-        throw UnauthorizedException('Unauthorized access. Please login again.');
-      } else {
-        return ApiResponse(
-          success: false,
-          message: responseBody['message'] ?? 'Update failed',
-          status: responseBody['status'] ?? 'ERROR',
-        );
-      }
-    } on UnauthorizedException {
-      rethrow;
-    } catch (e) {
-      debugPrint('Error updating partner: $e');
-      throw ApiException('Failed to update partner: $e');
+    } catch (fileError) {
+      // If we can't access files, log but continue without them
+      debugPrint('Error adding files to request: $fileError');
+      debugPrint('Continuing with request without missing files');
     }
+    
+    // Debug print request
+    debugPrint('Update Partner With All Fields Request:');
+    debugPrint('URL: $url');
+    debugPrint('Headers: ${request.headers}');
+    debugPrint('Fields: ${request.fields}');
+    debugPrint('Files: ${request.files.map((f) => '${f.field}: ${f.filename}').toList()}');
+    
+    // Send request
+    final streamedResponse = await _client.send(request);
+    final response = await http.Response.fromStream(streamedResponse);
+    
+    // Debug print response
+    debugPrint('Update Partner Response:');
+    debugPrint('Status Code: ${response.statusCode}');
+    debugPrint('Body: ${response.body}');
+    
+    // Handle potential non-JSON responses
+    if (response.body.trim().startsWith('<') || 
+        response.body.contains('<!DOCTYPE') || 
+        response.body.contains('<html')) {
+      if (response.statusCode == 413) {
+        throw ApiException('Request too large. Please reduce the file sizes.');
+      }
+      throw ApiException('Server returned HTML instead of JSON. Status: ${response.statusCode}');
+    }
+    
+    // Parse the response body
+    Map<String, dynamic> responseBody;
+    try {
+      responseBody = jsonDecode(response.body);
+    } catch (e) {
+      throw ApiException('Invalid response format: ${response.body}');
+    }
+    
+    if (response.statusCode == 200) {
+      final status = responseBody['status'];
+      final message = responseBody['message'] ?? '';
+      final data = responseBody['data'];
+      
+      // Successful response
+      return ApiResponse(
+        success: status == 'SUCCESS',
+        data: data,
+        message: message,
+        status: status,
+      );
+    } else if (response.statusCode == 401) {
+      // If the problem is the token being invalid
+      throw UnauthorizedException('Unauthorized access. Please login again.');
+    } else if (response.statusCode == 400 && 
+               responseBody['message']?.toString().contains('Partner ID is missing') == true) {
+      // Special handling for "Partner ID is missing" error
+      debugPrint('Partner ID missing error detected. Attempting to refresh token...');
+      
+      // Get mobile number
+      final mobileNumber = prefs.getString('mobile');
+      if (mobileNumber != null && mobileNumber.isNotEmpty) {
+        // Call register API to get a fresh token
+        final refreshResponse = await registerPartner(mobileNumber);
+        if (refreshResponse.success) {
+          // Try one more time with the new token, incrementing retry count
+          debugPrint('Token refreshed successfully. Retrying update...');
+          return updatePartnerWithAllFields(
+            restaurantName: restaurantName,
+            address: address,
+            email: email,
+            category: category,
+            operationalHours: operationalHours,
+            ownerName: ownerName,
+            latitude: latitude,
+            longitude: longitude,
+            vegNonveg: vegNonveg,
+            cookingTime: cookingTime,
+            fssaiLicense: fssaiLicense,
+            gstCertificate: gstCertificate,
+            panCard: panCard,
+            restaurantPhotos: restaurantPhotos,
+            retryCount: retryCount + 1,
+          );
+        }
+      }
+      
+      // If token refresh didn't work or can't be done, try without files
+      if (retryCount < 1) {
+        debugPrint('Trying submission without files...');
+        return updatePartnerWithAllFields(
+          restaurantName: restaurantName,
+          address: address,
+          email: email,
+          category: category,
+          operationalHours: operationalHours,
+          ownerName: ownerName,
+          latitude: latitude,
+          longitude: longitude,
+          vegNonveg: vegNonveg,
+          cookingTime: cookingTime,
+          fssaiLicense: null, // Skip files on retry
+          gstCertificate: null,
+          panCard: null,
+          restaurantPhotos: null,
+          retryCount: retryCount + 1,
+        );
+      }
+      
+      // If we've already retried, return the original error
+      return ApiResponse(
+        success: false,
+        message: responseBody['message'] ?? 'Update failed',
+        status: responseBody['status'] ?? 'ERROR',
+      );
+    } else {
+      // Other error responses
+      return ApiResponse(
+        success: false,
+        message: responseBody['message'] ?? 'Update failed',
+        status: responseBody['status'] ?? 'ERROR',
+      );
+    }
+  } on UnauthorizedException {
+    rethrow;
+  } catch (e) {
+    // If the error is related to file access, try again without files
+    if ((e.toString().contains('PathNotFoundException') || 
+         e.toString().contains('No such file or directory')) && 
+        retryCount < 1) {
+      debugPrint('File access error detected. Retrying without files...');
+      return updatePartnerWithAllFields(
+        restaurantName: restaurantName,
+        address: address,
+        email: email,
+        category: category,
+        operationalHours: operationalHours,
+        ownerName: ownerName,
+        latitude: latitude,
+        longitude: longitude,
+        vegNonveg: vegNonveg,
+        cookingTime: cookingTime,
+        fssaiLicense: null, // Skip files on retry
+        gstCertificate: null,
+        panCard: null,
+        restaurantPhotos: null,
+        retryCount: retryCount + 1,
+      );
+    }
+    
+    debugPrint('Error updating partner: $e');
+    throw ApiException('Failed to update partner: $e');
   }
-
+}
   // Helper method to create multipart file with proper content type
   Future<http.MultipartFile> _createMultipartFile(String field, File file) async {
     String? mimeType = lookupMimeType(file.path);
@@ -436,41 +557,7 @@ Future<ApiResponse> registerPartner(String mobile) async {
     final rawResponseBody = response.body;
     debugPrint('Register Partner Raw Response: $rawResponseBody');
     
-    // Directly extract from the raw response body using regex
-    if (rawResponseBody.contains('token')) {
-      final tokenRegex = RegExp(r'"token":"([^"]+)"');
-      final match = tokenRegex.firstMatch(rawResponseBody);
-      if (match != null && match.groupCount >= 1) {
-        final token = match.group(1);
-        if (token != null) {
-          // Store token directly in SharedPreferences
-          final prefs = await SharedPreferences.getInstance();
-          await prefs.setString('token', token);
-          debugPrint('Token extracted and saved to SharedPreferences: ${token.substring(0, 20)}...');
-        }
-      }
-    }
-    
-    if (rawResponseBody.contains('id')) {
-      final idRegex = RegExp(r'"id":(\d+)');
-      final match = idRegex.firstMatch(rawResponseBody);
-      if (match != null && match.groupCount >= 1) {
-        final userId = match.group(1);
-        if (userId != null) {
-          // Store user ID directly in SharedPreferences
-          final prefs = await SharedPreferences.getInstance();
-          await prefs.setString('user_id', userId);
-          debugPrint('User ID extracted and saved to SharedPreferences: $userId');
-        }
-      }
-    }
-    
-    // Save mobile number
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('mobile', mobile);
-    debugPrint('Mobile saved to SharedPreferences: $mobile');
-    
-    // Now try to decode the JSON
+    // Parse the response first to ensure we have the correct structure
     Map<String, dynamic> responseData;
     try {
       responseData = jsonDecode(rawResponseBody);
@@ -479,11 +566,108 @@ Future<ApiResponse> registerPartner(String mobile) async {
       throw ApiException('Invalid response format from server');
     }
     
+    // Get the data object if it exists
+    final data = responseData['data'] as Map<String, dynamic>?;
+    if (data != null) {
+      // Extract token
+      if (data['token'] != null) {
+        final token = data['token'] as String;
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('token', token);
+        await TokenService.saveToken(token);
+        debugPrint('Token extracted and saved to SharedPreferences: ${token.substring(0, 20)}...');
+      }
+      
+      // Look for partner_id specifically
+      if (data['partner_id'] != null) {
+        final partnerId = data['partner_id'] as String;
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('user_id', partnerId);
+        await TokenService.saveUserId(partnerId);
+        debugPrint('Partner ID extracted and saved to SharedPreferences: $partnerId');
+      }
+      // Fall back to id if partner_id not found
+      else if (data['id'] != null) {
+        final userId = data['id'].toString();
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('user_id', userId);
+        await TokenService.saveUserId(userId);
+        debugPrint('User ID extracted and saved to SharedPreferences: $userId');
+      }
+      
+      // Save mobile number
+      if (data['mobile'] != null) {
+        final savedMobile = data['mobile'] as String;
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('mobile', savedMobile);
+        await TokenService.saveMobile(savedMobile);
+        debugPrint('Mobile saved to SharedPreferences: $savedMobile');
+      } else {
+        // If mobile isn't in the response, use the one we sent
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('mobile', mobile);
+        await TokenService.saveMobile(mobile);
+        debugPrint('Mobile saved to SharedPreferences: $mobile');
+      }
+    } else {
+      // If there's no data object, try to extract directly from the response string
+      // using regex as a fallback method
+      
+      // Extract token using regex
+      if (rawResponseBody.contains('token')) {
+        final tokenRegex = RegExp(r'"token":"([^"]+)"');
+        final match = tokenRegex.firstMatch(rawResponseBody);
+        if (match != null && match.groupCount >= 1) {
+          final token = match.group(1);
+          if (token != null) {
+            final prefs = await SharedPreferences.getInstance();
+            await prefs.setString('token', token);
+            await TokenService.saveToken(token);
+            debugPrint('Token extracted and saved to SharedPreferences using regex: ${token.substring(0, 20)}...');
+          }
+        }
+      }
+      
+      // Look specifically for partner_id first
+      if (rawResponseBody.contains('partner_id')) {
+        final partnerIdRegex = RegExp(r'"partner_id":"([^"]+)"');
+        final match = partnerIdRegex.firstMatch(rawResponseBody);
+        if (match != null && match.groupCount >= 1) {
+          final partnerId = match.group(1);
+          if (partnerId != null) {
+            final prefs = await SharedPreferences.getInstance();
+            await prefs.setString('user_id', partnerId);
+            await TokenService.saveUserId(partnerId);
+            debugPrint('Partner ID extracted and saved to SharedPreferences using regex: $partnerId');
+          }
+        }
+      } 
+      // Fall back to id if partner_id not found
+      else if (rawResponseBody.contains('"id":')) {
+        final idRegex = RegExp(r'"id":(\d+)');
+        final match = idRegex.firstMatch(rawResponseBody);
+        if (match != null && match.groupCount >= 1) {
+          final userId = match.group(1);
+          if (userId != null) {
+            final prefs = await SharedPreferences.getInstance();
+            await prefs.setString('user_id', userId);
+            await TokenService.saveUserId(userId);
+            debugPrint('User ID extracted and saved to SharedPreferences using regex: $userId');
+          }
+        }
+      }
+      
+      // Save mobile number
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('mobile', mobile);
+      await TokenService.saveMobile(mobile);
+      debugPrint('Mobile saved to SharedPreferences: $mobile');
+    }
+    
     if (response.statusCode == 200) {
       // Extract status, message, and data from response
       final status = responseData['status'];
       final message = responseData['message'] ?? '';
-      final data = responseData['data'];
       
       // Return API response
       return ApiResponse(
@@ -508,8 +692,6 @@ Future<ApiResponse> registerPartner(String mobile) async {
     throw ApiException('Failed to register partner: $e');
   }
 }
-  
-
   
   Future<bool> isTokenValid() async {
     final token = await TokenService.getToken();

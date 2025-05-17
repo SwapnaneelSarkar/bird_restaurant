@@ -389,7 +389,7 @@ class OtpBloc extends Bloc<OtpEvent, OtpState> {
         final responseBody = response.data;
         
         if (responseBody != null) {
-          // Try to extract token and userId
+          // Try to extract token and userId/partnerId
           String? token;
           dynamic userId;
           
@@ -398,8 +398,14 @@ class OtpBloc extends Bloc<OtpEvent, OtpState> {
             if (responseBody.containsKey('token')) {
               token = responseBody['token'] as String;
             }
-            if (responseBody.containsKey('id')) {
+            
+            // Check for partner_id first, then fall back to id
+            if (responseBody.containsKey('partner_id')) {
+              userId = responseBody['partner_id'];
+              debugPrint('Found partner_id in response: $userId');
+            } else if (responseBody.containsKey('id')) {
               userId = responseBody['id'];
+              debugPrint('Found id in response: $userId');
             }
           }
           
@@ -464,10 +470,24 @@ class OtpBloc extends Bloc<OtpEvent, OtpState> {
           } else {
             debugPrint('WARNING: Could not find user ID in response');
             
-            // Try direct extraction from response string if all else fails
+            // Try direct extraction from partner_id or id using regex
             try {
               final responseStr = response.toString();
-              if (responseStr.contains('"id":')) {
+              if (responseStr.contains('"partner_id"')) {
+                final idPattern = RegExp(r'"partner_id":"([^"]+)"');
+                final match = idPattern.firstMatch(responseStr);
+                if (match != null && match.groupCount >= 1) {
+                  final extractedId = match.group(1);
+                  if (extractedId != null && extractedId.isNotEmpty) {
+                    await TokenService.saveUserId(extractedId);
+                    
+                    final prefs = await SharedPreferences.getInstance();
+                    await prefs.setString('user_id', extractedId);
+                    
+                    debugPrint('Partner ID extracted and saved as fallback: $extractedId');
+                  }
+                }
+              } else if (responseStr.contains('"id":')) {
                 final idPattern = RegExp(r'"id":(\d+)');
                 final match = idPattern.firstMatch(responseStr);
                 if (match != null && match.groupCount >= 1) {
@@ -509,18 +529,33 @@ class OtpBloc extends Bloc<OtpEvent, OtpState> {
               }
             }
             
-            // Extract ID using regex
-            final idPattern = RegExp(r'"id":(\d+)');
-            final idMatch = idPattern.firstMatch(responseStr);
-            if (idMatch != null && idMatch.groupCount >= 1) {
-              final extractedId = idMatch.group(1);
+            // Extract ID using regex - check for partner_id first
+            final partnerIdPattern = RegExp(r'"partner_id":"([^"]+)"');
+            final partnerIdMatch = partnerIdPattern.firstMatch(responseStr);
+            if (partnerIdMatch != null && partnerIdMatch.groupCount >= 1) {
+              final extractedId = partnerIdMatch.group(1);
               if (extractedId != null && extractedId.isNotEmpty) {
                 await TokenService.saveUserId(extractedId);
                 
                 final prefs = await SharedPreferences.getInstance();
                 await prefs.setString('user_id', extractedId);
                 
-                debugPrint('User ID extracted and saved using regex: $extractedId');
+                debugPrint('Partner ID extracted and saved using regex: $extractedId');
+              }
+            } else {
+              // Fall back to id if partner_id not found
+              final idPattern = RegExp(r'"id":(\d+)');
+              final idMatch = idPattern.firstMatch(responseStr);
+              if (idMatch != null && idMatch.groupCount >= 1) {
+                final extractedId = idMatch.group(1);
+                if (extractedId != null && extractedId.isNotEmpty) {
+                  await TokenService.saveUserId(extractedId);
+                  
+                  final prefs = await SharedPreferences.getInstance();
+                  await prefs.setString('user_id', extractedId);
+                  
+                  debugPrint('User ID extracted and saved using regex: $extractedId');
+                }
               }
             }
           } catch (e) {

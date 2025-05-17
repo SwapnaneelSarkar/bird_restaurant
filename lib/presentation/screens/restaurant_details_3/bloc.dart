@@ -158,131 +158,174 @@ class RestaurantDocumentsBloc
   }
 
   Future<void> _onSubmitDocuments(
-    SubmitDocumentsEvent event,
-    Emitter<RestaurantDocumentsState> emit,
-  ) async {
-    emit(state.copyWith(isSubmitting: true));
+  SubmitDocumentsEvent event,
+  Emitter<RestaurantDocumentsState> emit,
+) async {
+  emit(state.copyWith(isSubmitting: true));
+  
+  try {
+    // First check directly in SharedPreferences
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('token');
+    final userId = prefs.getString('user_id');
     
+    debugPrint('Token from SharedPreferences: ${token != null ? token.substring(0, 20) + '...' : 'null'}');
+    debugPrint('User ID from SharedPreferences: $userId');
+    
+    if (token == null || userId == null) {
+      throw UnauthorizedException('No token or user ID found. Please login again.');
+    }
+    
+    // Check total size before submission
+    int totalSize = 0;
+    List<File> validDocuments = [];
+    List<File> validPhotos = [];
+    
+    // Verify document files exist and get their sizes
     try {
-      // First check directly in SharedPreferences
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('token');
-      final userId = prefs.getString('user_id');
-      
-      debugPrint('Token from SharedPreferences: ${token != null ? token.substring(0, 20) + '...' : 'null'}');
-      debugPrint('User ID from SharedPreferences: $userId');
-      
-      if (token == null ) {
-        throw UnauthorizedException('No token or user ID found. Please login again.');
-      }
-      
-      // Check total size before submission
-      int totalSize = 0;
-      
-      // Add document sizes
-      for (var doc in state.uploadedDocs.values) {
-        if (doc != null) {
-          totalSize += await doc.length();
+      for (var entry in state.uploadedDocs.entries) {
+        if (entry.value != null) {
+          if (await entry.value!.exists()) {
+            totalSize += await entry.value!.length();
+            validDocuments.add(entry.value!);
+          } else {
+            debugPrint('Document file does not exist: ${entry.value!.path}');
+          }
         }
       }
       
-      // Add photo sizes
+      // Verify restaurant photo files exist and get their sizes
       for (var photo in state.restaurantPhotos) {
-        totalSize += await photo.length();
+        if (await photo.exists()) {
+          totalSize += await photo.length();
+          validPhotos.add(photo);
+        } else {
+          debugPrint('Photo file does not exist: ${photo.path}');
+        }
       }
-      
-      debugPrint('Total upload size: ${totalSize / (1024 * 1024)} MB');
-      
-      if (totalSize > maxTotalUploadSize) {
-        emit(state.copyWith(
-          isSubmitting: false,
-          submissionSuccess: false,
-          submissionMessage: 'Total file size exceeds 10MB. Please compress or remove some files.',
-        ));
-        return;
-      }
-      
-      // Get saved data from SharedPreferences
-      
-      // Get restaurant data
-      final restaurantName = prefs.getString('restaurant_name') ?? '';
-      final address = prefs.getString('restaurant_address') ?? '';
-      final email = prefs.getString('restaurant_email') ?? '';
-      
-      // Get coordinates - this is the important part for location
-      final latitude = prefs.getDouble('restaurant_latitude') ?? 0.0;
-      final longitude = prefs.getDouble('restaurant_longitude') ?? 0.0;
-      
-      // Get selected cuisines and operational hours
-      final selectedCuisines = prefs.getStringList('selected_cuisines') ?? [];
-      final category = selectedCuisines
-          .map((e) => e.split('.').last.toLowerCase())
-          .join(', ');
-      
-      final operationalHours = prefs.getString('operational_hours') ?? '{}';
-      
-      debugPrint('Submitting with data:');
-      debugPrint('Restaurant Name: $restaurantName');
-      debugPrint('Address: $address');
-      debugPrint('Email: $email');
-      debugPrint('Latitude: $latitude');
-      debugPrint('Longitude: $longitude');
-      debugPrint('Category: $category');
-      debugPrint('Operational Hours: $operationalHours');
-      
-      // Call updatePartnerWithAllFields API which includes coordinates
-      final response = await _apiServices.updatePartnerWithAllFields(
-        restaurantName: restaurantName,
-        address: address,
-        email: email,
-        category: category,
-        operationalHours: operationalHours,
-        latitude: latitude.toString(), // Convert to string for API
-        longitude: longitude.toString(), // Convert to string for API
-        ownerName: prefs.getString('owner_name') ?? '', // Default empty if not set
-        vegNonveg: prefs.getString('veg-nonveg') ?? 'veg', // Default to both if not set
-        cookingTime: prefs.getString('cooking_time') ?? '30', // Default to 30 mins if not set
-        fssaiLicense: state.uploadedDocs[DocumentType.fssai],
-        gstCertificate: state.uploadedDocs[DocumentType.gst],
-        panCard: state.uploadedDocs[DocumentType.pan],
-        restaurantPhotos: state.restaurantPhotos,
-      );
-      
-      if (response.success) {
-        // Clear saved data except token and user ID
-        await ApiServices.clearSavedData();
-        
-        emit(state.copyWith(
-          isSubmitting: false,
-          submissionSuccess: true,
-          submissionMessage: response.message,
-        ));
-      } else {
-        emit(state.copyWith(
-          isSubmitting: false,
-          submissionSuccess: false,
-          submissionMessage: response.message,
-        ));
-      }
-    } catch (e) {
-      debugPrint('Error submitting documents: $e');
-      
-      String errorMessage;
-      if (e.toString().contains('413 Request Entity Too Large')) {
-        errorMessage = 'The total file size is too large. Please compress your images or upload smaller files.';
-      } else if (e.toString().contains('Invalid response format')) {
-        errorMessage = 'The server returned an unexpected response. This might be due to large file sizes.';
-      } else {
-        errorMessage = 'Failed to submit: ${e.toString()}';
-      }
-      
+    } catch (fileError) {
+      debugPrint('Error checking files: $fileError');
+      // Continue without files if there's an issue
+    }
+    
+    debugPrint('Total upload size: ${totalSize / (1024 * 1024)} MB');
+    
+    if (totalSize > maxTotalUploadSize) {
       emit(state.copyWith(
         isSubmitting: false,
         submissionSuccess: false,
-        submissionMessage: errorMessage,
+        submissionMessage: 'Total file size exceeds 10MB. Please compress or remove some files.',
+      ));
+      return;
+    }
+    
+    // Get saved data from SharedPreferences
+    // Get restaurant data
+    final restaurantName = prefs.getString('restaurant_name') ?? '';
+    final address = prefs.getString('restaurant_address') ?? '';
+    final email = prefs.getString('restaurant_email') ?? '';
+    
+    // Get coordinates - this is the important part for location
+    final latitude = prefs.getDouble('restaurant_latitude') ?? 0.0;
+    final longitude = prefs.getDouble('restaurant_longitude') ?? 0.0;
+    
+    // Get selected cuisines and operational hours
+    final selectedCuisines = prefs.getStringList('selected_cuisines') ?? [];
+    final category = selectedCuisines
+        .map((e) => e.split('.').last.toLowerCase())
+        .join(', ');
+    
+    final operationalHours = prefs.getString('operational_hours') ?? '{}';
+    
+    debugPrint('Submitting with data:');
+    debugPrint('Restaurant Name: $restaurantName');
+    debugPrint('Address: $address');
+    debugPrint('Email: $email');
+    debugPrint('Latitude: $latitude');
+    debugPrint('Longitude: $longitude');
+    debugPrint('Category: $category');
+    debugPrint('Operational Hours: $operationalHours');
+
+    // Save partner ID in the local storage as a backup
+    await TokenService.saveUserId(userId);
+    
+    // Map document files to their respective types
+    File? fssaiLicense;
+    File? gstCertificate;
+    File? panCard;
+    
+    for (var entry in state.uploadedDocs.entries) {
+      if (entry.value != null && await entry.value!.exists()) {
+        switch (entry.key) {
+          case DocumentType.fssai:
+            fssaiLicense = entry.value;
+            break;
+          case DocumentType.gst:
+            gstCertificate = entry.value;
+            break;
+          case DocumentType.pan:
+            panCard = entry.value;
+            break;
+        }
+      }
+    }
+    
+    // Call updatePartnerWithAllFields API which includes coordinates and valid files
+    final response = await _apiServices.updatePartnerWithAllFields(
+      restaurantName: restaurantName,
+      address: address,
+      email: email,
+      category: category,
+      operationalHours: operationalHours,
+      latitude: latitude.toString(), // Convert to string for API
+      longitude: longitude.toString(), // Convert to string for API
+      ownerName: prefs.getString('owner_name') ?? '', // Default empty if not set
+      vegNonveg: prefs.getString('veg-nonveg') ?? 'veg', // Default to veg if not set
+      cookingTime: prefs.getString('cooking_time') ?? '30', // Default to 30 mins if not set
+      fssaiLicense: fssaiLicense,
+      gstCertificate: gstCertificate,
+      panCard: panCard,
+      restaurantPhotos: validPhotos.isNotEmpty ? validPhotos : null,
+    );
+    
+    if (response.success) {
+      // Clear saved data except token and user ID
+      await ApiServices.clearSavedData();
+      
+      emit(state.copyWith(
+        isSubmitting: false,
+        submissionSuccess: true,
+        submissionMessage: response.message,
+      ));
+    } else {
+      emit(state.copyWith(
+        isSubmitting: false,
+        submissionSuccess: false,
+        submissionMessage: response.message ?? 'An error occurred during submission',
       ));
     }
+  } catch (e) {
+    debugPrint('Error submitting documents: $e');
+    
+    String errorMessage;
+    if (e.toString().contains('413 Request Entity Too Large')) {
+      errorMessage = 'The total file size is too large. Please compress your images or upload smaller files.';
+    } else if (e.toString().contains('Invalid response format')) {
+      errorMessage = 'The server returned an unexpected response. This might be due to large file sizes.';
+    } else if (e.toString().contains('PathNotFoundException') || 
+              e.toString().contains('No such file or directory')) {
+      errorMessage = 'Some files were not accessible. Please try selecting them again.';
+    } else {
+      errorMessage = 'Failed to submit: ${e.toString()}';
+    }
+    
+    emit(state.copyWith(
+      isSubmitting: false,
+      submissionSuccess: false,
+      submissionMessage: errorMessage,
+    ));
   }
+}
 
   void _onRemoveDocument(
     RemoveDocumentEvent event,

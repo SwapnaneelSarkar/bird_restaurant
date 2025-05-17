@@ -1,0 +1,93 @@
+// lib/models/restaurant_menu_model.dart
+class RestaurantMenuResponse {
+  final String status;
+  final String message;
+  final RestaurantData? data;
+
+  RestaurantMenuResponse({
+    required this.status,
+    required this.message,
+    this.data,
+  });
+
+  factory RestaurantMenuResponse.fromJson(Map<String, dynamic> json) {
+    return RestaurantMenuResponse(
+      status: json['status'] ?? '',
+      message: json['message'] ?? '',
+      data: json['data'] != null ? RestaurantData.fromJson(json['data']) : null,
+    );
+  }
+}
+
+class RestaurantData {
+  final String partnerId;
+  final String restaurantName;
+  final String address;
+  final String? description;
+  final String ownerName;
+  final String openTimings;
+  final List<MenuItem> menuItems;
+
+  RestaurantData({
+    required this.partnerId,
+    required this.restaurantName,
+    required this.address,
+    this.description,
+    required this.ownerName,
+    required this.openTimings,
+    required this.menuItems,
+  });
+
+  factory RestaurantData.fromJson(Map<String, dynamic> json) {
+    List<MenuItem> menuItems = [];
+    if (json['menu_items'] != null) {
+      menuItems = List<MenuItem>.from(
+          json['menu_items'].map((item) => MenuItem.fromJson(item)));
+    }
+
+    return RestaurantData(
+      partnerId: json['partner_id'] ?? '',
+      restaurantName: json['restaurant_name'] ?? '',
+      address: json['address'] ?? '',
+      description: json['description'],
+      ownerName: json['owner_name'] ?? '',
+      openTimings: json['open_timings'] ?? '{}',
+      menuItems: menuItems,
+    );
+  }
+}
+
+class MenuItem {
+  final String menuId;
+  final String name;
+  final String price;
+  final bool available;
+  final String? imageUrl;
+  final String description;
+  final String category;
+  final bool isVeg;
+
+  MenuItem({
+    required this.menuId,
+    required this.name,
+    required this.price,
+    required this.available,
+    this.imageUrl,
+    required this.description,
+    required this.category,
+    required this.isVeg,
+  });
+
+  factory MenuItem.fromJson(Map<String, dynamic> json) {
+    return MenuItem(
+      menuId: json['menu_id'] ?? '',
+      name: json['name'] ?? '',
+      price: json['price'] ?? '0.00',
+      available: json['available'] ?? false,
+      imageUrl: json['image_url'],
+      description: json['description'] ?? '',
+      category: json['category'] ?? '',
+      isVeg: json['isVeg'] ?? false,
+    );
+  }
+}

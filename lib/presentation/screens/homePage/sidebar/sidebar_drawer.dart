@@ -263,7 +263,7 @@ class AnimatedSidebarContent extends StatelessWidget {
                       title: 'Products',
                       isActive: activePage == 'products',
                       onTap: () {
-                        Navigator.of(context).pushNamed('/products');
+                        Navigator.of(context).pushNamed('/editMenu');
                         onClose();
                       },
                     ),
