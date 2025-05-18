@@ -189,95 +189,122 @@ class AddProductBloc extends Bloc<AddProductEvent, AddProductState> {
   }
   
   Future<MenuItemResponse> _submitMenuItemToApi(ProductModel product) async {
-    try {
-      // Get token from SharedPreferences
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('token');
-      final partnerId = prefs.getString('user_id');
-      
-      if (token == null || partnerId == null) {
-        throw Exception('Authentication information not found. Please login again.');
-      }
-      
-      // Prepare API endpoint
-      final url = Uri.parse('${ApiConstants.baseUrl}/partner/menu_item');
-      
-      // Create multipart request
-      var request = http.MultipartRequest('POST', url);
-      
-      // Add authorization header
-      request.headers['Authorization'] = 'Bearer $token';
-      
-      // Add text fields
-      request.fields['partner_id'] = partnerId;
-      request.fields['name'] = product.name;
-      request.fields['price'] = product.price.toString();
-      request.fields['available'] = 'true'; // Default to true
-      request.fields['description'] = product.description;
-      request.fields['category'] = product.category.toLowerCase().replaceAll(' ', '-');
-      request.fields['isVeg'] = product.codAllowed.toString(); // Using codAllowed as isVeg for demo
-      
-      // Add image file
-      if (product.image != null && await product.image!.exists()) {
-        final fileName = path.basename(product.image!.path);
-        final extension = path.extension(fileName).toLowerCase();
-        
-        // Determine content type based on file extension
-        String contentType;
-        if (extension == '.jpg' || extension == '.jpeg') {
-          contentType = 'image/jpeg';
-        } else if (extension == '.png') {
-          contentType = 'image/png';
+  try {
+    // Get token from SharedPreferences
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('token');
+    final partnerId = prefs.getString('user_id');
+    
+    if (token == null || partnerId == null) {
+      throw Exception('Authentication information not found. Please login again.');
+    }
+    
+    // Prepare API endpoint
+    final url = Uri.parse('${ApiConstants.baseUrl}/partner/menu_item');
+    
+    // Create multipart request
+    var request = http.MultipartRequest('POST', url);
+    
+    // Add authorization header
+    request.headers['Authorization'] = 'Bearer $token';
+    
+    // Add text fields - include all required fields from the image
+    request.fields['partner_id'] = partnerId;
+    request.fields['name'] = product.name;
+    request.fields['price'] = product.price.toString();
+    request.fields['available'] = 'true'; // Default to true as requested
+    request.fields['description'] = product.description;
+    request.fields['category'] = product.category.toLowerCase().replaceAll(' ', '-');
+    request.fields['isVeg'] = product.codAllowed.toString(); // Using codAllowed as isVeg for demo
+    
+    // Add new fields from the image
+    request.fields['isTaxIncluded'] = product.taxIncluded.toString();
+    request.fields['isCancellable'] = product.isCancellable.toString();
+    
+    // Add tags if available
+    if (product.tags.isNotEmpty) {
+      try {
+        // Check if tags are in JSON format (like {"shahi", "paneer"})
+        if (product.tags.startsWith('{') && product.tags.endsWith('}')) {
+          request.fields['tags'] = product.tags;
         } else {
-          contentType = 'application/octet-stream';
+          // Convert comma-separated tags to JSON format
+          final tagsList = product.tags.split(',')
+              .map((tag) => tag.trim())
+              .where((tag) => tag.isNotEmpty)
+              .toList();
+              
+          // Format as {"tag1", "tag2"}
+          request.fields['tags'] = '{${tagsList.map((tag) => '"$tag"').join(', ')}}';
         }
-        
-        request.files.add(
-          http.MultipartFile(
-            'image',
-            product.image!.readAsBytes().asStream(),
-            await product.image!.length(),
-            filename: fileName,
-            contentType: MediaType.parse(contentType),
-          ),
-        );
+      } catch (e) {
+        debugPrint('Error formatting tags: $e');
+        // In case of error, send tags as is
+        request.fields['tags'] = product.tags;
       }
+    }
+    
+    // Add image file
+    if (product.image != null && await product.image!.exists()) {
+      final fileName = path.basename(product.image!.path);
+      final extension = path.extension(fileName).toLowerCase();
       
-      // Send request
-      debugPrint('Sending menu item request to: $url');
-      debugPrint('Request fields: ${request.fields}');
-      
-      final streamedResponse = await request.send();
-      final response = await http.Response.fromStream(streamedResponse);
-      
-      debugPrint('Response status: ${response.statusCode}');
-      debugPrint('Response body: ${response.body}');
-      
-      // Parse response
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        final responseData = json.decode(response.body);
-        return MenuItemResponse.fromJson(responseData);
+      // Determine content type based on file extension
+      String contentType;
+      if (extension == '.jpg' || extension == '.jpeg') {
+        contentType = 'image/jpeg';
+      } else if (extension == '.png') {
+        contentType = 'image/png';
       } else {
-        // Handle error responses
-        try {
-          final errorData = json.decode(response.body);
-          return MenuItemResponse(
-            status: 'ERROR',
-            message: errorData['message'] ?? 'Failed to add menu item',
-          );
-        } catch (e) {
-          return MenuItemResponse(
-            status: 'ERROR',
-            message: 'Failed to add menu item. Status: ${response.statusCode}',
-          );
-        }
+        contentType = 'application/octet-stream';
       }
-    } catch (e) {
-      debugPrint('Error submitting menu item: $e');
-      return MenuItemResponse(
-        status: 'ERROR',
-        message: 'Error: ${e.toString()}',
+      
+      request.files.add(
+        http.MultipartFile(
+          'image',
+          product.image!.readAsBytes().asStream(),
+          await product.image!.length(),
+          filename: fileName,
+          contentType: MediaType.parse(contentType),
+        ),
       );
     }
+    
+    // Send request
+    debugPrint('Sending menu item request to: $url');
+    debugPrint('Request fields: ${request.fields}');
+    
+    final streamedResponse = await request.send();
+    final response = await http.Response.fromStream(streamedResponse);
+    
+    debugPrint('Response status: ${response.statusCode}');
+    debugPrint('Response body: ${response.body}');
+    
+    // Parse response
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      final responseData = json.decode(response.body);
+      return MenuItemResponse.fromJson(responseData);
+    } else {
+      // Handle error responses
+      try {
+        final errorData = json.decode(response.body);
+        return MenuItemResponse(
+          status: 'ERROR',
+          message: errorData['message'] ?? 'Failed to add menu item',
+        );
+      } catch (e) {
+        return MenuItemResponse(
+          status: 'ERROR',
+          message: 'Failed to add menu item. Status: ${response.statusCode}',
+        );
+      }
+    }
+  } catch (e) {
+    debugPrint('Error submitting menu item: $e');
+    return MenuItemResponse(
+      status: 'ERROR',
+      message: 'Error: ${e.toString()}',
+    );
   }
+}
 }

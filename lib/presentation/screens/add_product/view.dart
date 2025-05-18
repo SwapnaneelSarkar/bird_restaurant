@@ -121,14 +121,6 @@ class _AddProductScreenState extends State<AddProductScreen> {
           _buildCategoryDropdown(context, state),
           const SizedBox(height: 16),
           
-          // Toggle Options
-          _buildToggleOption(
-            context,
-            'COD Allowed',
-            state.product.codAllowed,
-            (value) => context.read<AddProductBloc>().add(ToggleCodAllowedEvent(value)),
-          ),
-          
           _buildToggleOption(
             context,
             'Tax Included in Price',

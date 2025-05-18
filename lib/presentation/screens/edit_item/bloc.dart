@@ -179,7 +179,7 @@ Future<void> _onSubmitProduct(SubmitEditProductEvent event, Emitter<EditProductS
   }
 }
 
-// Define the _updateMenuItem method
+// Updated _updateMenuItem method in edit_product_bloc.dart
 Future<UpdateMenuItemResponse> _updateMenuItem({
   required String menuId,
   required String name,
@@ -199,14 +199,17 @@ Future<UpdateMenuItemResponse> _updateMenuItem({
     
     final url = Uri.parse('${ApiConstants.baseUrl}/partner/menu_item/$menuId');
     
-    // Make sure to include available:true explicitly
+    // Include all the required fields as shown in the image
     Map<String, dynamic> requestData = {
       'name': name,
       'price': price,
+      'available': 'true',  // Include available status explicitly
       'description': description,
       'category': category,
-      'isVeg': isVeg.toString(),
-      'available': 'true',  // Include this explicitly
+      'isVeg': isVeg.toString(),  // Convert bool to string
+      'isTaxIncluded': 'true',    // Include tax included status
+      'isCancellable': 'false',   // Include cancellable status
+      'tags': '{"AB", "CD", "DE"}',  // Include sample tags
     };
     
     debugPrint('Updating menu item: $url');
