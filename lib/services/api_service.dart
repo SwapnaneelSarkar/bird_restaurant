@@ -759,6 +759,56 @@ Future<ApiResponse> getDetailsByMobile(String mobile) async {
     throw ApiException('Failed to get partner details: $e');
   }
 }
+Future<ApiResponse> getRestaurantDetails(String partnerId) async {
+  try {
+    final token = await TokenService.getToken();
+    
+    if (token == null) {
+      throw UnauthorizedException('No token found. Please login again.');
+    }
+
+    final url = Uri.parse('${ApiConstants.baseUrl}/partner/restaurant/$partnerId');
+    debugPrint('Calling Restaurant API: $url');
+    
+    final response = await _client.get(
+      url,
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+    );
+    
+    debugPrint('Get Restaurant Details Response: ${response.body}');
+    
+    final responseBody = jsonDecode(response.body);
+    
+    if (response.statusCode == 200) {
+      final status = responseBody['status'];
+      final message = responseBody['message'] ?? '';
+      final data = responseBody['data'];
+      
+      return ApiResponse(
+        success: status == 'SUCCESS',
+        data: data,
+        message: message,
+        status: status,
+      );
+    } else if (response.statusCode == 401) {
+      throw UnauthorizedException('Unauthorized access. Please login again.');
+    } else {
+      return ApiResponse(
+        success: false,
+        message: responseBody['message'] ?? 'Failed to get restaurant details',
+        status: responseBody['status'] ?? 'ERROR',
+      );
+    }
+  } on UnauthorizedException {
+    rethrow;
+  } catch (e) {
+    debugPrint('Error getting restaurant details: $e');
+    throw ApiException('Failed to get restaurant details: $e');
+  }
+}
 
 
 }

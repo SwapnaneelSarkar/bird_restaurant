@@ -2,14 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:fl_chart/fl_chart.dart';
 
+import '../../../constants/api_constants.dart';
 import '../../resources/colors.dart';
 
 import 'bloc.dart';
 import 'event.dart';
-
 import 'sidebar/side_bar_opener.dart';
 import 'sidebar/sidebar_drawer.dart';
 import 'state.dart';
@@ -31,7 +30,50 @@ class _HomeViewState extends State<HomeView> {
       child: Scaffold(
         key: _scaffoldKey,
         backgroundColor: Colors.grey[50],
-        drawer: const SidebarDrawer(activePage: 'home'),
+        drawer: BlocBuilder<HomeBloc, HomeState>(
+  builder: (context, state) {
+    // Handle restaurant data for sidebar
+    String? restaurantName;
+    String? restaurantSlogan;
+    String? restaurantImageUrl;
+    
+    if (state is HomeLoaded && state.restaurantData != null) {
+      restaurantName = state.restaurantData!['restaurant_name'] as String?;
+      restaurantSlogan = state.restaurantData!['address'] as String?;
+      
+      // Get restaurant image URL - path based on your API response structure
+      // This depends on how the image URL is stored in the API response
+      // It could be 'restaurant_photos', 'image_url', etc.
+      if (state.restaurantData!['restaurant_photos'] != null) {
+        // Handle the case where it might be a list or a string
+        var photos = state.restaurantData!['restaurant_photos'];
+        if (photos is List && photos.isNotEmpty) {
+          restaurantImageUrl = photos[0]; // Get the first photo
+        } else if (photos is String) {
+          restaurantImageUrl = photos;
+        }
+      }
+      
+      // Alternative fields to check for images
+      if (restaurantImageUrl == null && state.restaurantData!['logo_url'] != null) {
+        restaurantImageUrl = state.restaurantData!['logo_url'] as String?;
+      }
+      
+      // If we found an image URL, ensure it's a complete URL
+      if (restaurantImageUrl != null && !restaurantImageUrl.startsWith('http')) {
+        // Prepend base URL if needed
+        restaurantImageUrl = '${ApiConstants.baseUrl}/$restaurantImageUrl';
+      }
+    }
+    
+    return SidebarDrawer(
+      activePage: 'home',
+      restaurantName: restaurantName,
+      restaurantSlogan: restaurantSlogan,
+      restaurantImageUrl: restaurantImageUrl,
+    );
+  },
+),
         appBar: AppBar(
           backgroundColor: Colors.white,
           elevation: 0,
@@ -47,7 +89,6 @@ class _HomeViewState extends State<HomeView> {
               height: 30,
             ),
           ),
-        
         ),
         body: BlocBuilder<HomeBloc, HomeState>(
           builder: (context, state) {
@@ -240,13 +281,71 @@ class _HomeViewState extends State<HomeView> {
               ],
             ),
             
+            // Restaurant Information Section (if available)
+            if (state.restaurantData != null) ...[
+              const SizedBox(height: 24),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Restaurant Information',
+                    style: GoogleFonts.poppins(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.black87,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.05),
+                          blurRadius: 10,
+                          spreadRadius: 0,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Name: ${state.restaurantData?['restaurant_name'] ?? 'Not available'}',
+                          style: GoogleFonts.poppins(fontSize: 16),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Address: ${state.restaurantData?['address'] ?? 'Not available'}',
+                          style: GoogleFonts.poppins(fontSize: 16),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Owner: ${state.restaurantData?['owner_name'] ?? 'Not available'}',
+                          style: GoogleFonts.poppins(fontSize: 16),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Partner ID: ${state.restaurantData?['partner_id'] ?? 'Not available'}',
+                          style: GoogleFonts.poppins(fontSize: 16),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ],
+            
             const SizedBox(height: 30),
           ],
         ),
       ),
     );
   }
-  
+
   Widget _buildStatCard(String title, String value, Color bgColor, IconData icon, Color iconColor) {
     return Container(
       padding: const EdgeInsets.all(16),

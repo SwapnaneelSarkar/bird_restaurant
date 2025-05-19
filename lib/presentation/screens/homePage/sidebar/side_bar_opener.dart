@@ -21,7 +21,7 @@ class SidebarOpener extends StatelessWidget {
       borderRadius: BorderRadius.circular(40),
       onTap: () {
         HapticFeedback.lightImpact(); // Subtle feedback when menu is opened
-        scaffoldKey.currentState!.openDrawer();
+        scaffoldKey.currentState?.openDrawer(); // Use safe null access
       },
       child: Padding(
         padding: padding ?? const EdgeInsets.all(8.0),

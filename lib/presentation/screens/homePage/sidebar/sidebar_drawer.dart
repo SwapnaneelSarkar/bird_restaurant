@@ -8,17 +8,20 @@ class SidebarDrawer extends StatefulWidget {
   final String? activePage;
   final String? restaurantName;
   final String? restaurantSlogan;
+  final String? restaurantImageUrl;
 
   const SidebarDrawer({
     Key? key,
     this.activePage,
     this.restaurantName,
     this.restaurantSlogan,
+    this.restaurantImageUrl,
   }) : super(key: key);
 
   @override
   State<SidebarDrawer> createState() => _SidebarDrawerState();
 }
+
 
 class _SidebarDrawerState extends State<SidebarDrawer> with SingleTickerProviderStateMixin {
   late AnimationController _animationController;
@@ -178,14 +181,16 @@ class _SidebarDrawerState extends State<SidebarDrawer> with SingleTickerProvider
   }
   
   Widget _buildAnimatedSidebar() {
-    return AnimatedSidebarContent(
-      animations: _menuItemAnimations,
-      onClose: _closeDrawer,
-      activePage: widget.activePage,
-      restaurantName: widget.restaurantName ?? 'Spice Garden',
-      restaurantSlogan: widget.restaurantSlogan ?? 'Fine Dining Restaurant',
-    );
-  }
+  return AnimatedSidebarContent(
+    animations: _menuItemAnimations,
+    onClose: _closeDrawer,
+    activePage: widget.activePage,
+    restaurantName: widget.restaurantName ?? 'Spice Garden',
+    restaurantSlogan: widget.restaurantSlogan ?? 'Fine Dining Restaurant',
+    restaurantImageUrl: widget.restaurantImageUrl,
+  );
+}
+
 }
 
 // Separate widget for the animated sidebar content
@@ -195,6 +200,7 @@ class AnimatedSidebarContent extends StatelessWidget {
   final String? activePage;
   final String restaurantName;
   final String restaurantSlogan;
+  final String? restaurantImageUrl;
 
   const AnimatedSidebarContent({
     Key? key,
@@ -203,7 +209,9 @@ class AnimatedSidebarContent extends StatelessWidget {
     required this.activePage,
     required this.restaurantName,
     required this.restaurantSlogan,
+    this.restaurantImageUrl,
   }) : super(key: key);
+
 
   @override
   Widget build(BuildContext context) {
@@ -355,57 +363,102 @@ class AnimatedSidebarContent extends StatelessWidget {
   }
 
   Widget _buildAnimatedHeader(BuildContext context, Animation<double> animation) {
-    return AnimatedBuilder(
-      animation: animation,
-      builder: (context, child) {
-        return Transform.translate(
-          offset: Offset(0, 20 * (1 - animation.value)),
-          child: Opacity(
-            opacity: animation.value,
-            child: Container(
-              padding: const EdgeInsets.fromLTRB(20, 24, 20, 16),
-              child: Column(
-                children: [
-                  // Logo with subtle rotate animation
-                  Transform.rotate(
-                    angle: (1 - animation.value) * 0.1, // Subtle rotation
-                    child: Image.asset(
-                      'assets/images/logo.png',
-                      height: 64,
-                      width: 64,
-                    ),
+  return AnimatedBuilder(
+    animation: animation,
+    builder: (context, child) {
+      return Transform.translate(
+        offset: Offset(0, 20 * (1 - animation.value)),
+        child: Opacity(
+          opacity: animation.value,
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(20, 24, 20, 16),
+            child: Column(
+              children: [
+                // Logo with subtle rotate animation - now checks for restaurant photo URL
+                Transform.rotate(
+                  angle: (1 - animation.value) * 0.1, // Subtle rotation
+                  child: _buildRestaurantImage(),
+                ),
+                const SizedBox(height: 16),
+                // Restaurant Name
+                Text(
+                  restaurantName,
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black87,
                   ),
-                  const SizedBox(height: 16),
-                  // Restaurant Name
-                  Text(
-                    restaurantName,
-                    style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.black87,
-                    ),
-                    textAlign: TextAlign.center,
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 4),
+                // Restaurant Slogan
+                Text(
+                  restaurantSlogan,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.normal,
+                    color: Colors.black54,
                   ),
-                  const SizedBox(height: 4),
-                  // Restaurant Slogan
-                  Text(
-                    restaurantSlogan,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.normal,
-                      color: Colors.black54,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ],
-              ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
             ),
           ),
-        );
-      },
+        ),
+      );
+    },
+  );
+}
+
+// New method to handle restaurant image loading
+Widget _buildRestaurantImage() {
+  final String? imageUrl = restaurantImageUrl;
+  
+  if (imageUrl != null && imageUrl.isNotEmpty) {
+    // If we have a valid restaurant image URL, load it
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(32),
+      child: Image.network(
+        imageUrl,
+        height: 64,
+        width: 64,
+        fit: BoxFit.cover,
+        // Add error handling to fall back to the local asset if network image fails
+        errorBuilder: (context, error, stackTrace) {
+          debugPrint('Error loading restaurant image: $error');
+          return Image.asset(
+            'assets/images/logo.png',
+            height: 64,
+            width: 64,
+          );
+        },
+        loadingBuilder: (context, child, loadingProgress) {
+          if (loadingProgress == null) return child;
+          return SizedBox(
+            height: 64,
+            width: 64,
+            child: Center(
+              child: CircularProgressIndicator(
+                value: loadingProgress.expectedTotalBytes != null
+                    ? loadingProgress.cumulativeBytesLoaded / 
+                      loadingProgress.expectedTotalBytes!
+                    : null,
+                strokeWidth: 2,
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  } else {
+    // Fallback to default image
+    return Image.asset(
+      'assets/images/logo.png',
+      height: 64,
+      width: 64,
     );
   }
-
+}
   Widget _buildAnimatedMenuItem(
     Animation<double> animation, {
     required IconData icon,

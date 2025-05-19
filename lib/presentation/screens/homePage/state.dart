@@ -11,6 +11,7 @@ class HomeLoaded extends HomeState {
   final int tagsCount;
   final double rating;
   final List<Map<String, dynamic>> salesData;
+  final Map<String, dynamic>? restaurantData;
 
   HomeLoaded({
     required this.isAcceptingOrders,
@@ -19,6 +20,7 @@ class HomeLoaded extends HomeState {
     required this.tagsCount,
     required this.rating,
     required this.salesData,
+    this.restaurantData,
   });
 
   HomeLoaded copyWith({
@@ -28,6 +30,7 @@ class HomeLoaded extends HomeState {
     int? tagsCount,
     double? rating,
     List<Map<String, dynamic>>? salesData,
+    Map<String, dynamic>? restaurantData,
   }) {
     return HomeLoaded(
       isAcceptingOrders: isAcceptingOrders ?? this.isAcceptingOrders,
@@ -36,6 +39,7 @@ class HomeLoaded extends HomeState {
       tagsCount: tagsCount ?? this.tagsCount,
       rating: rating ?? this.rating,
       salesData: salesData ?? this.salesData,
+      restaurantData: restaurantData ?? this.restaurantData,
     );
   }
 }
