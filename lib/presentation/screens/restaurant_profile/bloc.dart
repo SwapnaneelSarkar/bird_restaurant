@@ -439,7 +439,7 @@ class RestaurantProfileBloc
       });
       
       // Add all fields
-      request.fields['partnerId'] = partnerId.toString();
+      request.fields['partner_id'] = partnerId.toString();
       request.fields['restaurant_name'] = state.restaurantName;
       request.fields['address'] = state.ownerAddress;
       request.fields['email'] = state.ownerEmail;

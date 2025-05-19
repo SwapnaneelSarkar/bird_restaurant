@@ -9,10 +9,6 @@ abstract class MenuItemsEvent extends Equatable {
   List<Object?> get props => [];
 }
 
-class LoadMenuItemsEvent extends MenuItemsEvent {
-  const LoadMenuItemsEvent();
-}
-
 class ToggleItemAvailabilityEvent extends MenuItemsEvent {
   final MenuItem menuItem;
   final bool isAvailable;
@@ -46,4 +42,18 @@ class EditMenuItemEvent extends MenuItemsEvent {
 
 class AddNewMenuItemEvent extends MenuItemsEvent {
   const AddNewMenuItemEvent();
+}
+// Add this to lib/presentation/screens/menu_items/event.dart
+class LoadMenuItemsEvent extends MenuItemsEvent {
+  final bool forceRefresh;
+  
+  const LoadMenuItemsEvent({this.forceRefresh = false});
+  
+  @override
+  List<Object?> get props => [forceRefresh];
+}
+
+// Add this new event
+class RefreshMenuItemsEvent extends MenuItemsEvent {
+  const RefreshMenuItemsEvent();
 }

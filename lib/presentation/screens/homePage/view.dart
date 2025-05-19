@@ -24,52 +24,6 @@ class HomeView extends StatefulWidget {
 class _HomeViewState extends State<HomeView> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
-  Future<void> _handleLogout(BuildContext context) async {
-    try {
-      // Show confirmation dialog
-      bool confirm = await showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Logout', style: TextStyle(fontWeight: FontWeight.bold)),
-          content: const Text('Are you sure you want to logout?'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('Cancel'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(true),
-              child: Text('Logout', style: TextStyle(color: Colors.red)),
-            ),
-          ],
-        ),
-      ) ?? false;
-      
-      if (!confirm) return;
-      
-      // Clear all stored data using SharedPreferences directly
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.clear();
-      
-      // Navigate to login and remove all previous routes
-      if (context.mounted) {
-        Navigator.of(context).pushNamedAndRemoveUntil(
-          '/login',
-          (route) => false,
-        );
-      }
-    } catch (e) {
-      debugPrint('Error during logout: $e');
-      // Still attempt to navigate even if clearing fails
-      if (context.mounted) {
-        Navigator.of(context).pushNamedAndRemoveUntil(
-          '/login',
-          (route) => false,
-        );
-      }
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
@@ -93,17 +47,7 @@ class _HomeViewState extends State<HomeView> {
               height: 30,
             ),
           ),
-          actions: [
-            // Logout Icon
-            IconButton(
-              icon: Icon(
-                Icons.logout,
-                color: Colors.grey[700],
-              ),
-              onPressed: () => _handleLogout(context),
-            ),
-            const SizedBox(width: 8),
-          ],
+        
         ),
         body: BlocBuilder<HomeBloc, HomeState>(
           builder: (context, state) {

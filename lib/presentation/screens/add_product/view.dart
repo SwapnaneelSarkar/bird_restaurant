@@ -34,55 +34,55 @@ class _AddProductScreenState extends State<AddProductScreen> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (context) => AddProductBloc()..add(AddProductInitEvent()),
-      child: BlocConsumer<AddProductBloc, AddProductState>(
-        listener: (context, state) {
-          if (state is AddProductFormState) {
-            if (state.errorMessage != null) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text(state.errorMessage!)),
-              );
-            }
-            
-            if (state.isSuccess) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Product added successfully!')),
-              );
-              
-              // Reset the form after showing success message
-              Future.delayed(const Duration(seconds: 1), () {
-                context.read<AddProductBloc>().add(const ResetFormEvent());
-                _resetControllers();
-              });
-            }
-          }
-        },
-        builder: (context, state) {
-          if (state is AddProductFormState) {
-            return Scaffold(
-              backgroundColor: ColorManager.background,
-              body: SafeArea(
-                child: Column(
-                  children: [
-                    const AppBackHeader(title: 'Add New Product'),
-                    Expanded(
-                      child: _buildForm(context, state),
-                    ),
-                  ],
-                ),
-              ),
+Widget build(BuildContext context) {
+  return BlocProvider(
+    create: (context) => AddProductBloc()..add(AddProductInitEvent()),
+    child: BlocConsumer<AddProductBloc, AddProductState>(
+      listener: (context, state) {
+        if (state is AddProductFormState) {
+          if (state.errorMessage != null) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(state.errorMessage!)),
             );
           }
           
-          return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
+          if (state.isSuccess) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Product added successfully!')),
+            );
+            
+            // Navigate to HomePage after showing success message
+            Future.delayed(const Duration(seconds: 1), () {
+              // Navigate to HomePage
+              Navigator.of(context).pushReplacementNamed('/home'); // Or use your app's route name for HomePage
+            });
+          }
+        }
+      },
+      builder: (context, state) {
+        if (state is AddProductFormState) {
+          return Scaffold(
+            backgroundColor: ColorManager.background,
+            body: SafeArea(
+              child: Column(
+                children: [
+                  const AppBackHeader(title: 'Add New Product'),
+                  Expanded(
+                    child: _buildForm(context, state),
+                  ),
+                ],
+              ),
+            ),
           );
-        },
-      ),
-    );
-  }
+        }
+        
+        return const Scaffold(
+          body: Center(child: CircularProgressIndicator()),
+        );
+      },
+    ),
+  );
+}
 
   Widget _buildForm(BuildContext context, AddProductFormState state) {
     return SingleChildScrollView(

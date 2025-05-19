@@ -571,7 +571,7 @@ class AnimatedSidebarContent extends StatelessWidget {
       // Navigate to login and remove all previous routes
       if (context.mounted) {
         Navigator.of(context).pushNamedAndRemoveUntil(
-          '/login',
+          '/signin',
           (route) => false,
         );
       }
@@ -580,7 +580,7 @@ class AnimatedSidebarContent extends StatelessWidget {
       // Still attempt to navigate even if clearing fails
       if (context.mounted) {
         Navigator.of(context).pushNamedAndRemoveUntil(
-          '/login',
+          '/signin',
           (route) => false,
         );
       }
