@@ -374,21 +374,33 @@ class AnimatedSidebarContent extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(20, 24, 20, 16),
             child: Column(
               children: [
-                // Logo with subtle rotate animation - now checks for restaurant photo URL
-                Transform.rotate(
-                  angle: (1 - animation.value) * 0.1, // Subtle rotation
-                  child: _buildRestaurantImage(),
+                // Make the logo clickable with GestureDetector
+                GestureDetector(
+                  onTap: () {
+                    Navigator.of(context).pushNamed('/profile');
+                    onClose();
+                  },
+                  child: Transform.rotate(
+                    angle: (1 - animation.value) * 0.1, // Subtle rotation
+                    child: _buildRestaurantImage(),
+                  ),
                 ),
                 const SizedBox(height: 16),
-                // Restaurant Name
-                Text(
-                  restaurantName,
-                  style: const TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.black87,
+                // Make restaurant name clickable with GestureDetector
+                GestureDetector(
+                  onTap: () {
+                    Navigator.of(context).pushNamed('/profile');
+                    onClose();
+                  },
+                  child: Text(
+                    restaurantName,
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.black87,
+                    ),
+                    textAlign: TextAlign.center,
                   ),
-                  textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 4),
                 // Restaurant Slogan
@@ -409,7 +421,6 @@ class AnimatedSidebarContent extends StatelessWidget {
     },
   );
 }
-
 // New method to handle restaurant image loading
 Widget _buildRestaurantImage() {
   final String? imageUrl = restaurantImageUrl;

@@ -244,18 +244,20 @@ class MenuItemsBloc extends Bloc<MenuItemsEvent, MenuItemsState> {
   }
   
   Future<void> _onDeleteMenuItem(
-    DeleteMenuItemEvent event,
-    Emitter<MenuItemsState> emit,
-  ) async {
-    if (state is MenuItemsLoaded) {
-      final currentState = state as MenuItemsLoaded;
+  DeleteMenuItemEvent event,
+  Emitter<MenuItemsState> emit,
+) async {
+  if (state is MenuItemsLoaded) {
+    final currentState = state as MenuItemsLoaded;
+    
+    emit(ItemDeleting(event.menuId));
+    
+    try {
+      // Call the API to delete the menu item
+      final response = await _deleteMenuItem(event.menuId);
       
-      emit(ItemDeleting(event.menuId));
-      
-      try {
-        // API call would go here
-        // Since we're not implementing the API yet, just update locally
-        
+      if (response.status == 'SUCCESS') {
+        // Update the local state after successful deletion
         final updatedItems = currentState.menuItems
             .where((item) => item.menuId != event.menuId)
             .toList();
@@ -267,13 +269,71 @@ class MenuItemsBloc extends Bloc<MenuItemsEvent, MenuItemsState> {
           menuItems: updatedItems,
           restaurantData: currentState.restaurantData,
         ));
-      } catch (e) {
-        emit(MenuItemsError('Failed to delete menu item: ${e.toString()}'));
+      } else {
+        // Show error message but maintain current state
+        emit(MenuItemsError(response.message));
         emit(currentState);
       }
+    } catch (e) {
+      emit(MenuItemsError('Failed to delete menu item: ${e.toString()}'));
+      emit(currentState);
     }
   }
+}
 
+// Add this new method to make the API call for menu item deletion
+Future<UpdateMenuItemResponse> _deleteMenuItem(String menuId) async {
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('token');
+    
+    if (token == null) {
+      throw Exception('Authentication information not found. Please login again.');
+    }
+    
+    final url = Uri.parse('${ApiConstants.baseUrl}/admin/deleteMenuItem');
+    
+    debugPrint('Deleting menu item: $url with menu_id: $menuId');
+    
+    final response = await http.post(
+      url,
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode({
+        'menu_id': menuId,
+      }),
+    );
+    
+    debugPrint('Delete response status: ${response.statusCode}');
+    debugPrint('Delete response body: ${response.body}');
+    
+    if (response.statusCode == 200) {
+      final data = json.decode(response.body);
+      return UpdateMenuItemResponse.fromJson(data);
+    } else {
+      try {
+        final errorData = json.decode(response.body);
+        return UpdateMenuItemResponse(
+          status: 'ERROR',
+          message: errorData['message'] ?? 'Failed to delete menu item',
+        );
+      } catch (e) {
+        return UpdateMenuItemResponse(
+          status: 'ERROR',
+          message: 'Failed to delete menu item. Status: ${response.statusCode}',
+        );
+      }
+    }
+  } catch (e) {
+    debugPrint('Error deleting menu item: $e');
+    return UpdateMenuItemResponse(
+      status: 'ERROR',
+      message: 'Error: ${e.toString()}',
+    );
+  }
+}
   void _onEditMenuItem(
     EditMenuItemEvent event,
     Emitter<MenuItemsState> emit,
