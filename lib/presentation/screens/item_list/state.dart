@@ -1,7 +1,8 @@
-// lib/presentation/screens/menu_items/menu_items_state.dart
 import 'package:equatable/equatable.dart';
 import '../../../models/restaurant_menu_model.dart';
+import 'event.dart';
 
+// Base class for all menu item states
 abstract class MenuItemsState extends Equatable {
   const MenuItemsState();
 
@@ -9,67 +10,77 @@ abstract class MenuItemsState extends Equatable {
   List<Object?> get props => [];
 }
 
+// Initial state
 class MenuItemsInitial extends MenuItemsState {}
 
+// Loading state
 class MenuItemsLoading extends MenuItemsState {}
 
+// Loaded state with menu items
 class MenuItemsLoaded extends MenuItemsState {
   final List<MenuItem> menuItems;
   final RestaurantData restaurantData;
+  final bool isFiltered;
+  final FilterType? filterType;
+  final String? searchQuery;
 
   const MenuItemsLoaded({
     required this.menuItems,
     required this.restaurantData,
+    this.isFiltered = false,
+    this.filterType,
+    this.searchQuery,
   });
 
   @override
-  List<Object?> get props => [menuItems, restaurantData];
-
-  MenuItemsLoaded copyWith({
-    List<MenuItem>? menuItems,
-    RestaurantData? restaurantData,
-  }) {
-    return MenuItemsLoaded(
-      menuItems: menuItems ?? this.menuItems,
-      restaurantData: restaurantData ?? this.restaurantData,
-    );
-  }
+  List<Object?> get props => [
+        menuItems,
+        restaurantData,
+        isFiltered,
+        filterType,
+        searchQuery,
+      ];
 }
 
+// Error state
 class MenuItemsError extends MenuItemsState {
   final String message;
 
   const MenuItemsError(this.message);
 
   @override
-  List<Object?> get props => [message];
+  List<Object> get props => [message];
 }
 
-class ItemAvailabilityUpdating extends MenuItemsState {
-  final MenuItem menuItem;
-
-  const ItemAvailabilityUpdating(this.menuItem);
-
-  @override
-  List<Object?> get props => [menuItem];
-}
-
-class ItemDeleting extends MenuItemsState {
-  final String menuId;
-
-  const ItemDeleting(this.menuId);
-
-  @override
-  List<Object?> get props => [menuId];
-}
-
+// State for navigation to add item screen
 class NavigateToAddItem extends MenuItemsState {}
 
+// State for navigation to edit item screen
 class NavigateToEditItem extends MenuItemsState {
   final MenuItem menuItem;
 
   const NavigateToEditItem(this.menuItem);
 
   @override
-  List<Object?> get props => [menuItem];
+  List<Object> get props => [menuItem];
+}
+
+// State for updating item availability
+class ItemAvailabilityUpdating extends MenuItemsState {
+  final MenuItem menuItem;
+
+  const ItemAvailabilityUpdating(this.menuItem);
+
+  @override
+  List<Object> get props => [menuItem];
+}
+
+// State for deleting a menu item
+class ItemDeleting extends MenuItemsState {
+  final String menuId;
+
+  const ItemDeleting(this.menuId);
+
+  @override
+  List<Object> get props => [menuId];
 }

@@ -1,7 +1,7 @@
-// lib/presentation/screens/add_product/view.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../../models/catagory_model.dart';
 import '../../../ui_components/custom_textField.dart';
 import '../../../ui_components/image_picker.dart';
 import '../../../ui_components/universal_widget/topbar.dart';
@@ -23,6 +23,18 @@ class _AddProductScreenState extends State<AddProductScreen> {
   final TextEditingController _descriptionController = TextEditingController();
   final TextEditingController _priceController = TextEditingController();
   final TextEditingController _tagsController = TextEditingController();
+  
+  // Validation error text
+  String? _nameError;
+  String? _descriptionError;
+  String? _priceError;
+  String? _tagsError;
+
+  // Character limits
+  final int _nameMaxLength = 30;
+  final int _descriptionMaxLength = 100;
+  final int _tagsMaxLength = 100;
+  final double _maxPrice = 9999.99;
 
   @override
   void dispose() {
@@ -34,55 +46,55 @@ class _AddProductScreenState extends State<AddProductScreen> {
   }
 
   @override
-Widget build(BuildContext context) {
-  return BlocProvider(
-    create: (context) => AddProductBloc()..add(AddProductInitEvent()),
-    child: BlocConsumer<AddProductBloc, AddProductState>(
-      listener: (context, state) {
-        if (state is AddProductFormState) {
-          if (state.errorMessage != null) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(state.errorMessage!)),
+  Widget build(BuildContext context) {
+    return BlocProvider(
+      create: (context) => AddProductBloc()..add(AddProductInitEvent()),
+      child: BlocConsumer<AddProductBloc, AddProductState>(
+        listener: (context, state) {
+          if (state is AddProductFormState) {
+            if (state.errorMessage != null) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text(state.errorMessage!)),
+              );
+            }
+            
+            if (state.isSuccess) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Product added successfully!')),
+              );
+              
+              // Navigate to HomePage after showing success message
+              Future.delayed(const Duration(seconds: 1), () {
+                // Navigate to HomePage
+                Navigator.of(context).pushReplacementNamed('/home'); // Or use your app's route name for HomePage
+              });
+            }
+          }
+        },
+        builder: (context, state) {
+          if (state is AddProductFormState) {
+            return Scaffold(
+              backgroundColor: ColorManager.background,
+              body: SafeArea(
+                child: Column(
+                  children: [
+                    const AppBackHeader(title: 'Add New Product'),
+                    Expanded(
+                      child: _buildForm(context, state),
+                    ),
+                  ],
+                ),
+              ),
             );
           }
           
-          if (state.isSuccess) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Product added successfully!')),
-            );
-            
-            // Navigate to HomePage after showing success message
-            Future.delayed(const Duration(seconds: 1), () {
-              // Navigate to HomePage
-              Navigator.of(context).pushReplacementNamed('/home'); // Or use your app's route name for HomePage
-            });
-          }
-        }
-      },
-      builder: (context, state) {
-        if (state is AddProductFormState) {
-          return Scaffold(
-            backgroundColor: ColorManager.background,
-            body: SafeArea(
-              child: Column(
-                children: [
-                  const AppBackHeader(title: 'Add New Product'),
-                  Expanded(
-                    child: _buildForm(context, state),
-                  ),
-                ],
-              ),
-            ),
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
           );
-        }
-        
-        return const Scaffold(
-          body: Center(child: CircularProgressIndicator()),
-        );
-      },
-    ),
-  );
-}
+        },
+      ),
+    );
+  }
 
   Widget _buildForm(BuildContext context, AddProductFormState state) {
     return SingleChildScrollView(
@@ -94,9 +106,21 @@ Widget build(BuildContext context) {
           _buildFormLabel('Product Name'),
           const SizedBox(height: 8),
           CustomTextField(
-            hintText: 'Enter product name',
+            hintText: 'Enter product name (upto 30 characters)',
             controller: _nameController,
+            maxLength: _nameMaxLength,
+            errorText: _nameError,
+            counterText: '${_nameController.text.length}/$_nameMaxLength',
             onChanged: (value) {
+              setState(() {
+                if (value.isEmpty) {
+                  _nameError = 'Product name is required';
+                } else if (value.length > _nameMaxLength) {
+                  _nameError = 'Maximum $_nameMaxLength characters allowed';
+                } else {
+                  _nameError = null;
+                }
+              });
               context.read<AddProductBloc>().add(ProductNameChangedEvent(value));
             },
           ),
@@ -106,10 +130,20 @@ Widget build(BuildContext context) {
           _buildFormLabel('Short Description'),
           const SizedBox(height: 8),
           CustomTextField(
-            hintText: 'Enter product description',
+            hintText: 'Enter product description (upto 100 characters)',
             controller: _descriptionController,
             maxLines: 3,
+            maxLength: _descriptionMaxLength,
+            errorText: _descriptionError,
+            counterText: '${_descriptionController.text.length}/$_descriptionMaxLength',
             onChanged: (value) {
+              setState(() {
+                if (value.length > _descriptionMaxLength) {
+                  _descriptionError = 'Maximum $_descriptionMaxLength characters allowed';
+                } else {
+                  _descriptionError = null;
+                }
+              });
               context.read<AddProductBloc>().add(ProductDescriptionChangedEvent(value));
             },
           ),
@@ -120,6 +154,14 @@ Widget build(BuildContext context) {
           const SizedBox(height: 8),
           _buildCategoryDropdown(context, state),
           const SizedBox(height: 16),
+          
+          // Vegetarian toggle
+          _buildToggleOption(
+            context,
+            'Vegetarian',
+            state.product.codAllowed,
+            (value) => context.read<AddProductBloc>().add(ToggleCodAllowedEvent(value)),
+          ),
           
           _buildToggleOption(
             context,
@@ -155,7 +197,17 @@ Widget build(BuildContext context) {
           CustomTextField(
             hintText: 'Enter tags separated by commas',
             controller: _tagsController,
+            maxLength: _tagsMaxLength,
+            errorText: _tagsError,
+            counterText: '${_tagsController.text.length}/$_tagsMaxLength',
             onChanged: (value) {
+              setState(() {
+                if (value.length > _tagsMaxLength) {
+                  _tagsError = 'Maximum $_tagsMaxLength characters allowed';
+                } else {
+                  _tagsError = null;
+                }
+              });
               context.read<AddProductBloc>().add(ProductTagsChangedEvent(value));
             },
           ),
@@ -165,6 +217,17 @@ Widget build(BuildContext context) {
           _buildFormLabel('Product Price'),
           const SizedBox(height: 8),
           _buildPriceField(context),
+          if (_priceError != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 6, left: 16),
+              child: Text(
+                _priceError!,
+                style: TextStyle(
+                  color: Colors.red[700],
+                  fontSize: 12,
+                ),
+              ),
+            ),
           const SizedBox(height: 24),
           
           // Action Buttons
@@ -172,7 +235,7 @@ Widget build(BuildContext context) {
             children: [
               Expanded(
                 child: ElevatedButton(
-                  onPressed: state.isSubmitting
+                  onPressed: state.isSubmitting || !_isFormValid()
                       ? null
                       : () => context.read<AddProductBloc>().add(const SubmitProductEvent()),
                   style: ElevatedButton.styleFrom(
@@ -221,6 +284,15 @@ Widget build(BuildContext context) {
     );
   }
 
+  // Check if the entire form is valid
+  bool _isFormValid() {
+    return _nameError == null && 
+           _descriptionError == null && 
+           _priceError == null &&
+           _tagsError == null &&
+           _nameController.text.isNotEmpty;
+  }
+
   Widget _buildFormLabel(String label) {
     return Text(
       label,
@@ -240,19 +312,26 @@ Widget build(BuildContext context) {
         borderRadius: BorderRadius.circular(8),
       ),
       child: DropdownButtonHideUnderline(
-        child: DropdownButton<String>(
+        child: DropdownButton<CategoryModel>(
           isExpanded: true,
-          value: state.product.category.isEmpty ? null : state.product.category,
+          value: state.product.categoryId == null
+              ? null
+              : state.categories.firstWhere(
+                  (category) => category.id == state.product.categoryId,
+                  orElse: () => CategoryModel(id: -1, name: ""),
+                ),
           hint: const Text('Select category'),
-          items: state.categories.map((String category) {
-            return DropdownMenuItem<String>(
+          items: state.categories.map((CategoryModel category) {
+            return DropdownMenuItem<CategoryModel>(
               value: category,
-              child: Text(category),
+              child: Text(category.name),
             );
           }).toList(),
-          onChanged: (String? newValue) {
+          onChanged: (CategoryModel? newValue) {
             if (newValue != null) {
-              context.read<AddProductBloc>().add(ProductCategoryChangedEvent(newValue));
+              context.read<AddProductBloc>().add(
+                ProductCategoryChangedEvent(newValue.name, newValue.id),
+              );
             }
           },
         ),
@@ -328,6 +407,17 @@ Widget build(BuildContext context) {
               ],
               onChanged: (value) {
                 final price = double.tryParse(value) ?? 0.0;
+                setState(() {
+                  if (value.isEmpty) {
+                    _priceError = 'Price is required';
+                  } else if (price <= 0) {
+                    _priceError = 'Price must be greater than 0';
+                  } else if (price > _maxPrice) {
+                    _priceError = 'Price cannot exceed \$$_maxPrice';
+                  } else {
+                    _priceError = null;
+                  }
+                });
                 context.read<AddProductBloc>().add(ProductPriceChangedEvent(price));
               },
             ),
@@ -342,5 +432,11 @@ Widget build(BuildContext context) {
     _descriptionController.clear();
     _priceController.clear();
     _tagsController.clear();
+    setState(() {
+      _nameError = null;
+      _descriptionError = null;
+      _priceError = null;
+      _tagsError = null;
+    });
   }
 }

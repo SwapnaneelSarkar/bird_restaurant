@@ -1,4 +1,3 @@
-// Modified lib/presentation/screens/menu_items/menu_items_bloc.dart
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -21,6 +20,8 @@ class MenuItemsBloc extends Bloc<MenuItemsEvent, MenuItemsState> {
     on<DeleteMenuItemEvent>(_onDeleteMenuItem);
     on<EditMenuItemEvent>(_onEditMenuItem);
     on<AddNewMenuItemEvent>(_onAddNewMenuItem);
+    on<FilterMenuItemsEvent>(_onFilterMenuItems);
+    on<SearchMenuItemsEvent>(_onSearchMenuItems);
   }
 
   Future<void> _onLoadMenuItems(
@@ -168,6 +169,9 @@ class MenuItemsBloc extends Bloc<MenuItemsEvent, MenuItemsState> {
           emit(MenuItemsLoaded(
             menuItems: updatedItems,
             restaurantData: currentState.restaurantData,
+            isFiltered: currentState.isFiltered,
+            filterType: currentState.filterType,
+            searchQuery: currentState.searchQuery,
           ));
         } else {
           // Show error but don't change the UI state
@@ -244,96 +248,100 @@ class MenuItemsBloc extends Bloc<MenuItemsEvent, MenuItemsState> {
   }
   
   Future<void> _onDeleteMenuItem(
-  DeleteMenuItemEvent event,
-  Emitter<MenuItemsState> emit,
-) async {
-  if (state is MenuItemsLoaded) {
-    final currentState = state as MenuItemsLoaded;
-    
-    emit(ItemDeleting(event.menuId));
-    
-    try {
-      // Call the API to delete the menu item
-      final response = await _deleteMenuItem(event.menuId);
+    DeleteMenuItemEvent event,
+    Emitter<MenuItemsState> emit,
+  ) async {
+    if (state is MenuItemsLoaded) {
+      final currentState = state as MenuItemsLoaded;
       
-      if (response.status == 'SUCCESS') {
-        // Update the local state after successful deletion
-        final updatedItems = currentState.menuItems
-            .where((item) => item.menuId != event.menuId)
-            .toList();
+      emit(ItemDeleting(event.menuId));
+      
+      try {
+        // Call the API to delete the menu item
+        final response = await _deleteMenuItem(event.menuId);
         
-        // Invalidate the cache after a delete operation
-        _cachedRestaurantData = null;
-        
-        emit(MenuItemsLoaded(
-          menuItems: updatedItems,
-          restaurantData: currentState.restaurantData,
-        ));
-      } else {
-        // Show error message but maintain current state
-        emit(MenuItemsError(response.message));
+        if (response.status == 'SUCCESS') {
+          // Update the local state after successful deletion
+          final updatedItems = currentState.menuItems
+              .where((item) => item.menuId != event.menuId)
+              .toList();
+          
+          // Invalidate the cache after a delete operation
+          _cachedRestaurantData = null;
+          
+          emit(MenuItemsLoaded(
+            menuItems: updatedItems,
+            restaurantData: currentState.restaurantData,
+            isFiltered: currentState.isFiltered,
+            filterType: currentState.filterType,
+            searchQuery: currentState.searchQuery,
+          ));
+        } else {
+          // Show error message but maintain current state
+          emit(MenuItemsError(response.message));
+          emit(currentState);
+        }
+      } catch (e) {
+        emit(MenuItemsError('Failed to delete menu item: ${e.toString()}'));
         emit(currentState);
       }
-    } catch (e) {
-      emit(MenuItemsError('Failed to delete menu item: ${e.toString()}'));
-      emit(currentState);
     }
   }
-}
 
-// Add this new method to make the API call for menu item deletion
-Future<UpdateMenuItemResponse> _deleteMenuItem(String menuId) async {
-  try {
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('token');
-    
-    if (token == null) {
-      throw Exception('Authentication information not found. Please login again.');
-    }
-    
-    final url = Uri.parse('${ApiConstants.baseUrl}/admin/deleteMenuItem');
-    
-    debugPrint('Deleting menu item: $url with menu_id: $menuId');
-    
-    final response = await http.post(
-      url,
-      headers: {
-        'Authorization': 'Bearer $token',
-        'Content-Type': 'application/json',
-      },
-      body: jsonEncode({
-        'menu_id': menuId,
-      }),
-    );
-    
-    debugPrint('Delete response status: ${response.statusCode}');
-    debugPrint('Delete response body: ${response.body}');
-    
-    if (response.statusCode == 200) {
-      final data = json.decode(response.body);
-      return UpdateMenuItemResponse.fromJson(data);
-    } else {
-      try {
-        final errorData = json.decode(response.body);
-        return UpdateMenuItemResponse(
-          status: 'ERROR',
-          message: errorData['message'] ?? 'Failed to delete menu item',
-        );
-      } catch (e) {
-        return UpdateMenuItemResponse(
-          status: 'ERROR',
-          message: 'Failed to delete menu item. Status: ${response.statusCode}',
-        );
+  // Add this new method to make the API call for menu item deletion
+  Future<UpdateMenuItemResponse> _deleteMenuItem(String menuId) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('token');
+      
+      if (token == null) {
+        throw Exception('Authentication information not found. Please login again.');
       }
+      
+      final url = Uri.parse('${ApiConstants.baseUrl}/admin/deleteMenuItem');
+      
+      debugPrint('Deleting menu item: $url with menu_id: $menuId');
+      
+      final response = await http.post(
+        url,
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          'menu_id': menuId,
+        }),
+      );
+      
+      debugPrint('Delete response status: ${response.statusCode}');
+      debugPrint('Delete response body: ${response.body}');
+      
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        return UpdateMenuItemResponse.fromJson(data);
+      } else {
+        try {
+          final errorData = json.decode(response.body);
+          return UpdateMenuItemResponse(
+            status: 'ERROR',
+            message: errorData['message'] ?? 'Failed to delete menu item',
+          );
+        } catch (e) {
+          return UpdateMenuItemResponse(
+            status: 'ERROR',
+            message: 'Failed to delete menu item. Status: ${response.statusCode}',
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('Error deleting menu item: $e');
+      return UpdateMenuItemResponse(
+        status: 'ERROR',
+        message: 'Error: ${e.toString()}',
+      );
     }
-  } catch (e) {
-    debugPrint('Error deleting menu item: $e');
-    return UpdateMenuItemResponse(
-      status: 'ERROR',
-      message: 'Error: ${e.toString()}',
-    );
   }
-}
+  
   void _onEditMenuItem(
     EditMenuItemEvent event,
     Emitter<MenuItemsState> emit,
@@ -357,6 +365,72 @@ Future<UpdateMenuItemResponse> _deleteMenuItem(String menuId) async {
       emit(currentState);
     } else {
       emit(NavigateToAddItem());
+    }
+  }
+  
+  void _onFilterMenuItems(
+    FilterMenuItemsEvent event,
+    Emitter<MenuItemsState> emit,
+  ) {
+    if (state is MenuItemsLoaded) {
+      final currentState = state as MenuItemsLoaded;
+      List<MenuItem> filteredItems = List.from(currentState.menuItems);
+
+      switch (event.filterType) {
+        case FilterType.priceLowToHigh:
+          filteredItems.sort((a, b) => (a.price).compareTo(b.price));
+          break;
+        case FilterType.priceHighToLow:
+          filteredItems.sort((a, b) => (b.price).compareTo(a.price));
+          break;
+        case FilterType.nameAZ:
+          filteredItems.sort((a, b) => a.name.compareTo(b.name));
+          break;
+        case FilterType.nameZA:
+          filteredItems.sort((a, b) => b.name.compareTo(a.name));
+          break;
+      }
+
+      emit(MenuItemsLoaded(
+        menuItems: filteredItems,
+        restaurantData: currentState.restaurantData,
+        isFiltered: true,
+        filterType: event.filterType,
+      ));
+    }
+  }
+
+  void _onSearchMenuItems(
+    SearchMenuItemsEvent event,
+    Emitter<MenuItemsState> emit,
+  ) {
+    if (state is MenuItemsLoaded) {
+      final currentState = state as MenuItemsLoaded;
+      final query = event.query.toLowerCase();
+
+      if (query.isEmpty) {
+        // If query is empty, return all items
+        emit(MenuItemsLoaded(
+          menuItems: _cachedRestaurantData?.menuItems ?? currentState.restaurantData.menuItems,
+          restaurantData: currentState.restaurantData,
+          isFiltered: false,
+        ));
+      } else {
+        // Filter items based on the search query
+        final filteredItems = (_cachedRestaurantData?.menuItems ?? currentState.restaurantData.menuItems)
+            .where((item) =>
+                item.name.toLowerCase().contains(query) ||
+                item.description.toLowerCase().contains(query) ||
+                item.category.toLowerCase().contains(query))
+            .toList();
+
+        emit(MenuItemsLoaded(
+          menuItems: filteredItems,
+          restaurantData: currentState.restaurantData,
+          isFiltered: true,
+          searchQuery: query,
+        ));
+      }
     }
   }
 

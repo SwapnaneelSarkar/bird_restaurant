@@ -1,11 +1,13 @@
 // lib/presentation/screens/add_product/state.dart
 import 'dart:io';
 import 'package:equatable/equatable.dart';
+import '../../../models/catagory_model.dart';
 
 class ProductModel {
   final String name;
   final String description;
   final String category;
+  final int? categoryId;
   final double price;
   final String tags;
   final File? image;
@@ -17,6 +19,7 @@ class ProductModel {
     this.name = '',
     this.description = '',
     this.category = '',
+    this.categoryId,
     this.price = 0.0,
     this.tags = '',
     this.image,
@@ -29,6 +32,7 @@ class ProductModel {
     String? name,
     String? description,
     String? category,
+    int? categoryId,
     double? price,
     String? tags,
     File? image,
@@ -40,6 +44,7 @@ class ProductModel {
       name: name ?? this.name,
       description: description ?? this.description,
       category: category ?? this.category,
+      categoryId: categoryId ?? this.categoryId,
       price: price ?? this.price,
       tags: tags ?? this.tags,
       image: image ?? this.image,
@@ -61,7 +66,7 @@ class AddProductInitial extends AddProductState {}
 
 class AddProductFormState extends AddProductState {
   final ProductModel product;
-  final List<String> categories;
+  final List<CategoryModel> categories;
   final bool isSubmitting;
   final bool isSuccess;
   final String? errorMessage;
@@ -79,7 +84,7 @@ class AddProductFormState extends AddProductState {
   
   AddProductFormState copyWith({
     ProductModel? product,
-    List<String>? categories,
+    List<CategoryModel>? categories,
     bool? isSubmitting,
     bool? isSuccess,
     String? errorMessage,

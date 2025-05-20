@@ -1,6 +1,6 @@
-// Modified lib/presentation/screens/menu_items/menu_items_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'dart:async';
 
 import '../../../ui_components/edit_item_card.dart';
 import '../../../ui_components/universal_widget/topbar.dart';
@@ -20,17 +20,32 @@ class EditMenuView extends StatefulWidget {
 class _EditMenuViewState extends State<EditMenuView> {
   late MenuItemsBloc _menuItemsBloc;
   final GlobalKey<RefreshIndicatorState> _refreshIndicatorKey = GlobalKey<RefreshIndicatorState>();
+  final TextEditingController _searchController = TextEditingController();
+  Timer? _debounce;
 
   @override
   void initState() {
     super.initState();
     _menuItemsBloc = MenuItemsBloc()..add(const LoadMenuItemsEvent());
+    
+    // Add listener for search
+    _searchController.addListener(_onSearchChanged);
   }
 
   @override
   void dispose() {
-    // No need to dispose bloc as it's provided by the BlocProvider
+    _searchController.removeListener(_onSearchChanged);
+    _searchController.dispose();
+    _debounce?.cancel();
     super.dispose();
+  }
+
+  // Debounce method for search
+  void _onSearchChanged() {
+    if (_debounce?.isActive ?? false) _debounce!.cancel();
+    _debounce = Timer(const Duration(milliseconds: 500), () {
+      _menuItemsBloc.add(SearchMenuItemsEvent(_searchController.text));
+    });
   }
 
   // Function to handle refresh
@@ -118,6 +133,7 @@ class _EditMenuViewState extends State<EditMenuView> {
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: TextField(
+                    controller: _searchController,
                     decoration: InputDecoration(
                       hintText: 'Search menu items',
                       prefixIcon: const Icon(Icons.search, color: Colors.grey),
@@ -137,25 +153,125 @@ class _EditMenuViewState extends State<EditMenuView> {
                 ),
                 child: IconButton(
                   icon: const Icon(Icons.tune, color: Colors.black87),
-                  onPressed: () {},
-                ),
-              ),
-              const SizedBox(width: 8),
-              Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: Colors.grey[300]!),
-                ),
-                child: IconButton(
-                  icon: const Icon(Icons.more_vert, color: Colors.black87),
-                  onPressed: () {},
+                  onPressed: () {
+                    _showFilterOptions(context);
+                  },
                 ),
               ),
             ],
           ),
         ),
       ],
+    );
+  }
+
+  void _showFilterOptions(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) {
+        return Container(
+          padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Filter Menu Items',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Sort By',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 8),
+              _buildFilterOption(
+                context,
+                'Price: Low to High',
+                () {
+                  _menuItemsBloc.add(const FilterMenuItemsEvent(FilterType.priceLowToHigh));
+                  Navigator.pop(context);
+                },
+              ),
+              _buildFilterOption(
+                context,
+                'Price: High to Low',
+                () {
+                  _menuItemsBloc.add(const FilterMenuItemsEvent(FilterType.priceHighToLow));
+                  Navigator.pop(context);
+                },
+              ),
+              _buildFilterOption(
+                context,
+                'Name: A to Z',
+                () {
+                  _menuItemsBloc.add(const FilterMenuItemsEvent(FilterType.nameAZ));
+                  Navigator.pop(context);
+                },
+              ),
+              _buildFilterOption(
+                context,
+                'Name: Z to A',
+                () {
+                  _menuItemsBloc.add(const FilterMenuItemsEvent(FilterType.nameZA));
+                  Navigator.pop(context);
+                },
+              ),
+              const SizedBox(height: 16),
+              _buildFilterOption(
+                context,
+                'Reset Filters',
+                () {
+                  _menuItemsBloc.add(const RefreshMenuItemsEvent());
+                  Navigator.pop(context);
+                },
+                isReset: true,
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildFilterOption(BuildContext context, String title, VoidCallback onTap, {bool isReset = false}) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+        width: double.infinity,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(8),
+          color: isReset ? Colors.grey[100] : Colors.transparent,
+        ),
+        child: Text(
+          title,
+          style: TextStyle(
+            fontSize: 15,
+            fontWeight: isReset ? FontWeight.w500 : FontWeight.normal,
+            color: isReset ? const Color(0xFFE67E22) : null,
+          ),
+        ),
+      ),
     );
   }
 
@@ -197,12 +313,34 @@ class _EditMenuViewState extends State<EditMenuView> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'Tap the + button to add your first menu item',
+                        state.isFiltered && (state.searchQuery?.isNotEmpty ?? false)
+                            ? 'No results found for "${state.searchQuery}". Try a different search.'
+                            : state.isFiltered
+                                ? 'No results found with the current filter.'
+                                : 'Tap the + button to add your first menu item',
                         style: TextStyle(
                           fontSize: 14,
                           color: Colors.grey[600],
                         ),
+                        textAlign: TextAlign.center,
                       ),
+                      if (state.isFiltered) ...[
+                        const SizedBox(height: 16),
+                        ElevatedButton(
+                          onPressed: () {
+                            _searchController.clear();
+                            _menuItemsBloc.add(const RefreshMenuItemsEvent());
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFFE67E22),
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: const Text('Reset Filters'),
+                        ),
+                      ],
                     ],
                   ),
                 ),
@@ -212,65 +350,128 @@ class _EditMenuViewState extends State<EditMenuView> {
         );
       }
       
-      return RefreshIndicator(
-        key: _refreshIndicatorKey,
-        onRefresh: _handleRefresh,
-        color: const Color(0xFFE67E22),
-        child: ListView.builder(
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.only(top: 8, bottom: 80),  // Added padding for better spacing
-          itemCount: state.menuItems.length,
-          itemBuilder: (context, index) {
-            final menuItem = state.menuItems[index];
-            return MenuItemCard(
-              menuItem: menuItem,
-              onToggleAvailability: (isAvailable) {
-                _menuItemsBloc.add(
-                  ToggleItemAvailabilityEvent(
-                    menuItem: menuItem,
-                    isAvailable: isAvailable,
+      // Display header if filtered
+      Widget? filterHeader;
+      if (state.isFiltered) {
+        String filterText = '';
+        if (state.searchQuery?.isNotEmpty ?? false) {
+          filterText = 'Search: "${state.searchQuery}"';
+        } else if (state.filterType != null) {
+          switch (state.filterType!) {
+            case FilterType.priceLowToHigh:
+              filterText = 'Price: Low to High';
+              break;
+            case FilterType.priceHighToLow:
+              filterText = 'Price: High to Low';
+              break;
+            case FilterType.nameAZ:
+              filterText = 'Name: A to Z';
+              break;
+            case FilterType.nameZA:
+              filterText = 'Name: Z to A';
+              break;
+          }
+        }
+        
+        if (filterText.isNotEmpty) {
+          filterHeader = Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            color: Colors.grey[200],
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  filterText,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w500,
+                    fontSize: 14,
                   ),
-                );
-              },
-              onEdit: () {
-                _menuItemsBloc.add(EditMenuItemEvent(menuItem));
-              },
-              onDelete: () {
-                // Show confirmation dialog before deleting
-                showDialog(
-                  context: context,
-                  builder: (dialogContext) => AlertDialog(
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
+                ),
+                GestureDetector(
+                  onTap: () {
+                    _searchController.clear();
+                    _menuItemsBloc.add(const RefreshMenuItemsEvent());
+                  },
+                  child: const Text(
+                    'Reset',
+                    style: TextStyle(
+                      color: Color(0xFFE67E22),
+                      fontWeight: FontWeight.w500,
                     ),
-                    title: const Text('Delete Menu Item'),
-                    content: Text(
-                        'Are you sure you want to delete "${menuItem.name}"?'),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.of(dialogContext).pop(),
-                        child: const Text(
-                          'Cancel',
-                          style: TextStyle(color: Colors.grey),
-                        ),
-                      ),
-                      TextButton(
-                        onPressed: () {
-                          Navigator.of(dialogContext).pop();
-                          _menuItemsBloc.add(DeleteMenuItemEvent(menuItem.menuId));
-                        },
-                        child: const Text(
-                          'Delete',
-                          style: TextStyle(color: Colors.red),
-                        ),
-                      ),
-                    ],
                   ),
-                );
-              },
-            );
-          },
-        ),
+                ),
+              ],
+            ),
+          );
+        }
+      }
+      
+      return Column(
+        children: [
+          if (filterHeader != null) filterHeader,
+          Expanded(
+            child: RefreshIndicator(
+              key: _refreshIndicatorKey,
+              onRefresh: _handleRefresh,
+              color: const Color(0xFFE67E22),
+              child: ListView.builder(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.only(top: 8, bottom: 80),  // Added padding for better spacing
+                itemCount: state.menuItems.length,
+                itemBuilder: (context, index) {
+                  final menuItem = state.menuItems[index];
+                  return MenuItemCard(
+                    menuItem: menuItem,
+                    onToggleAvailability: (isAvailable) {
+                      _menuItemsBloc.add(
+                        ToggleItemAvailabilityEvent(
+                          menuItem: menuItem,
+                          isAvailable: isAvailable,
+                        ),
+                      );
+                    },
+                    onEdit: () {
+                      _menuItemsBloc.add(EditMenuItemEvent(menuItem));
+                    },
+                    onDelete: () {
+                      // Show confirmation dialog before deleting
+                      showDialog(
+                        context: context,
+                        builder: (dialogContext) => AlertDialog(
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          title: const Text('Delete Menu Item'),
+                          content: Text(
+                              'Are you sure you want to delete "${menuItem.name}"?'),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.of(dialogContext).pop(),
+                              child: const Text(
+                                'Cancel',
+                                style: TextStyle(color: Colors.grey),
+                              ),
+                            ),
+                            TextButton(
+                              onPressed: () {
+                                Navigator.of(dialogContext).pop();
+                                _menuItemsBloc.add(DeleteMenuItemEvent(menuItem.menuId));
+                              },
+                              child: const Text(
+                                'Delete',
+                                style: TextStyle(color: Colors.red),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
+          ),
+        ],
       );
     } else {
       return RefreshIndicator(

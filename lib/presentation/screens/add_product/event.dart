@@ -1,3 +1,4 @@
+
 // lib/presentation/screens/add_product/event.dart
 import 'dart:io';
 import 'package:equatable/equatable.dart';
@@ -28,11 +29,13 @@ class ProductDescriptionChangedEvent extends AddProductEvent {
 }
 
 class ProductCategoryChangedEvent extends AddProductEvent {
-  final String category;
-  const ProductCategoryChangedEvent(this.category);
+  final String categoryName;
+  final int categoryId;
+  
+  const ProductCategoryChangedEvent(this.categoryName, this.categoryId);
   
   @override
-  List<Object?> get props => [category];
+  List<Object?> get props => [categoryName, categoryId];
 }
 
 class ProductPriceChangedEvent extends AddProductEvent {
