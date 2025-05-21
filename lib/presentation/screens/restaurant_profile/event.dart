@@ -36,6 +36,15 @@ class CookingTimeChanged   extends RestaurantProfileEvent { final String v; cons
 class LatitudeChanged   extends RestaurantProfileEvent { final String v; const LatitudeChanged(this.v); @override List<Object?> get props => [v]; }
 class LongitudeChanged  extends RestaurantProfileEvent { final String v; const LongitudeChanged(this.v); @override List<Object?> get props => [v]; }
 
+// restaurant type
+class LoadRestaurantTypesEvent extends RestaurantProfileEvent {}
+class RestaurantTypeChanged extends RestaurantProfileEvent {
+  final Map<String, dynamic> restaurantType;
+  const RestaurantTypeChanged(this.restaurantType);
+  @override
+  List<Object?> get props => [restaurantType];
+}
+
 // type
 enum RestaurantType { veg, nonVeg }
 class TypeChanged extends RestaurantProfileEvent {

@@ -36,7 +36,6 @@ class EmailChanged extends RestaurantDetailsEvent {
 
 class UseCurrentLocationPressed extends RestaurantDetailsEvent {}
 
-// New event for selecting a location from the address picker
 class LocationSelected extends RestaurantDetailsEvent {
   final String address;
   final double latitude;
@@ -55,3 +54,13 @@ class LocationSelected extends RestaurantDetailsEvent {
 class NextPressed extends RestaurantDetailsEvent {}
 
 class LoadSavedDataEvent extends RestaurantDetailsEvent {}
+
+// New events for restaurant type
+class FetchRestaurantTypesEvent extends RestaurantDetailsEvent {}
+
+class RestaurantTypeChanged extends RestaurantDetailsEvent {
+  final Map<String, dynamic> restaurantType;
+  const RestaurantTypeChanged(this.restaurantType);
+  @override
+  List<Object?> get props => [restaurantType];
+}

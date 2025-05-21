@@ -23,6 +23,11 @@ class RestaurantProfileState extends Equatable {
   final String latitude;
   final String longitude;
 
+  // Restaurant Type
+  final List<Map<String, dynamic>> restaurantTypes;
+  final Map<String, dynamic>? selectedRestaurantType;
+  final bool isLoadingRestaurantTypes;
+
   // Type
   final RestaurantType type;
 
@@ -50,6 +55,9 @@ class RestaurantProfileState extends Equatable {
     this.cookingTime = '',
     this.latitude = '',
     this.longitude = '',
+    this.restaurantTypes = const [],
+    this.selectedRestaurantType,
+    this.isLoadingRestaurantTypes = false,
     this.type = RestaurantType.veg,
     required this.hours,
     this.isLoading = false,
@@ -71,6 +79,9 @@ class RestaurantProfileState extends Equatable {
     String? cookingTime,
     String? latitude,
     String? longitude,
+    List<Map<String, dynamic>>? restaurantTypes,
+    Map<String, dynamic>? selectedRestaurantType,
+    bool? isLoadingRestaurantTypes,
     RestaurantType? type,
     List<OperationalDay>? hours,
     bool? isLoading,
@@ -91,6 +102,9 @@ class RestaurantProfileState extends Equatable {
         cookingTime: cookingTime ?? this.cookingTime,
         latitude: latitude ?? this.latitude,
         longitude: longitude ?? this.longitude,
+        restaurantTypes: restaurantTypes ?? this.restaurantTypes,
+        selectedRestaurantType: selectedRestaurantType ?? this.selectedRestaurantType,
+        isLoadingRestaurantTypes: isLoadingRestaurantTypes ?? this.isLoadingRestaurantTypes,
         type: type ?? this.type,
         hours: hours ?? this.hours,
         isLoading: isLoading ?? this.isLoading,
@@ -101,16 +115,14 @@ class RestaurantProfileState extends Equatable {
       );
 
   bool get isValid {
-  // Debug print for validation
-  debugPrint('Validating state:');
-  debugPrint('- restaurantName: "$restaurantName"');
-  debugPrint('- ownerName: "$ownerName"');
-  debugPrint('- ownerMobile: "$ownerMobile"');
-  
-  return true;
-
-}
-
+    // Debug print for validation
+    debugPrint('Validating state:');
+    debugPrint('- restaurantName: "$restaurantName"');
+    debugPrint('- ownerName: "$ownerName"');
+    debugPrint('- ownerMobile: "$ownerMobile"');
+    
+    return true;
+  }
 
   @override
   List<Object?> get props => [
@@ -125,6 +137,9 @@ class RestaurantProfileState extends Equatable {
         cookingTime,
         latitude,
         longitude,
+        restaurantTypes,
+        selectedRestaurantType,
+        isLoadingRestaurantTypes,
         type,
         hours,
         isLoading,

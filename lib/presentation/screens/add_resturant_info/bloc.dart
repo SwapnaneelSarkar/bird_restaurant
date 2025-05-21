@@ -3,6 +3,9 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import '../../../constants/api_constants.dart';
 import 'event.dart';
 import 'state.dart';
 
@@ -17,6 +20,10 @@ class RestaurantDetailsBloc
     on<LocationSelected>(_onLocationSelected);
     on<NextPressed>(_onNextPressed);
     on<LoadSavedDataEvent>(_onLoadSavedData);
+    
+    // New event handlers
+    on<FetchRestaurantTypesEvent>(_onFetchRestaurantTypes);
+    on<RestaurantTypeChanged>(_onRestaurantTypeChanged);
   }
 
   void _onNameChanged(
@@ -29,6 +36,7 @@ class RestaurantDetailsBloc
         address: state.address,
         phoneNumber: state.phoneNumber,
         email: state.email,
+        restaurantType: state.selectedRestaurantType,
       ),
     ));
     _saveData();
@@ -44,6 +52,7 @@ class RestaurantDetailsBloc
         address: address,
         phoneNumber: state.phoneNumber,
         email: state.email,
+        restaurantType: state.selectedRestaurantType,
       ),
     ));
     _saveData();
@@ -59,6 +68,7 @@ class RestaurantDetailsBloc
         address: state.address,
         phoneNumber: phone,
         email: state.email,
+        restaurantType: state.selectedRestaurantType,
       ),
     ));
     _saveData();
@@ -74,12 +84,13 @@ class RestaurantDetailsBloc
         address: state.address,
         phoneNumber: state.phoneNumber,
         email: email,
+        restaurantType: state.selectedRestaurantType,
       ),
     ));
     _saveData();
   }
   
-  // Handler for the new LocationSelected event
+  // Handler for the LocationSelected event
   void _onLocationSelected(
       LocationSelected event, Emitter<RestaurantDetailsState> emit) {
     debugPrint('Location selected from picker:');
@@ -96,6 +107,7 @@ class RestaurantDetailsBloc
         address: event.address,
         phoneNumber: state.phoneNumber,
         email: state.email,
+        restaurantType: state.selectedRestaurantType,
       ),
     ));
     
@@ -115,7 +127,6 @@ class RestaurantDetailsBloc
       if (!serviceEnabled) {
         emit(state.copyWith(isLocationLoading: false));
         debugPrint('Location services are disabled.');
-        // You might want to show a dialog here to enable location services
         return;
       }
 
@@ -137,7 +148,6 @@ class RestaurantDetailsBloc
       if (permission == LocationPermission.deniedForever) {
         emit(state.copyWith(isLocationLoading: false));
         debugPrint('Location permissions are permanently denied');
-        // You might want to show a dialog here to open app settings
         return;
       }
 
@@ -182,6 +192,7 @@ class RestaurantDetailsBloc
             address: address,
             phoneNumber: state.phoneNumber,
             email: state.email,
+            restaurantType: state.selectedRestaurantType,
           ),
         ));
         _saveData();
@@ -195,8 +206,7 @@ class RestaurantDetailsBloc
     }
   }
 
-  void _onNextPressed(
-      NextPressed event, Emitter<RestaurantDetailsState> emit) {
+  void _onNextPressed(NextPressed event, Emitter<RestaurantDetailsState> emit) {
     // Set isAttemptedSubmit to true regardless of validation state
     emit(state.copyWith(isAttemptedSubmit: true));
     
@@ -208,6 +218,14 @@ class RestaurantDetailsBloc
       debugPrint('Email: ${state.email}');
       debugPrint('Latitude: ${state.latitude}');
       debugPrint('Longitude: ${state.longitude}');
+      
+      // Log restaurant type data
+      if (state.selectedRestaurantType != null) {
+        debugPrint('Restaurant Type: ${state.selectedRestaurantType!['name']} (ID: ${state.selectedRestaurantType!['id']})');
+      } else {
+        debugPrint('Restaurant Type: Not selected');
+      }
+      
       // The navigation now happens in the UI
     } else {
       debugPrint('Form validation failed');
@@ -215,21 +233,107 @@ class RestaurantDetailsBloc
     }
   }
 
-  // Update the validation function to properly check fields
+  // New method to fetch restaurant types
+  Future<void> _onFetchRestaurantTypes(
+      FetchRestaurantTypesEvent event, Emitter<RestaurantDetailsState> emit) async {
+    emit(state.copyWith(isLoadingRestaurantTypes: true));
+    
+    try {
+      final url = Uri.parse('${ApiConstants.baseUrl}/admin/restaurantTypes');
+      
+      // Use existing token from SharedPreferences
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('token');
+      
+      if (token == null) {
+        debugPrint('No token found for restaurant types API call');
+        emit(state.copyWith(isLoadingRestaurantTypes: false));
+        return;
+      }
+      
+      final response = await http.get(
+        url,
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      );
+      
+      if (response.statusCode == 200) {
+        final responseData = jsonDecode(response.body);
+        
+        if (responseData['status'] == 'SUCCESS' && responseData['data'] != null) {
+          final types = List<Map<String, dynamic>>.from(responseData['data']);
+          
+          emit(state.copyWith(
+            restaurantTypes: types,
+            isLoadingRestaurantTypes: false,
+          ));
+          
+          // Load selected type from shared preferences if available
+          final savedTypeId = prefs.getInt('restaurant_type_id');
+          
+          if (savedTypeId != null && types.isNotEmpty) {
+            final savedType = types.firstWhere(
+              (type) => type['id'] == savedTypeId,
+              orElse: () => types.first,
+            );
+            
+            emit(state.copyWith(
+              selectedRestaurantType: savedType,
+              isFormValid: _validateForm(
+                name: state.name,
+                address: state.address,
+                phoneNumber: state.phoneNumber,
+                email: state.email,
+                restaurantType: savedType,
+              ),
+            ));
+          }
+        } else {
+          debugPrint('Failed to fetch restaurant types: ${responseData['message']}');
+        }
+      } else {
+        debugPrint('Restaurant types API error: ${response.statusCode}');
+      }
+    } catch (e) {
+      debugPrint('Error fetching restaurant types: $e');
+    }
+    
+    emit(state.copyWith(isLoadingRestaurantTypes: false));
+  }
+
+  // New method to handle restaurant type selection
+  void _onRestaurantTypeChanged(
+      RestaurantTypeChanged event, Emitter<RestaurantDetailsState> emit) {
+    emit(state.copyWith(
+      selectedRestaurantType: event.restaurantType,
+      isFormValid: _validateForm(
+        name: state.name,
+        address: state.address,
+        phoneNumber: state.phoneNumber,
+        email: state.email,
+        restaurantType: event.restaurantType,
+      ),
+    ));
+    _saveData();
+  }
+
+  // Update validation function to include restaurant type
   bool _validateForm({
     required String name,
     required String address,
     required String phoneNumber,
     required String email,
+    Map<String, dynamic>? restaurantType,
   }) {
     final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
     
-    // We're making phone number optional based on the UI in the view file
-    // (phone field was commented out)
     return name.isNotEmpty &&
         address.isNotEmpty &&
         email.isNotEmpty &&
-        emailRegex.hasMatch(email);
+        emailRegex.hasMatch(email) &&
+        restaurantType != null; // Add restaurant type validation
   }
 
   Future<void> _onLoadSavedData(
@@ -245,8 +349,12 @@ class RestaurantDetailsBloc
       longitude: prefs.getDouble('restaurant_longitude') ?? 0.0,
       isDataLoaded: true,
     ));
+    
+    // Fetch restaurant types after loading saved data
+    add(FetchRestaurantTypesEvent());
   }
 
+  // Update _saveData method to include restaurant type
   Future<void> _saveData() async {
     final prefs = await SharedPreferences.getInstance();
     
@@ -256,6 +364,12 @@ class RestaurantDetailsBloc
     await prefs.setString('restaurant_email', state.email);
     await prefs.setDouble('restaurant_latitude', state.latitude);
     await prefs.setDouble('restaurant_longitude', state.longitude);
+    
+    // Save restaurant type
+    if (state.selectedRestaurantType != null) {
+      await prefs.setInt('restaurant_type_id', state.selectedRestaurantType!['id']);
+      await prefs.setString('restaurant_type_name', state.selectedRestaurantType!['name']);
+    }
     
     debugPrint('Saved restaurant data to SharedPreferences');
     debugPrint('Latitude: ${state.latitude}, Longitude: ${state.longitude}');

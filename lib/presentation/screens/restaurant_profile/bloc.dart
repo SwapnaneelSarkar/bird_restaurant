@@ -36,6 +36,10 @@ class RestaurantProfileBloc
     // Initial load
     on<LoadInitialData>(_onLoadInitialData);
     
+    // Restaurant types
+    on<LoadRestaurantTypesEvent>(_onLoadRestaurantTypes);
+    on<RestaurantTypeChanged>(_onRestaurantTypeChanged);
+    
     // Image selection
     on<SelectImagePressed>(_onSelectImage);
     
@@ -79,6 +83,111 @@ class RestaurantProfileBloc
     
     // Load initial data immediately
     add(LoadInitialData());
+    // Load restaurant types
+    add(LoadRestaurantTypesEvent());
+  }
+
+  Future<void> _onLoadRestaurantTypes(
+    LoadRestaurantTypesEvent event,
+    Emitter<RestaurantProfileState> emit,
+  ) async {
+    try {
+      emit(state.copyWith(isLoadingRestaurantTypes: true));
+      
+      // Try to get token
+      final token = await TokenService.getToken();
+      
+      if (token == null) {
+        debugPrint('No token available for restaurant types API call');
+        emit(state.copyWith(isLoadingRestaurantTypes: false));
+        return;
+      }
+      
+      // Create request to get restaurant types
+      final url = Uri.parse('${ApiConstants.baseUrl}/admin/restaurantTypes');
+      final response = await http.get(
+        url,
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      );
+      
+      debugPrint('Restaurant Types API Response: ${response.body}');
+      
+      if (response.statusCode == 200) {
+        final responseData = jsonDecode(response.body);
+        
+        if (responseData['status'] == 'SUCCESS' && responseData['data'] != null) {
+          final List<dynamic> typesData = responseData['data'];
+          final types = typesData.map((item) => Map<String, dynamic>.from(item)).toList();
+          
+          // Get any saved restaurant type from SharedPreferences
+          final prefs = await SharedPreferences.getInstance();
+          final savedRestaurantType = prefs.getString('restaurant_type_name');
+          
+          // Try to find the matching restaurant type
+          Map<String, dynamic>? selectedType;
+          if (savedRestaurantType != null && savedRestaurantType.isNotEmpty && types.isNotEmpty) {
+            try {
+              selectedType = types.firstWhere(
+                (type) => type['name'] == savedRestaurantType,
+                orElse: () => types.first, // Return first item as fallback
+              );
+            } catch (e) {
+              debugPrint('Error finding selected restaurant type: $e');
+              if (types.isNotEmpty) {
+                selectedType = types.first;
+              }
+            }
+          } else if (types.isNotEmpty) {
+            // If we have data from the API
+            final restaurantType = prefs.getString('restaurant_type');
+            if (restaurantType != null && restaurantType.isNotEmpty) {
+              try {
+                selectedType = types.firstWhere(
+                  (type) => type['name'] == restaurantType,
+                  orElse: () => types.first, // Return first item as fallback
+                );
+              } catch (e) {
+                debugPrint('Error finding restaurant type: $e');
+                selectedType = types.first;
+              }
+            } else {
+              // Default to first item if nothing saved
+              selectedType = types.first;
+            }
+          }
+          
+          emit(state.copyWith(
+            restaurantTypes: types,
+            selectedRestaurantType: selectedType,
+            isLoadingRestaurantTypes: false,
+          ));
+          
+          debugPrint('Loaded ${types.length} restaurant types');
+          debugPrint('Selected restaurant type: ${selectedType?['name']}');
+        } else {
+          emit(state.copyWith(isLoadingRestaurantTypes: false));
+          debugPrint('Failed to load restaurant types: ${responseData['message']}');
+        }
+      } else {
+        emit(state.copyWith(isLoadingRestaurantTypes: false));
+        debugPrint('Failed to load restaurant types: ${response.statusCode}');
+      }
+    } catch (e) {
+      debugPrint('Error loading restaurant types: $e');
+      emit(state.copyWith(isLoadingRestaurantTypes: false));
+    }
+  }
+
+  void _onRestaurantTypeChanged(
+    RestaurantTypeChanged event,
+    Emitter<RestaurantProfileState> emit,
+  ) {
+    // Update the selected restaurant type
+    emit(state.copyWith(selectedRestaurantType: event.restaurantType));
+    debugPrint('Selected restaurant type: ${event.restaurantType['name']}');
   }
 
   Future<void> _onLoadInitialData(
@@ -219,6 +328,15 @@ class RestaurantProfileBloc
           } else if (data['restaurant_photos'] is String && data['restaurant_photos'].isNotEmpty) {
             imageUrl = data['restaurant_photos'];
           }
+        }
+        
+        // Check for restaurant_type in the API response
+        if (data['restaurant_type'] != null) {
+          final restaurantType = data['restaurant_type'].toString();
+          // Save to SharedPreferences
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setString('restaurant_type', restaurantType);
+          debugPrint('Saved restaurant_type to SharedPreferences: $restaurantType');
         }
         
         // Handle null values properly
@@ -447,6 +565,12 @@ class RestaurantProfileBloc
       request.fields['operational_hours'] = jsonEncode(operationalHours);
       request.fields['owner_name'] = state.ownerName;
       
+      // Add selected restaurant type
+      if (state.selectedRestaurantType != null) {
+        request.fields['restaurant_type'] = state.selectedRestaurantType!['name'];
+        debugPrint('Adding restaurant_type to request: ${state.selectedRestaurantType!['name']}');
+      }
+      
       // Only add latitude/longitude if they have values
       if (state.latitude.isNotEmpty) {
         request.fields['latitude'] = state.latitude;
@@ -506,6 +630,13 @@ class RestaurantProfileBloc
           final responseBody = jsonDecode(response.body);
           final status = responseBody['status'];
           final message = responseBody['message'] ?? '';
+          
+          // Save restaurant type to SharedPreferences
+          if (state.selectedRestaurantType != null) {
+            final prefs = await SharedPreferences.getInstance();
+            await prefs.setString('restaurant_type_name', state.selectedRestaurantType!['name']);
+            debugPrint('Saved restaurant_type_name to SharedPreferences: ${state.selectedRestaurantType!['name']}');
+          }
           
           emit(state.copyWith(
             isSubmitting: false,

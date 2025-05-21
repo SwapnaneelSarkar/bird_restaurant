@@ -7,10 +7,13 @@ class RestaurantDetailsState {
   final bool isLocationLoading;
   final bool isDataLoaded;
   final bool isAttemptedSubmit;
-  
-  // Add coordinates
   final double latitude;
   final double longitude;
+  
+  // New fields for restaurant type
+  final List<Map<String, dynamic>> restaurantTypes;
+  final Map<String, dynamic>? selectedRestaurantType;
+  final bool isLoadingRestaurantTypes;
 
   RestaurantDetailsState({
     required this.name,
@@ -23,6 +26,9 @@ class RestaurantDetailsState {
     required this.isAttemptedSubmit,
     required this.latitude,
     required this.longitude,
+    required this.restaurantTypes,
+    this.selectedRestaurantType,
+    required this.isLoadingRestaurantTypes,
   });
 
   factory RestaurantDetailsState.initial() {
@@ -37,6 +43,9 @@ class RestaurantDetailsState {
       isAttemptedSubmit: false,
       latitude: 0.0,
       longitude: 0.0,
+      restaurantTypes: [],
+      selectedRestaurantType: null,
+      isLoadingRestaurantTypes: false,
     );
   }
 
@@ -51,6 +60,9 @@ class RestaurantDetailsState {
     bool? isAttemptedSubmit,
     double? latitude,
     double? longitude,
+    List<Map<String, dynamic>>? restaurantTypes,
+    Map<String, dynamic>? selectedRestaurantType,
+    bool? isLoadingRestaurantTypes,
   }) {
     return RestaurantDetailsState(
       name: name ?? this.name,
@@ -63,6 +75,9 @@ class RestaurantDetailsState {
       isAttemptedSubmit: isAttemptedSubmit ?? this.isAttemptedSubmit,
       latitude: latitude ?? this.latitude,
       longitude: longitude ?? this.longitude,
+      restaurantTypes: restaurantTypes ?? this.restaurantTypes,
+      selectedRestaurantType: selectedRestaurantType ?? this.selectedRestaurantType,
+      isLoadingRestaurantTypes: isLoadingRestaurantTypes ?? this.isLoadingRestaurantTypes,
     );
   }
 }

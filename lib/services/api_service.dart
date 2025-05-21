@@ -21,16 +21,13 @@ class ApiServices {
     if (client != null) {
       _client = client;
     } else {
-      // Create a client that bypasses SSL verification for development
       _client = _createHttpClient();
     }
   }
   
-  // Create HTTP client that bypasses SSL verification (for development only)
   http.Client _createHttpClient() {
     final httpClient = HttpClient()
       ..badCertificateCallback = (X509Certificate cert, String host, int port) {
-        // Accept all certificates in development mode
         debugPrint('Accepting certificate for host: $host');
         return true;
       }
@@ -39,7 +36,6 @@ class ApiServices {
     return IOClient(httpClient);
   }
 
-  // Update Partner method that includes latitude and longitude
   Future<ApiResponse> updatePartner({
     required String restaurantName,
     required String address,
@@ -54,7 +50,6 @@ class ApiServices {
     List<File>? restaurantPhotos,
   }) async {
     try {
-      // Get token and user ID directly from SharedPreferences
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('token');
       final partnerId = prefs.getString('user_id');
@@ -68,15 +63,12 @@ class ApiServices {
 
       final url = Uri.parse('${ApiConstants.baseUrl}/partner/updatePartner');
       
-      // Create multipart request
       var request = http.MultipartRequest('POST', url);
       
-      // Add headers
       request.headers.addAll({
         'Authorization': 'Bearer $token',
       });
       
-      // Add text fields
       request.fields['partnerId'] = partnerId.toString();
       request.fields['restaurant_name'] = restaurantName;
       request.fields['address'] = address;
@@ -84,7 +76,6 @@ class ApiServices {
       request.fields['category'] = category;
       request.fields['operational_hours'] = operationalHours;
       
-      // Add latitude and longitude if available
       if (latitude != null && !latitude.isNaN && !latitude.isInfinite) {
         request.fields['latitude'] = latitude.toString();
         debugPrint('Adding latitude to API request: $latitude');
@@ -95,7 +86,6 @@ class ApiServices {
         debugPrint('Adding longitude to API request: $longitude');
       }
       
-      // Add files if they exist
       if (fssaiLicense != null) {
         request.files.add(await _createMultipartFile(
           'fssai_license_doc',
@@ -126,18 +116,15 @@ class ApiServices {
         }
       }
       
-      // Debug print request
       debugPrint('Update Partner Request:');
       debugPrint('URL: $url');
       debugPrint('Headers: ${request.headers}');
       debugPrint('Fields: ${request.fields}');
       debugPrint('Files: ${request.files.map((f) => '${f.field}: ${f.filename}').toList()}');
       
-      // Send request using the client that bypasses SSL verification
       final streamedResponse = await _client.send(request);
       final response = await http.Response.fromStream(streamedResponse);
       
-      // Debug print response
       debugPrint('Update Partner Response:');
       debugPrint('Status Code: ${response.statusCode}');
       debugPrint('Body: ${response.body}');
@@ -148,7 +135,6 @@ class ApiServices {
         throw ApiException('The total size of files is too large. Please compress your images or reduce the number of files.');
       }
 
-      // Update the error handling for HTML responses:
       if (response.body.trim().startsWith('<') || 
           response.body.contains('<!DOCTYPE') || 
           response.body.contains('<html')) {
@@ -197,14 +183,14 @@ Future<ApiResponse> updatePartnerWithAllFields({
   required String longitude,
   required String vegNonveg,
   required String cookingTime,
+  String? restaurantType,
   File? fssaiLicense,
   File? gstCertificate,
   File? panCard,
   List<File>? restaurantPhotos,
-  int retryCount = 0, // Track retries to prevent infinite loops
+  int retryCount = 0,
 }) async {
   try {
-    // Limit retries to prevent infinite loops
     if (retryCount >= 3) {
       return ApiResponse(
         success: false,
@@ -225,15 +211,12 @@ Future<ApiResponse> updatePartnerWithAllFields({
 
     final url = Uri.parse('${ApiConstants.baseUrl}/partner/updatePartner');
     
-    // Create multipart request
     var request = http.MultipartRequest('POST', url);
     
-    // Add headers
     request.headers.addAll({
       'Authorization': 'Bearer $token',
     });
     
-    // Add all form fields
     request.fields['partnerId'] = partnerId.toString();
     request.fields['restaurant_name'] = restaurantName;
     request.fields['address'] = address;
@@ -242,7 +225,6 @@ Future<ApiResponse> updatePartnerWithAllFields({
     request.fields['operational_hours'] = operationalHours;
     request.fields['owner_name'] = ownerName;
     
-    // Ensure coordinates are included
     request.fields['latitude'] = latitude;
     request.fields['longitude'] = longitude;
     debugPrint('Adding coordinates to API request - Latitude: $latitude, Longitude: $longitude');
@@ -250,19 +232,19 @@ Future<ApiResponse> updatePartnerWithAllFields({
     request.fields['veg-nonveg'] = vegNonveg;
     request.fields['cooking_time'] = cookingTime;
     
-    // Add mobile field explicitly from shared preferences
+    if (restaurantType != null && restaurantType.isNotEmpty) {
+      request.fields['restaurant_type'] = restaurantType;
+      debugPrint('Adding restaurant_type to API request: $restaurantType');
+    }
+    
     final prefs = await SharedPreferences.getInstance();
     final mobile = prefs.getString('mobile');
     if (mobile != null && mobile.isNotEmpty) {
       request.fields['mobile'] = mobile;
-      
-      // Also add partner_id from shared preferences
       request.fields['partner_id'] = partnerId;
     }
     
-    // Check that files still exist before adding them
     try {
-      // Add files if they exist and are still accessible
       if (fssaiLicense != null && await fssaiLicense.exists()) {
         request.files.add(await _createMultipartFile(
           'fssai_license_doc',
@@ -295,28 +277,23 @@ Future<ApiResponse> updatePartnerWithAllFields({
         }
       }
     } catch (fileError) {
-      // If we can't access files, log but continue without them
       debugPrint('Error adding files to request: $fileError');
       debugPrint('Continuing with request without missing files');
     }
     
-    // Debug print request
     debugPrint('Update Partner With All Fields Request:');
     debugPrint('URL: $url');
     debugPrint('Headers: ${request.headers}');
     debugPrint('Fields: ${request.fields}');
     debugPrint('Files: ${request.files.map((f) => '${f.field}: ${f.filename}').toList()}');
     
-    // Send request
     final streamedResponse = await _client.send(request);
     final response = await http.Response.fromStream(streamedResponse);
     
-    // Debug print response
     debugPrint('Update Partner Response:');
     debugPrint('Status Code: ${response.statusCode}');
     debugPrint('Body: ${response.body}');
     
-    // Handle potential non-JSON responses
     if (response.body.trim().startsWith('<') || 
         response.body.contains('<!DOCTYPE') || 
         response.body.contains('<html')) {
@@ -326,7 +303,6 @@ Future<ApiResponse> updatePartnerWithAllFields({
       throw ApiException('Server returned HTML instead of JSON. Status: ${response.statusCode}');
     }
     
-    // Parse the response body
     Map<String, dynamic> responseBody;
     try {
       responseBody = jsonDecode(response.body);
@@ -339,7 +315,6 @@ Future<ApiResponse> updatePartnerWithAllFields({
       final message = responseBody['message'] ?? '';
       final data = responseBody['data'];
       
-      // Successful response
       return ApiResponse(
         success: status == 'SUCCESS',
         data: data,
@@ -347,20 +322,15 @@ Future<ApiResponse> updatePartnerWithAllFields({
         status: status,
       );
     } else if (response.statusCode == 401) {
-      // If the problem is the token being invalid
       throw UnauthorizedException('Unauthorized access. Please login again.');
     } else if (response.statusCode == 400 && 
                responseBody['message']?.toString().contains('Partner ID is missing') == true) {
-      // Special handling for "Partner ID is missing" error
       debugPrint('Partner ID missing error detected. Attempting to refresh token...');
       
-      // Get mobile number
       final mobileNumber = prefs.getString('mobile');
       if (mobileNumber != null && mobileNumber.isNotEmpty) {
-        // Call register API to get a fresh token
         final refreshResponse = await registerPartner(mobileNumber);
         if (refreshResponse.success) {
-          // Try one more time with the new token, incrementing retry count
           debugPrint('Token refreshed successfully. Retrying update...');
           return updatePartnerWithAllFields(
             restaurantName: restaurantName,
@@ -373,6 +343,7 @@ Future<ApiResponse> updatePartnerWithAllFields({
             longitude: longitude,
             vegNonveg: vegNonveg,
             cookingTime: cookingTime,
+            restaurantType: restaurantType,
             fssaiLicense: fssaiLicense,
             gstCertificate: gstCertificate,
             panCard: panCard,
@@ -382,7 +353,6 @@ Future<ApiResponse> updatePartnerWithAllFields({
         }
       }
       
-      // If token refresh didn't work or can't be done, try without files
       if (retryCount < 1) {
         debugPrint('Trying submission without files...');
         return updatePartnerWithAllFields(
@@ -396,7 +366,8 @@ Future<ApiResponse> updatePartnerWithAllFields({
           longitude: longitude,
           vegNonveg: vegNonveg,
           cookingTime: cookingTime,
-          fssaiLicense: null, // Skip files on retry
+          restaurantType: restaurantType,
+          fssaiLicense: null,
           gstCertificate: null,
           panCard: null,
           restaurantPhotos: null,
@@ -404,14 +375,12 @@ Future<ApiResponse> updatePartnerWithAllFields({
         );
       }
       
-      // If we've already retried, return the original error
       return ApiResponse(
         success: false,
         message: responseBody['message'] ?? 'Update failed',
         status: responseBody['status'] ?? 'ERROR',
       );
     } else {
-      // Other error responses
       return ApiResponse(
         success: false,
         message: responseBody['message'] ?? 'Update failed',
@@ -421,7 +390,6 @@ Future<ApiResponse> updatePartnerWithAllFields({
   } on UnauthorizedException {
     rethrow;
   } catch (e) {
-    // If the error is related to file access, try again without files
     if ((e.toString().contains('PathNotFoundException') || 
          e.toString().contains('No such file or directory')) && 
         retryCount < 1) {
@@ -437,7 +405,8 @@ Future<ApiResponse> updatePartnerWithAllFields({
         longitude: longitude,
         vegNonveg: vegNonveg,
         cookingTime: cookingTime,
-        fssaiLicense: null, // Skip files on retry
+        restaurantType: restaurantType,
+        fssaiLicense: null,
         gstCertificate: null,
         panCard: null,
         restaurantPhotos: null,
@@ -449,7 +418,6 @@ Future<ApiResponse> updatePartnerWithAllFields({
     throw ApiException('Failed to update partner: $e');
   }
 }
-  // Helper method to create multipart file with proper content type
   Future<http.MultipartFile> _createMultipartFile(String field, File file) async {
     String? mimeType = lookupMimeType(file.path);
     MediaType? contentType;
@@ -461,7 +429,6 @@ Future<ApiResponse> updatePartnerWithAllFields({
       }
     }
     
-    // If MIME type couldn't be determined, use a default based on extension
     if (contentType == null) {
       String ext = path.extension(file.path).toLowerCase();
       switch (ext) {
@@ -498,7 +465,6 @@ Future<ApiResponse> updatePartnerWithAllFields({
     try {
       final prefs = await SharedPreferences.getInstance();
       
-      // First, save the essential values we want to keep
       final token = prefs.getString('token');
       final userId = prefs.getString('user_id');
       final mobile = prefs.getString('mobile');
@@ -508,18 +474,15 @@ Future<ApiResponse> updatePartnerWithAllFields({
       debugPrint('- User ID: $userId');
       debugPrint('- Mobile: $mobile');
       
-      // Get all keys except the ones we want to keep
       final keysToRemove = prefs.getKeys().where(
         (key) => key != 'token' && key != 'user_id' && key != 'mobile'
       ).toList();
       
-      // Remove each key individually (safer than clear)
       for (var key in keysToRemove) {
         await prefs.remove(key);
         debugPrint('Removed key: $key');
       }
       
-      // Verify that essential data is still there
       final afterToken = prefs.getString('token');
       final afterUserId = prefs.getString('user_id');
       final afterMobile = prefs.getString('mobile');
@@ -535,7 +498,6 @@ Future<ApiResponse> updatePartnerWithAllFields({
     }
   }
 
-  // Update this method in your ApiServices class
 Future<ApiResponse> registerPartner(String mobile) async {
   try {
     final url = Uri.parse('${ApiConstants.baseUrl}/partner/registerPartner');
@@ -557,7 +519,6 @@ Future<ApiResponse> registerPartner(String mobile) async {
     final rawResponseBody = response.body;
     debugPrint('Register Partner Raw Response: $rawResponseBody');
     
-    // Parse the response first to ensure we have the correct structure
     Map<String, dynamic> responseData;
     try {
       responseData = jsonDecode(rawResponseBody);
@@ -566,10 +527,8 @@ Future<ApiResponse> registerPartner(String mobile) async {
       throw ApiException('Invalid response format from server');
     }
     
-    // Get the data object if it exists
     final data = responseData['data'] as Map<String, dynamic>?;
     if (data != null) {
-      // Extract token
       if (data['token'] != null) {
         final token = data['token'] as String;
         final prefs = await SharedPreferences.getInstance();
@@ -578,7 +537,6 @@ Future<ApiResponse> registerPartner(String mobile) async {
         debugPrint('Token extracted and saved to SharedPreferences: ${token.substring(0, 20)}...');
       }
       
-      // Look for partner_id specifically
       if (data['partner_id'] != null) {
         final partnerId = data['partner_id'] as String;
         final prefs = await SharedPreferences.getInstance();
@@ -586,7 +544,6 @@ Future<ApiResponse> registerPartner(String mobile) async {
         await TokenService.saveUserId(partnerId);
         debugPrint('Partner ID extracted and saved to SharedPreferences: $partnerId');
       }
-      // Fall back to id if partner_id not found
       else if (data['id'] != null) {
         final userId = data['id'].toString();
         final prefs = await SharedPreferences.getInstance();
@@ -595,7 +552,6 @@ Future<ApiResponse> registerPartner(String mobile) async {
         debugPrint('User ID extracted and saved to SharedPreferences: $userId');
       }
       
-      // Save mobile number
       if (data['mobile'] != null) {
         final savedMobile = data['mobile'] as String;
         final prefs = await SharedPreferences.getInstance();
@@ -603,17 +559,12 @@ Future<ApiResponse> registerPartner(String mobile) async {
         await TokenService.saveMobile(savedMobile);
         debugPrint('Mobile saved to SharedPreferences: $savedMobile');
       } else {
-        // If mobile isn't in the response, use the one we sent
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('mobile', mobile);
         await TokenService.saveMobile(mobile);
         debugPrint('Mobile saved to SharedPreferences: $mobile');
       }
     } else {
-      // If there's no data object, try to extract directly from the response string
-      // using regex as a fallback method
-      
-      // Extract token using regex
       if (rawResponseBody.contains('token')) {
         final tokenRegex = RegExp(r'"token":"([^"]+)"');
         final match = tokenRegex.firstMatch(rawResponseBody);
@@ -628,7 +579,6 @@ Future<ApiResponse> registerPartner(String mobile) async {
         }
       }
       
-      // Look specifically for partner_id first
       if (rawResponseBody.contains('partner_id')) {
         final partnerIdRegex = RegExp(r'"partner_id":"([^"]+)"');
         final match = partnerIdRegex.firstMatch(rawResponseBody);
@@ -642,7 +592,6 @@ Future<ApiResponse> registerPartner(String mobile) async {
           }
         }
       } 
-      // Fall back to id if partner_id not found
       else if (rawResponseBody.contains('"id":')) {
         final idRegex = RegExp(r'"id":(\d+)');
         final match = idRegex.firstMatch(rawResponseBody);
@@ -657,7 +606,6 @@ Future<ApiResponse> registerPartner(String mobile) async {
         }
       }
       
-      // Save mobile number
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('mobile', mobile);
       await TokenService.saveMobile(mobile);
@@ -665,11 +613,9 @@ Future<ApiResponse> registerPartner(String mobile) async {
     }
     
     if (response.statusCode == 200) {
-      // Extract status, message, and data from response
       final status = responseData['status'];
       final message = responseData['message'] ?? '';
       
-      // Return API response
       return ApiResponse(
         success: true,
         data: data,
@@ -677,7 +623,6 @@ Future<ApiResponse> registerPartner(String mobile) async {
         status: status,
       );
     } else if (response.statusCode == 401) {
-      // Handle unauthorized error
       throw UnauthorizedException('Unauthorized access. Please login again.');
     } else {
       return ApiResponse(
@@ -697,7 +642,6 @@ Future<ApiResponse> registerPartner(String mobile) async {
     final token = await TokenService.getToken();
     return token != null && token.isNotEmpty;
   }
- // Enhanced getDetailsByMobile method for your ApiServices class
 
 Future<ApiResponse> getDetailsByMobile(String mobile) async {
   try {
@@ -727,7 +671,6 @@ Future<ApiResponse> getDetailsByMobile(String mobile) async {
       final message = responseBody['message'] ?? '';
       final data = responseBody['data'];
       
-      // Add logging for debugging
       if (data != null) {
         debugPrint('Fetched restaurant data:');
         debugPrint('- Name: ${data['restaurant_name']}');
@@ -759,6 +702,7 @@ Future<ApiResponse> getDetailsByMobile(String mobile) async {
     throw ApiException('Failed to get partner details: $e');
   }
 }
+
 Future<ApiResponse> getRestaurantDetails(String partnerId) async {
   try {
     final token = await TokenService.getToken();
@@ -809,11 +753,8 @@ Future<ApiResponse> getRestaurantDetails(String partnerId) async {
     throw ApiException('Failed to get restaurant details: $e');
   }
 }
-
-
 }
 
-// Special exception for unauthorized errors
 class UnauthorizedException implements Exception {
   final String message;
   

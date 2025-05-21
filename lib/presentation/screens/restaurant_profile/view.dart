@@ -99,7 +99,7 @@ class _BodyState extends State<_Body> {
       final longitude = result['longitude'];
       
       // Update the full address
-      final fullAddress = subAddress.isNotEmpty 
+      final fullAddress = subAddress != null && subAddress.toString().isNotEmpty 
           ? '$address, $subAddress' 
           : address;
           
@@ -380,6 +380,101 @@ class _BodyState extends State<_Body> {
                             onTap: () => bloc.add(const TypeChanged(RestaurantType.nonVeg)),
                           ),
                         ],
+                      ),
+                      
+                      // Restaurant Type Dropdown - NEW SECTION
+                      SizedBox(height: vert * 1.2),
+                      _sectionHeader('Kitchen Type', Icons.store_outlined),
+                      SizedBox(height: vert * 0.5),
+
+                      BlocBuilder<RestaurantProfileBloc, RestaurantProfileState>(
+                        buildWhen: (previous, current) =>
+                          previous.restaurantTypes != current.restaurantTypes ||
+                          previous.selectedRestaurantType != current.selectedRestaurantType ||
+                          previous.isLoadingRestaurantTypes != current.isLoadingRestaurantTypes,
+                        builder: (context, state) {
+                          if (state.isLoadingRestaurantTypes) {
+                            return Container(
+                              height: 50,
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: Colors.grey.shade300),
+                              ),
+                              child: Center(
+                                child: SizedBox(
+                                  width: 24,
+                                  height: 24,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: ColorManager.primary,
+                                  ),
+                                ),
+                              ),
+                            );
+                          }
+                          
+                          if (state.restaurantTypes.isEmpty) {
+                            return Container(
+                              padding: EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: Colors.grey.shade300),
+                              ),
+                              child: Text(
+                                'No restaurant types available',
+                                style: TextStyle(
+                                  color: Colors.grey.shade600,
+                                  fontSize: FontSize.s14,
+                                ),
+                              ),
+                            );
+                          }
+                          
+                          return Container(
+                            padding: EdgeInsets.symmetric(horizontal: 12),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.grey.shade300),
+                            ),
+                            child: DropdownButtonHideUnderline(
+                              child: DropdownButton<Map<String, dynamic>>(
+                                isExpanded: true,
+                                value: state.selectedRestaurantType,
+                                hint: Text(
+                                  'Select restaurant type',
+                                  style: TextStyle(
+                                    color: Colors.grey.shade600,
+                                    fontSize: FontSize.s14,
+                                  ),
+                                ),
+                                items: state.restaurantTypes.map<DropdownMenuItem<Map<String, dynamic>>>(
+                                  (Map<String, dynamic> type) {
+                                    return DropdownMenuItem<Map<String, dynamic>>(
+                                      value: type,
+                                      child: Text(
+                                        type['name'],
+                                        style: TextStyle(
+                                          fontSize: FontSize.s14,
+                                          color: ColorManager.black,
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                ).toList(),
+                                onChanged: (Map<String, dynamic>? selectedType) {
+                                  if (selectedType != null) {
+                                    context.read<RestaurantProfileBloc>().add(
+                                      RestaurantTypeChanged(selectedType),
+                                    );
+                                  }
+                                },
+                              ),
+                            ),
+                          );
+                        },
                       ),
                       SizedBox(height: vert * 1.2),
 

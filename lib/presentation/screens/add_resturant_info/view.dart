@@ -277,6 +277,105 @@ class _RestaurantDetailsBodyState extends State<_RestaurantDetailsBody> {
                     return SizedBox.shrink();
                   },
                 ),
+                
+                // Restaurant Type - NEW SECTION
+                SizedBox(height: h * 0.03),
+                
+                Text(
+                  'Restaurant Type',
+                  style: GoogleFonts.poppins(
+                    fontSize: FontSize.s16,
+                    fontWeight: FontWeightManager.regular,
+                    color: ColorManager.black,
+                  ),
+                ),
+                SizedBox(height: h * 0.01),
+                BlocBuilder<RestaurantDetailsBloc, RestaurantDetailsState>(
+                  buildWhen: (p, c) => 
+                    p.restaurantTypes != c.restaurantTypes || 
+                    p.selectedRestaurantType != c.selectedRestaurantType ||
+                    p.isLoadingRestaurantTypes != c.isLoadingRestaurantTypes,
+                  builder: (context, state) {
+                    if (state.isLoadingRestaurantTypes) {
+                      return Container(
+                        height: 48,
+                        alignment: Alignment.center,
+                        child: SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: ColorManager.primary,
+                          ),
+                        ),
+                      );
+                    }
+                    
+                    return Container(
+                      padding: EdgeInsets.symmetric(horizontal: 16),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: Colors.grey.shade300,
+                        ),
+                      ),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<Map<String, dynamic>>(
+                          isExpanded: true,
+                          value: state.selectedRestaurantType,
+                          hint: Text(
+                            'Select restaurant type',
+                            style: TextStyle(
+                              color: Colors.grey.shade600,
+                              fontSize: FontSize.s14,
+                            ),
+                          ),
+                          items: state.restaurantTypes.map<DropdownMenuItem<Map<String, dynamic>>>(
+                            (Map<String, dynamic> type) {
+                              return DropdownMenuItem<Map<String, dynamic>>(
+                                value: type,
+                                child: Text(
+                                  type['name'] as String,
+                                  style: TextStyle(
+                                    fontSize: FontSize.s14,
+                                    color: ColorManager.black,
+                                  ),
+                                ),
+                              );
+                            }
+                          ).toList(),
+                          onChanged: (Map<String, dynamic>? selectedType) {
+                            if (selectedType != null) {
+                              context.read<RestaurantDetailsBloc>().add(
+                                RestaurantTypeChanged(selectedType),
+                              );
+                            }
+                          },
+                        ),
+                      ),
+                    );
+                  },
+                ),
+                BlocBuilder<RestaurantDetailsBloc, RestaurantDetailsState>(
+                  buildWhen: (p, c) => 
+                    p.selectedRestaurantType != c.selectedRestaurantType || 
+                    p.isAttemptedSubmit != c.isAttemptedSubmit,
+                  builder: (context, state) {
+                    return state.selectedRestaurantType == null && state.isAttemptedSubmit
+                        ? Padding(
+                            padding: EdgeInsets.only(top: 5),
+                            child: Text(
+                              'Restaurant type is required',
+                              style: TextStyle(
+                                color: Colors.red,
+                                fontSize: FontSize.s12,
+                              ),
+                            ),
+                          )
+                        : SizedBox.shrink();
+                  },
+                ),
 
                 // Coordinates display for debugging (can be removed in production)
                 BlocBuilder<RestaurantDetailsBloc, RestaurantDetailsState>(
