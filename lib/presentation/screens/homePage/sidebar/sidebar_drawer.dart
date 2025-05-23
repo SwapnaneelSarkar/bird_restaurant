@@ -611,14 +611,17 @@ Widget _buildRestaurantImage() {
               child: const Text('Cancel'),
             ),
             TextButton(
-              onPressed: () => Navigator.of(context).pop(true),
-              child: Text(
-                'Logout',
-                style: TextStyle(
-                  color: Colors.red[700],
-                ),
-              ),
-            ),
+  onPressed: () => Navigator.of(context).pushNamedAndRemoveUntil(
+    '/signin', // Replace with your login route name
+    (route) => false, // This removes all previous routes
+  ),
+  child: Text(
+    'Logout',
+    style: TextStyle(
+      color: Colors.red[700],
+    ),
+  ),
+),
           ],
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),

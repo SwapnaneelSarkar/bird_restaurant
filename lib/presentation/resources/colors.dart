@@ -13,6 +13,8 @@ class ColorManager {
   static Color black = HexColor.fromHex('#000000');
   static Color signUpRed = Color.fromARGB(191, 245, 88, 54);
   static Color cardGrey = HexColor.fromHex('#E5E7EB');
+    static Color textgrey2 = HexColor.fromHex('#4B5563');
+
 }
 
 extension HexColor on Color {
