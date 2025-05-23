@@ -108,69 +108,65 @@ class _EditProductViewState extends State<EditProductView> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Main Image
-          // lib/presentation/screens/edit_product/edit_product_view.dart
-// Just fix the ImagePickerWidget part in the _buildForm method
-
-// Main Image
-Text(
-  'Main Image',
-  style: TextStyle(
-    fontSize: 16,
-    fontWeight: FontWeight.w500,
-    color: ColorManager.black,
-  ),
-),
-const SizedBox(height: 8),
-Stack(
-  children: [
-    // Show existing image if available
-    if (state.imageUrl != null && state.image == null)
-      Container(
-        width: double.infinity,
-        height: 200,
-        decoration: BoxDecoration(
-          color: Colors.grey[200],
-          borderRadius: BorderRadius.circular(8),
-          image: DecorationImage(
-            image: NetworkImage(state.imageUrl!),
-            fit: BoxFit.cover,
-          ),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            // Overlay to make it clear you can change it
-            Container(
-              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-              decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.6),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Text(
-                'Tap to change image',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 14,
-                ),
-              ),
+          Text(
+            'Main Image',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+              color: ColorManager.black,
             ),
-          ],
-        ),
-      ),
-    
-    // Standard image picker for new uploads
-    ImagePickerWidget(
-      selectedImage: state.image,
-      onImageSelected: (file) {
-        context.read<EditProductBloc>().add(ProductImageSelectedEvent(file));
-      },
-      title: state.imageUrl != null && state.image == null ? '' : 'Product Image',
-      subtitle: state.imageUrl != null && state.image == null ? '' : 'Click to upload or drag and drop',
-      maxSizeText: state.imageUrl != null && state.image == null ? '' : 'PNG, JPG up to 5MB',
-    ),
-  ],
-),
-const SizedBox(height: 20),
+          ),
+          const SizedBox(height: 8),
+          Stack(
+            children: [
+              // Show existing image if available
+              if (state.imageUrl != null && state.image == null)
+                Container(
+                  width: double.infinity,
+                  height: 200,
+                  decoration: BoxDecoration(
+                    color: Colors.grey[200],
+                    borderRadius: BorderRadius.circular(8),
+                    image: DecorationImage(
+                      image: NetworkImage(state.imageUrl!),
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      // Overlay to make it clear you can change it
+                      Container(
+                        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(0.6),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Text(
+                          'Tap to change image',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              
+              // Standard image picker for new uploads
+              ImagePickerWidget(
+                selectedImage: state.image,
+                onImageSelected: (file) {
+                  context.read<EditProductBloc>().add(ProductImageSelectedEvent(file));
+                },
+                title: state.imageUrl != null && state.image == null ? '' : 'Product Image',
+                subtitle: state.imageUrl != null && state.image == null ? '' : 'Click to upload or drag and drop',
+                maxSizeText: state.imageUrl != null && state.image == null ? '' : 'PNG, JPG up to 5MB',
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
           
           // Product Name
           CustomTextField(
@@ -212,24 +208,42 @@ const SizedBox(height: 20),
               borderRadius: BorderRadius.circular(8),
               border: Border.all(color: ColorManager.grey),
             ),
-            child: DropdownButtonHideUnderline(
-              child: DropdownButton<String>(
-                isExpanded: true,
-                value: state.category.isEmpty ? null : state.category,
-                hint: const Text('Select category'),
-                items: state.categories.map((String category) {
-                  return DropdownMenuItem<String>(
-                    value: category.toLowerCase().replaceAll(' ', '-'),
-                    child: Text(category),
-                  );
-                }).toList(),
-                onChanged: (String? newValue) {
-                  if (newValue != null) {
-                    context.read<EditProductBloc>().add(ProductCategoryChangedEvent(newValue));
-                  }
-                },
-              ),
-            ),
+            child: state.categories.isEmpty
+                ? Container(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    child: Row(
+                      children: [
+                        SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(ColorManager.primary),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        const Text('Loading categories...'),
+                      ],
+                    ),
+                  )
+                : DropdownButtonHideUnderline(
+                    child: DropdownButton<String>(
+                      isExpanded: true,
+                      value: state.category.isEmpty ? null : state.category,
+                      hint: const Text('Select category'),
+                      items: state.categories.map((category) {
+                        return DropdownMenuItem<String>(
+                          value: category.name.toLowerCase().replaceAll(' ', '-'),
+                          child: Text(category.name),
+                        );
+                      }).toList(),
+                      onChanged: (String? newValue) {
+                        if (newValue != null) {
+                          context.read<EditProductBloc>().add(ProductCategoryChangedEvent(newValue));
+                        }
+                      },
+                    ),
+                  ),
           ),
           const SizedBox(height: 16),
           

@@ -1,6 +1,7 @@
 // lib/presentation/screens/edit_product/edit_product_state.dart
 import 'dart:io';
 import 'package:equatable/equatable.dart';
+import '../../../models/catagory_model.dart';
 import '../../../models/restaurant_menu_model.dart';
 
 abstract class EditProductState extends Equatable {
@@ -23,7 +24,7 @@ class EditProductFormState extends EditProductState {
   final bool isVeg;
   final File? image;
   final String? imageUrl;
-  final List<String> categories;
+  final List<CategoryModel> categories;
   final bool isSubmitting;
   final bool isSuccess;
   final String? errorMessage;
@@ -37,7 +38,7 @@ class EditProductFormState extends EditProductState {
     required this.isVeg,
     this.image,
     this.imageUrl,
-    this.categories = const ['Food', 'Beverages', 'Desserts', 'Snacks', 'Appetizers', 'Main Course'],
+    this.categories = const [],
     this.isSubmitting = false,
     this.isSuccess = false,
     this.errorMessage,
@@ -58,7 +59,7 @@ class EditProductFormState extends EditProductState {
     bool? isVeg,
     File? image,
     String? imageUrl,
-    List<String>? categories,
+    List<CategoryModel>? categories,
     bool? isSubmitting,
     bool? isSuccess,
     String? errorMessage,
