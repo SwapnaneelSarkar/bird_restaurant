@@ -3,6 +3,7 @@
 import 'package:bird_restaurant/presentation/screens/add_product/view.dart';
 import 'package:bird_restaurant/presentation/screens/add_resturant_info/view.dart';
 import 'package:bird_restaurant/presentation/screens/attributes/view.dart';
+import 'package:bird_restaurant/presentation/screens/chat/view.dart';
 import 'package:bird_restaurant/presentation/screens/item_list/view.dart';
 import 'package:bird_restaurant/presentation/screens/orders/view.dart';
 import 'package:bird_restaurant/presentation/screens/plans/view.dart';
@@ -33,7 +34,7 @@ class Routes {
   static const String orders = '/orders';
   static const String editMenu = '/editMenu';
   static const String plan = '/plan';
-
+  static const String chat = '/chat';
 
   static const String blank = '/blank';
 }
@@ -97,6 +98,9 @@ class RouteGenerator {
 
         case Routes.plan:
           return MaterialPageRoute(builder: (_) => const PlanSelectionView());
+
+        case Routes.chat:
+          return MaterialPageRoute(builder: (_) => const ChatView(orderId: ""));
         
 
         default:
