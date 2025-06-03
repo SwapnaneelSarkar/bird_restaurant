@@ -10,6 +10,7 @@ import '../../../ui_components/universal_widget/nav_bar.dart';
 import '../../resources/colors.dart';
 import '../chat/view.dart';
 
+import '../chat_list/view.dart';
 import 'bloc.dart';
 import 'event.dart';
 import 'sidebar/side_bar_opener.dart';
@@ -52,13 +53,33 @@ class _HomeViewState extends State<HomeView> with TickerProviderStateMixin {
         _selectedIndex = index;
       });
       
-      _pageController.animateToPage(
-        index,
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeInOut,
-      );
+      if (index == 1) {
+        // Navigate to chat list instead of showing chat content in PageView
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (context) => const ChatListView(),
+          ),
+        ).then((_) {
+          // Reset to home tab when returning from chat list
+          setState(() {
+            _selectedIndex = 0;
+          });
+          _pageController.animateToPage(
+            0,
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeInOut,
+          );
+        });
+      } else {
+        _pageController.animateToPage(
+          index,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeInOut,
+        );
+      }
     }
   }
+
 
   @override
   Widget build(BuildContext context) {
