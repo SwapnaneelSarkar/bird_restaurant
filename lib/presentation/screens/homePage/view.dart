@@ -1,3 +1,4 @@
+// lib/presentation/home/view.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -5,7 +6,9 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:fl_chart/fl_chart.dart';
 
 import '../../../constants/api_constants.dart';
+import '../../../ui_components/universal_widget/nav_bar.dart';
 import '../../resources/colors.dart';
+import '../chat/view.dart';
 
 import 'bloc.dart';
 import 'event.dart';
@@ -20,8 +23,42 @@ class HomeView extends StatefulWidget {
   State<HomeView> createState() => _HomeViewState();
 }
 
-class _HomeViewState extends State<HomeView> {
+class _HomeViewState extends State<HomeView> with TickerProviderStateMixin {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  int _selectedIndex = 0;
+  late AnimationController _pageTransitionController;
+  late PageController _pageController;
+
+  @override
+  void initState() {
+    super.initState();
+    _pageTransitionController = AnimationController(
+      duration: const Duration(milliseconds: 300),
+      vsync: this,
+    );
+    _pageController = PageController();
+  }
+
+  @override
+  void dispose() {
+    _pageTransitionController.dispose();
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  void _onBottomNavTapped(int index) {
+    if (index != _selectedIndex) {
+      setState(() {
+        _selectedIndex = index;
+      });
+      
+      _pageController.animateToPage(
+        index,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -31,50 +68,46 @@ class _HomeViewState extends State<HomeView> {
         key: _scaffoldKey,
         backgroundColor: Colors.grey[50],
         drawer: BlocBuilder<HomeBloc, HomeState>(
-  builder: (context, state) {
-    // Handle restaurant data for sidebar
-    String? restaurantName;
-    String? restaurantSlogan;
-    String? restaurantImageUrl;
-    
-    if (state is HomeLoaded && state.restaurantData != null) {
-      restaurantName = state.restaurantData!['restaurant_name'] as String?;
-      restaurantSlogan = state.restaurantData!['address'] as String?;
-      
-      // Get restaurant image URL - path based on your API response structure
-      // This depends on how the image URL is stored in the API response
-      // It could be 'restaurant_photos', 'image_url', etc.
-      if (state.restaurantData!['restaurant_photos'] != null) {
-        // Handle the case where it might be a list or a string
-        var photos = state.restaurantData!['restaurant_photos'];
-        if (photos is List && photos.isNotEmpty) {
-          restaurantImageUrl = photos[0]; // Get the first photo
-        } else if (photos is String) {
-          restaurantImageUrl = photos;
-        }
-      }
-      
-      // Alternative fields to check for images
-      if (restaurantImageUrl == null && state.restaurantData!['logo_url'] != null) {
-        restaurantImageUrl = state.restaurantData!['logo_url'] as String?;
-      }
-      
-      // If we found an image URL, ensure it's a complete URL
-      if (restaurantImageUrl != null && !restaurantImageUrl.startsWith('http')) {
-        // Prepend base URL if needed
-        restaurantImageUrl = '${ApiConstants.baseUrl}/$restaurantImageUrl';
-      }
-    }
-    
-    return SidebarDrawer(
-      activePage: 'home',
-      restaurantName: restaurantName,
-      restaurantSlogan: restaurantSlogan,
-      restaurantImageUrl: restaurantImageUrl,
-    );
-  },
-),
-        appBar: AppBar(
+          builder: (context, state) {
+            // Handle restaurant data for sidebar
+            String? restaurantName;
+            String? restaurantSlogan;
+            String? restaurantImageUrl;
+            
+            if (state is HomeLoaded && state.restaurantData != null) {
+              restaurantName = state.restaurantData!['restaurant_name'] as String?;
+              restaurantSlogan = state.restaurantData!['address'] as String?;
+              
+              // Get restaurant image URL - path based on your API response structure
+              if (state.restaurantData!['restaurant_photos'] != null) {
+                var photos = state.restaurantData!['restaurant_photos'];
+                if (photos is List && photos.isNotEmpty) {
+                  restaurantImageUrl = photos[0];
+                } else if (photos is String) {
+                  restaurantImageUrl = photos;
+                }
+              }
+              
+              // Alternative fields to check for images
+              if (restaurantImageUrl == null && state.restaurantData!['logo_url'] != null) {
+                restaurantImageUrl = state.restaurantData!['logo_url'] as String?;
+              }
+              
+              // If we found an image URL, ensure it's a complete URL
+              if (restaurantImageUrl != null && !restaurantImageUrl.startsWith('http')) {
+                restaurantImageUrl = '${ApiConstants.baseUrl}/$restaurantImageUrl';
+              }
+            }
+            
+            return SidebarDrawer(
+              activePage: 'home',
+              restaurantName: restaurantName,
+              restaurantSlogan: restaurantSlogan,
+              restaurantImageUrl: restaurantImageUrl,
+            );
+          },
+        ),
+        appBar: _selectedIndex == 0 ? AppBar(
           backgroundColor: Colors.white,
           elevation: 0,
           leading: SidebarOpener(
@@ -89,42 +122,69 @@ class _HomeViewState extends State<HomeView> {
               height: 30,
             ),
           ),
-        ),
-        body: BlocBuilder<HomeBloc, HomeState>(
-          builder: (context, state) {
-            if (state is HomeLoading) {
-              return const Center(child: CircularProgressIndicator());
-            } else if (state is HomeLoaded) {
-              return _buildHomeContent(context, state);
-            } else if (state is HomeError) {
-              return Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      state.message,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        color: Colors.red,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    ElevatedButton(
-                      onPressed: () {
-                        context.read<HomeBloc>().add(LoadHomeData());
-                      },
-                      child: const Text('Retry'),
-                    ),
-                  ],
+        ) : null,
+        body: Stack(
+          children: [
+            // Page content
+            PageView(
+              controller: _pageController,
+              onPageChanged: (index) {
+                setState(() {
+                  _selectedIndex = index;
+                });
+              },
+              children: [
+                // Home content
+                BlocBuilder<HomeBloc, HomeState>(
+                  builder: (context, state) {
+                    if (state is HomeLoading) {
+                      return const Center(child: CircularProgressIndicator());
+                    } else if (state is HomeLoaded) {
+                      return _buildHomeContent(context, state);
+                    } else if (state is HomeError) {
+                      return Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              state.message,
+                              style: const TextStyle(
+                                fontSize: 16,
+                                color: Colors.red,
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            ElevatedButton(
+                              onPressed: () {
+                                context.read<HomeBloc>().add(LoadHomeData());
+                              },
+                              child: const Text('Retry'),
+                            ),
+                          ],
+                        ),
+                      );
+                    }
+                    
+                    return const Center(child: CircularProgressIndicator());
+                  },
                 ),
-              );
-            }
+                
+                // Chats content
+                const ChatView(orderId: '',),
+              ],
+            ),
             
-            // Initial state
-            return const Center(
-              child: CircularProgressIndicator(),
-            );
-          },
+            // Bottom Navigation
+            Positioned(
+              bottom: 0,
+              left: 0,
+              right: 0,
+              child: BottomNavigationWidget(
+                selectedIndex: _selectedIndex,
+                onItemTapped: _onBottomNavTapped,
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -193,7 +253,6 @@ class _HomeViewState extends State<HomeView> {
             // Stats Row 1
             Row(
               children: [
-                // Orders Stats
                 Expanded(
                   child: _buildStatCard(
                     'Orders',
@@ -204,7 +263,6 @@ class _HomeViewState extends State<HomeView> {
                   ),
                 ),
                 const SizedBox(width: 16),
-                // Products Stats
                 Expanded(
                   child: _buildStatCard(
                     'Products',
@@ -222,7 +280,6 @@ class _HomeViewState extends State<HomeView> {
             // Stats Row 2
             Row(
               children: [
-                // Tags Stats
                 Expanded(
                   child: _buildStatCard(
                     'Tags',
@@ -233,7 +290,6 @@ class _HomeViewState extends State<HomeView> {
                   ),
                 ),
                 const SizedBox(width: 16),
-                // Rating Stats
                 Expanded(
                   child: _buildStatCard(
                     'Rating',
@@ -281,7 +337,7 @@ class _HomeViewState extends State<HomeView> {
               ],
             ),
             
-            // Restaurant Information Section (if available)
+            // Restaurant Information Section
             if (state.restaurantData != null) ...[
               const SizedBox(height: 24),
               Column(
@@ -339,7 +395,8 @@ class _HomeViewState extends State<HomeView> {
               ),
             ],
             
-            const SizedBox(height: 30),
+            // Extra bottom padding for navigation bar
+            const SizedBox(height: 120),
           ],
         ),
       ),
@@ -400,12 +457,10 @@ class _HomeViewState extends State<HomeView> {
   }
   
   Widget _buildSalesChart(List<Map<String, dynamic>> salesData) {
-    // Convert sales data to spots
     final List<FlSpot> spots = salesData.asMap().entries.map((entry) {
       return FlSpot(entry.key.toDouble(), entry.value['sales'].toDouble());
     }).toList();
     
-    // Days of the week
     final List<String> days = salesData.map((data) => data['day'] as String).toList();
     
     return LineChart(
