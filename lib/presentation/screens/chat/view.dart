@@ -1,9 +1,8 @@
-// lib/presentation/screens/chat/view.dart
+// lib/presentation/screens/chat/view.dart - FIXED VERSION
 
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import '../../../services/chat_services.dart';
 import '../../../ui_components/universal_widget/topbar.dart';
 import '../../resources/colors.dart';
 import '../../resources/font.dart';
@@ -32,8 +31,12 @@ class _ChatViewState extends State<ChatView> {
   @override
   void initState() {
     super.initState();
-    // Remove the listener that was causing issues
-    // We'll handle typing in the onChanged callback instead
+    // Load chat data when the widget initializes
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        context.read<ChatBloc>().add(LoadChatData(widget.orderId));
+      }
+    });
   }
 
   @override
@@ -45,7 +48,6 @@ class _ChatViewState extends State<ChatView> {
   }
 
   void _handleTyping(String text) {
-    // Handle typing directly in the text field's onChanged
     if (!mounted) return;
     
     try {
@@ -68,70 +70,68 @@ class _ChatViewState extends State<ChatView> {
             try {
               chatBloc.add(const StopTyping());
             } catch (e) {
-              // Ignore if bloc is disposed
+              debugPrint('Error stopping typing: $e');
             }
           }
         });
       }
     } catch (e) {
-      // Ignore context errors during disposal
+      debugPrint('Error handling typing: $e');
     }
   }
 
   void _scrollToBottom() {
     if (_scrollController.hasClients) {
-      _scrollController.animateTo(
-        _scrollController.position.maxScrollExtent,
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeOut,
-      );
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_scrollController.hasClients) {
+          _scrollController.animateTo(
+            _scrollController.position.maxScrollExtent,
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeOut,
+          );
+        }
+      });
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (context) => ChatBloc(chatService: ChatService())
-        ..add(LoadChatData(widget.orderId)),
-      child: Scaffold(
-        backgroundColor: Colors.white,
-        body: BlocConsumer<ChatBloc, chat_state.ChatState>(
-          listener: (context, state) {
-            if (state is chat_state.ChatLoaded) {
-              // Scroll to bottom when new messages arrive
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                _scrollToBottom();
-              });
-            }
-            
-            if (state is chat_state.ChatError) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(state.message),
-                  backgroundColor: Colors.red,
-                  action: SnackBarAction(
-                    label: 'Retry',
-                    textColor: Colors.white,
-                    onPressed: () {
-                      context.read<ChatBloc>().add(LoadChatData(widget.orderId));
-                    },
-                  ),
+    return Scaffold(
+      backgroundColor: Colors.white,
+      body: BlocConsumer<ChatBloc, chat_state.ChatState>(
+        listener: (context, state) {
+          if (state is chat_state.ChatLoaded) {
+            // Scroll to bottom when new messages arrive
+            _scrollToBottom();
+          }
+          
+          if (state is chat_state.ChatError) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(state.message),
+                backgroundColor: Colors.red,
+                action: SnackBarAction(
+                  label: 'Retry',
+                  textColor: Colors.white,
+                  onPressed: () {
+                    context.read<ChatBloc>().add(LoadChatData(widget.orderId));
+                  },
                 ),
-              );
-            }
-          },
-          builder: (context, state) {
-            if (state is chat_state.ChatLoading) {
-              return _buildLoadingState();
-            } else if (state is chat_state.ChatLoaded) {
-              return _buildChatContent(context, state);
-            } else if (state is chat_state.ChatError) {
-              return _buildErrorState(context, state);
-            }
-            
-            return const SizedBox.shrink();
-          },
-        ),
+              ),
+            );
+          }
+        },
+        builder: (context, state) {
+          if (state is chat_state.ChatLoading) {
+            return _buildLoadingState();
+          } else if (state is chat_state.ChatLoaded) {
+            return _buildChatContent(context, state);
+          } else if (state is chat_state.ChatError) {
+            return _buildErrorState(context, state);
+          }
+          
+          return _buildLoadingState(); // Show loading for initial state
+        },
       ),
     );
   }
@@ -191,26 +191,33 @@ class _ChatViewState extends State<ChatView> {
             child: AppBackHeader(title: 'Chat'),
           ),
           // Connection status indicator
-          Container(
-            margin: const EdgeInsets.only(right: 16),
-            child: const Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                CircleAvatar(
-                  radius: 4,
-                  backgroundColor: Colors.green,
+          BlocBuilder<ChatBloc, chat_state.ChatState>(
+            buildWhen: (previous, current) => 
+                previous is chat_state.ChatLoaded && current is chat_state.ChatLoaded,
+            builder: (context, state) {
+              final isConnected = state is chat_state.ChatLoaded;
+              return Container(
+                margin: const EdgeInsets.only(right: 16),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    CircleAvatar(
+                      radius: 4,
+                      backgroundColor: isConnected ? Colors.green : Colors.red,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      isConnected ? 'Online' : 'Offline',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: isConnected ? Colors.green : Colors.red,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
                 ),
-                SizedBox(width: 4),
-                Text(
-                  'Online',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.green,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
-            ),
+              );
+            },
           ),
           // Refresh button
           IconButton(
@@ -463,7 +470,7 @@ class _ChatViewState extends State<ChatView> {
                 maxLines: null,
                 textCapitalization: TextCapitalization.sentences,
                 onSubmitted: (_) => _sendMessage(),
-                onChanged: _handleTyping, // Handle typing here instead of listener
+                onChanged: _handleTyping,
               ),
             ),
           ),
@@ -580,8 +587,13 @@ class _ChatViewState extends State<ChatView> {
           context.read<ChatBloc>().add(const StopTyping());
         }
       } catch (e) {
-        // Handle any context errors gracefully
         debugPrint('Error sending message: $e');
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to send message. Please try again.'),
+            backgroundColor: Colors.red,
+          ),
+        );
       }
     }
   }

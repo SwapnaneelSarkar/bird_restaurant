@@ -1,14 +1,12 @@
 // lib/main.dart
-
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:provider/provider.dart';
 
 import 'presentation/resources/router/router.dart';
 import 'presentation/screens/signin/bloc.dart';
-import 'services/chat_services.dart';
+import 'presentation/screens/chat/bloc.dart'; // Add this import
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -24,17 +22,15 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MultiProvider(
+    return MultiBlocProvider(
       providers: [
-        // Chat service provider for global access
-        ChangeNotifierProvider<ChatService>(
-          create: (_) => ChatService(),
-          lazy: false, // Create immediately
-        ),
-        // Login bloc provider
         BlocProvider<LoginBloc>(
           create: (_) => LoginBloc(),
         ),
+        BlocProvider<ChatBloc>(
+          create: (_) => ChatBloc(),
+        ),
+        // Add other global BLoCs here if needed
       ],
       child: MaterialApp(
         debugShowCheckedModeBanner: false,

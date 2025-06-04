@@ -1,4 +1,4 @@
-// lib/presentation/resources/router/router.dart - Updated Routes class
+// lib/presentation/resources/router/router.dart - FIXED VERSION
 
 import 'package:bird_restaurant/presentation/screens/add_product/view.dart';
 import 'package:bird_restaurant/presentation/screens/add_resturant_info/view.dart';
@@ -10,8 +10,11 @@ import 'package:bird_restaurant/presentation/screens/orders/view.dart';
 import 'package:bird_restaurant/presentation/screens/plans/view.dart';
 import 'package:bird_restaurant/presentation/screens/signin/view.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../services/chat_services.dart';
 import '../../screens/application_status/view.dart';
+import '../../screens/chat/bloc.dart';
 import '../../screens/homePage/view.dart';
 import '../../screens/otp_screen/view.dart';
 import '../../screens/restaurant_details_3/view.dart';
@@ -20,7 +23,7 @@ import '../../screens/resturant_details_2/view.dart';
 import '../../screens/splashScreen/view.dart';
 
 class Routes {
-  static const String splash = '/'; // Add splash as default route
+  static const String splash = '/';
   static const String signin = '/signin';
   static const String otp = '/otp';
   static const String detailsAdd = '/detailsAdd';
@@ -29,15 +32,13 @@ class Routes {
   static const String applicationStatus = '/applicationStatus';
   static const String profile = '/profile';
   static const String homePage = '/home';
-
   static const String attributes = '/attributes';
   static const String addProduct = '/addProduct';
   static const String orders = '/orders';
   static const String editMenu = '/editMenu';
   static const String plan = '/plan';
   static const String chat = '/chat';
-  static const String chatList = '/chatList'; // New route for chat list
-
+  static const String chatList = '/chatList';
   static const String blank = '/blank';
 }
 
@@ -102,7 +103,13 @@ class RouteGenerator {
           return MaterialPageRoute(builder: (_) => const PlanSelectionView());
 
         case Routes.chat:
-          return MaterialPageRoute(builder: (_) => const ChatView(orderId: ""));
+          final String? orderId = routeSettings.arguments as String?;
+          return MaterialPageRoute(
+            builder: (_) => BlocProvider<ChatBloc>(
+              create: (context) => ChatBloc(chatService: ChatService()),
+              child: ChatView(orderId: orderId ?? ""),
+            ),
+          );
 
         case Routes.chatList:
           return MaterialPageRoute(builder: (_) => const ChatListView());
@@ -125,13 +132,13 @@ class RouteGenerator {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(
+                const Icon(
                   Icons.error_outline,
                   color: Colors.red,
                   size: 48,
                 ),
                 const SizedBox(height: 16),
-                Text(
+                const Text(
                   "Page Not Found",
                   style: TextStyle(
                     fontSize: 18,
@@ -143,10 +150,10 @@ class RouteGenerator {
                   onPressed: () {
                     Navigator.pushReplacement(
                       context,
-                      MaterialPageRoute(builder: (context) => LoginView()),
+                      MaterialPageRoute(builder: (context) => const LoginView()),
                     );
                   },
-                  child: Text('Go to Sign In'),
+                  child: const Text('Go to Sign In'),
                 ),
               ],
             ),

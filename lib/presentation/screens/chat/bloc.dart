@@ -13,6 +13,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
   Timer? _typingTimer;
   String? _currentRoomId;
   String? _currentUserId;
+  StreamSubscription? _chatServiceSubscription;
 
   ChatBloc({ChatService? chatService}) 
     : _chatService = chatService ?? ChatService(),
@@ -24,24 +25,30 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     on<StopTyping>(_onStopTyping);
     on<RefreshChat>(_onRefreshChat);
     on<_UpdateMessages>(_onUpdateMessages);
+    on<_UpdateConnectionStatus>(_onUpdateConnectionStatus);
 
     // Listen to chat service changes
     _chatService.addListener(_onChatServiceUpdate);
   }
 
   void _onChatServiceUpdate() {
-    // Convert chat service messages to chat state messages
-    final messages = _chatService.messages.map((msg) {
-      return ChatMessage(
-        id: msg.id,
-        message: msg.content,
-        isUserMessage: msg.senderType == 'partner',
-        time: _formatTime(msg.createdAt),
-      );
-    }).toList();
+    if (!isClosed) {
+      // Convert chat service messages to chat state messages
+      final messages = _chatService.messages.map((msg) {
+        return ChatMessage(
+          id: msg.id,
+          message: msg.content,
+          isUserMessage: msg.senderType == 'partner',
+          time: _formatTime(msg.createdAt),
+        );
+      }).toList();
 
-    // Add internal event to update messages
-    add(_UpdateMessages(messages));
+      // Add internal event to update messages
+      add(_UpdateMessages(messages));
+      
+      // Update connection status
+      add(_UpdateConnectionStatus(_chatService.isConnected));
+    }
   }
 
   Future<void> _onLoadChatData(LoadChatData event, Emitter<ChatState> emit) async {
@@ -57,19 +64,29 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
         return;
       }
 
-      // Set the room ID (using order ID as room ID)
+      // Set the room ID (this should be the roomId from your chat list, not orderId)
       _currentRoomId = event.orderId.isNotEmpty ? event.orderId : 'default_room';
       
-      // Connect to chat service if not connected
+      // Try to connect to chat service (don't wait too long)
       await _chatService.connect();
       
-      // Wait a bit for connection to establish
-      await Future.delayed(const Duration(milliseconds: 500));
+      // Wait briefly for connection, but don't block the UI
+      int attempts = 0;
+      while (!_chatService.isConnected && attempts < 5) { // Reduced attempts
+        await Future.delayed(const Duration(milliseconds: 300));
+        attempts++;
+      }
       
-      // Join the chat room
+      if (!_chatService.isConnected) {
+        debugPrint('ChatBloc: Socket connection failed, using HTTP only mode');
+      } else {
+        debugPrint('ChatBloc: Socket connected successfully');
+      }
+      
+      // Join the chat room (this will load history regardless of socket status)
       await _chatService.joinRoom(_currentRoomId!);
       
-      // Mock order info (you can replace this with real API call)
+      // Mock order info (replace with real API call)
       const orderInfo = ChatOrderInfo(
         orderId: '#2504',
         restaurantName: 'Italian Restaurant',
@@ -90,9 +107,10 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       emit(ChatLoaded(
         orderInfo: orderInfo,
         messages: messages,
+        isConnected: _chatService.isConnected,
       ));
       
-      debugPrint('ChatBloc: Chat data loaded successfully with ${messages.length} messages');
+      debugPrint('ChatBloc: Chat data loaded successfully with ${messages.length} messages (Socket: ${_chatService.isConnected ? 'Connected' : 'Disconnected'})');
     } catch (e) {
       debugPrint('ChatBloc: Error loading chat data: $e');
       emit(const ChatError('Failed to load chat. Please try again.'));
@@ -105,6 +123,15 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       emit(currentState.copyWith(
         messages: event.messages,
         isSendingMessage: false,
+      ));
+    }
+  }
+
+  void _onUpdateConnectionStatus(_UpdateConnectionStatus event, Emitter<ChatState> emit) {
+    if (state is ChatLoaded) {
+      final currentState = state as ChatLoaded;
+      emit(currentState.copyWith(
+        isConnected: event.isConnected,
       ));
     }
   }
@@ -126,29 +153,46 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
           debugPrint('ChatBloc: Message sent successfully');
           
           // Stop typing indicator
-          _chatService.sendStopTyping(_currentRoomId!);
+          if (_chatService.isConnected) {
+            _chatService.sendStopTyping(_currentRoomId!);
+          }
           
           // The message will be updated via the chat service listener
-          // So we just need to update the sending state
-          emit(currentState.copyWith(isSendingMessage: false));
+          // Update the sending state
+          if (state is ChatLoaded) {
+            final updatedState = state as ChatLoaded;
+            emit(updatedState.copyWith(isSendingMessage: false));
+          }
         } else {
           debugPrint('ChatBloc: Failed to send message');
-          emit(currentState.copyWith(isSendingMessage: false));
+          if (state is ChatLoaded) {
+            final updatedState = state as ChatLoaded;
+            emit(updatedState.copyWith(isSendingMessage: false));
+          }
           emit(const ChatError('Failed to send message. Please try again.'));
-          emit(currentState.copyWith(isSendingMessage: false));
+          // Restore the previous state
+          if (state is ChatError) {
+            emit(currentState.copyWith(isSendingMessage: false));
+          }
         }
       } catch (e) {
         debugPrint('ChatBloc: Error sending message: $e');
-        emit(currentState.copyWith(isSendingMessage: false));
+        if (state is ChatLoaded) {
+          final updatedState = state as ChatLoaded;
+          emit(updatedState.copyWith(isSendingMessage: false));
+        }
         emit(const ChatError('Failed to send message. Please try again.'));
-        emit(currentState.copyWith(isSendingMessage: false));
+        // Restore the previous state
+        if (state is ChatError) {
+          emit(currentState.copyWith(isSendingMessage: false));
+        }
       }
     }
   }
 
   void _onReceiveMessage(ReceiveMessage event, Emitter<ChatState> emit) {
-    // This event is now handled by the chat service listener
-    // but keeping it for backward compatibility
+    // This event is handled by the chat service listener for real-time updates
+    // Keep this for backward compatibility or manual message injection
     if (state is ChatLoaded) {
       final currentState = state as ChatLoaded;
       
@@ -163,12 +207,14 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
           time: _getCurrentTime(),
         );
         
-        // Add message to list
-        final updatedMessages = [...currentState.messages, newMessage];
-        
-        emit(currentState.copyWith(messages: updatedMessages));
-        
-        debugPrint('ChatBloc: Message received successfully');
+        // Check if message already exists to avoid duplicates
+        final messageExists = currentState.messages.any((m) => m.message == event.message);
+        if (!messageExists) {
+          // Add message to list
+          final updatedMessages = [...currentState.messages, newMessage];
+          emit(currentState.copyWith(messages: updatedMessages));
+          debugPrint('ChatBloc: Message received successfully');
+        }
       } catch (e) {
         debugPrint('ChatBloc: Error receiving message: $e');
       }
@@ -176,7 +222,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
   }
 
   void _onStartTyping(StartTyping event, Emitter<ChatState> emit) {
-    if (_currentRoomId != null) {
+    if (_currentRoomId != null && _chatService.isConnected) {
       _chatService.sendTyping(_currentRoomId!);
       
       // Cancel existing timer
@@ -184,13 +230,15 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       
       // Set a timer to stop typing after 3 seconds of inactivity
       _typingTimer = Timer(const Duration(seconds: 3), () {
-        add(const StopTyping());
+        if (!isClosed) {
+          add(const StopTyping());
+        }
       });
     }
   }
 
   void _onStopTyping(StopTyping event, Emitter<ChatState> emit) {
-    if (_currentRoomId != null) {
+    if (_currentRoomId != null && _chatService.isConnected) {
       _chatService.sendStopTyping(_currentRoomId!);
       _typingTimer?.cancel();
     }
@@ -199,10 +247,27 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
   Future<void> _onRefreshChat(RefreshChat event, Emitter<ChatState> emit) async {
     if (_currentRoomId != null) {
       try {
+        // Show loading state briefly
+        if (state is ChatLoaded) {
+          final currentState = state as ChatLoaded;
+          emit(currentState.copyWith(isRefreshing: true));
+        }
+        
         await _chatService.loadChatHistory(_currentRoomId!);
         debugPrint('ChatBloc: Chat refreshed successfully');
+        
+        // The updated messages will be handled by the listener
+        // Just update the refreshing state
+        if (state is ChatLoaded) {
+          final currentState = state as ChatLoaded;
+          emit(currentState.copyWith(isRefreshing: false));
+        }
       } catch (e) {
         debugPrint('ChatBloc: Error refreshing chat: $e');
+        if (state is ChatLoaded) {
+          final currentState = state as ChatLoaded;
+          emit(currentState.copyWith(isRefreshing: false));
+        }
       }
     }
   }
@@ -225,13 +290,14 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
   @override
   Future<void> close() {
     _typingTimer?.cancel();
+    _chatServiceSubscription?.cancel();
     _chatService.removeListener(_onChatServiceUpdate);
     _chatService.dispose();
     return super.close();
   }
 }
 
-// Internal event for updating messages
+// Internal events for updating state
 class _UpdateMessages extends ChatEvent {
   final List<ChatMessage> messages;
   
@@ -239,4 +305,13 @@ class _UpdateMessages extends ChatEvent {
   
   @override
   List<Object?> get props => [messages];
+}
+
+class _UpdateConnectionStatus extends ChatEvent {
+  final bool isConnected;
+  
+  const _UpdateConnectionStatus(this.isConnected);
+  
+  @override
+  List<Object?> get props => [isConnected];
 }
