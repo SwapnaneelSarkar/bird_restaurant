@@ -1,4 +1,4 @@
-// lib/presentation/screens/chat/view.dart - FIXED VERSION
+// lib/presentation/screens/chat/view.dart - FIXED VERSION FOR REAL-TIME MESSAGES
 
 import 'dart:async';
 import 'package:flutter/material.dart';
@@ -27,6 +27,7 @@ class _ChatViewState extends State<ChatView> {
   final ScrollController _scrollController = ScrollController();
   Timer? _typingTimer;
   bool _isTyping = false;
+  int _previousMessageCount = 0;
 
   @override
   void initState() {
@@ -80,18 +81,35 @@ class _ChatViewState extends State<ChatView> {
     }
   }
 
-  void _scrollToBottom() {
+  void _scrollToBottom({bool animated = true}) {
     if (_scrollController.hasClients) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (_scrollController.hasClients) {
-          _scrollController.animateTo(
-            _scrollController.position.maxScrollExtent,
-            duration: const Duration(milliseconds: 300),
-            curve: Curves.easeOut,
-          );
-        }
-      });
+      if (animated) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (_scrollController.hasClients) {
+            _scrollController.animateTo(
+              _scrollController.position.maxScrollExtent,
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeOut,
+            );
+          }
+        });
+      } else {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (_scrollController.hasClients) {
+            _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
+          }
+        });
+      }
     }
+  }
+
+  void _checkForNewMessages(List<chat_state.ChatMessage> messages) {
+    // Check if new messages were added
+    if (messages.length > _previousMessageCount) {
+      debugPrint('ChatView: 📱 New messages detected (${messages.length} vs $_previousMessageCount), scrolling to bottom');
+      _scrollToBottom();
+    }
+    _previousMessageCount = messages.length;
   }
 
   @override
@@ -101,8 +119,8 @@ class _ChatViewState extends State<ChatView> {
       body: BlocConsumer<ChatBloc, chat_state.ChatState>(
         listener: (context, state) {
           if (state is chat_state.ChatLoaded) {
-            // Scroll to bottom when new messages arrive
-            _scrollToBottom();
+            // Check for new messages and scroll to bottom
+            _checkForNewMessages(state.messages);
           }
           
           if (state is chat_state.ChatError) {
@@ -162,18 +180,43 @@ class _ChatViewState extends State<ChatView> {
     return SafeArea(
       child: Column(
         children: [
-          _buildHeader(context),
+          _buildHeader(context, state),
           _buildOrderHeader(state.orderInfo),
           Expanded(
             child: _buildMessagesList(context, state.messages),
           ),
+          if (state.isConnected && state.isRefreshing)
+            Container(
+              padding: const EdgeInsets.all(8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: ColorManager.primary,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Syncing messages...',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                ],
+              ),
+            ),
           _buildMessageInput(context, state.isSendingMessage),
         ],
       ),
     );
   }
 
-  Widget _buildHeader(BuildContext context) {
+  Widget _buildHeader(BuildContext context, chat_state.ChatLoaded state) {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -191,33 +234,30 @@ class _ChatViewState extends State<ChatView> {
             child: AppBackHeader(title: 'Chat'),
           ),
           // Connection status indicator
-          BlocBuilder<ChatBloc, chat_state.ChatState>(
-            buildWhen: (previous, current) => 
-                previous is chat_state.ChatLoaded && current is chat_state.ChatLoaded,
-            builder: (context, state) {
-              final isConnected = state is chat_state.ChatLoaded;
-              return Container(
-                margin: const EdgeInsets.only(right: 16),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    CircleAvatar(
-                      radius: 4,
-                      backgroundColor: isConnected ? Colors.green : Colors.red,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      isConnected ? 'Online' : 'Offline',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: isConnected ? Colors.green : Colors.red,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
+          Container(
+            margin: const EdgeInsets.only(right: 8),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    color: state.isConnected ? Colors.green : Colors.red,
+                    shape: BoxShape.circle,
+                  ),
                 ),
-              );
-            },
+                const SizedBox(width: 4),
+                Text(
+                  state.isConnected ? 'Online' : 'Offline',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: state.isConnected ? Colors.green : Colors.red,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
           ),
           // Refresh button
           IconButton(
@@ -344,6 +384,19 @@ class _ChatViewState extends State<ChatView> {
         ),
       );
     }
+
+    // Add scroll listener to automatically scroll to bottom when content changes
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients) {
+        final maxScroll = _scrollController.position.maxScrollExtent;
+        final currentScroll = _scrollController.position.pixels;
+        
+        // Auto-scroll if user is near the bottom (within 100 pixels)
+        if (maxScroll - currentScroll < 100) {
+          _scrollToBottom();
+        }
+      }
+    });
 
     return ListView.builder(
       controller: _scrollController,
@@ -586,6 +639,10 @@ class _ChatViewState extends State<ChatView> {
           _isTyping = false;
           context.read<ChatBloc>().add(const StopTyping());
         }
+        
+        // Scroll to bottom after sending
+        _scrollToBottom();
+        
       } catch (e) {
         debugPrint('Error sending message: $e');
         ScaffoldMessenger.of(context).showSnackBar(

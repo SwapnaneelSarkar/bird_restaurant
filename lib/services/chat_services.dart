@@ -1,4 +1,4 @@
-// lib/services/chat_service.dart
+// lib/services/chat_services.dart - FIXED VERSION FOR REAL-TIME MESSAGES
 
 import 'dart:async';
 import 'dart:convert';
@@ -31,14 +31,16 @@ class ApiChatMessage {
 
   factory ApiChatMessage.fromJson(Map<String, dynamic> json) {
     return ApiChatMessage(
-      id: json['_id'] ?? '',
+      id: json['_id'] ?? json['id'] ?? DateTime.now().millisecondsSinceEpoch.toString(),
       roomId: json['roomId'] ?? '',
       senderId: json['senderId'] ?? '',
       senderType: json['senderType'] ?? '',
-      content: json['content'] ?? '',
+      content: json['content'] ?? json['message'] ?? '',
       messageType: json['messageType'] ?? 'text',
       readBy: List<String>.from(json['readBy'] ?? []),
-      createdAt: DateTime.parse(json['createdAt']),
+      createdAt: json['createdAt'] != null 
+          ? DateTime.parse(json['createdAt']) 
+          : DateTime.now(),
     );
   }
 
@@ -53,6 +55,11 @@ class ApiChatMessage {
       'readBy': readBy,
       'createdAt': createdAt.toIso8601String(),
     };
+  }
+
+  // Helper method to check if this message is from the current user
+  bool isFromCurrentUser(String? currentUserId) {
+    return senderId == currentUserId;
   }
 }
 
@@ -72,16 +79,23 @@ class ChatService extends ChangeNotifier {
   bool _isDisposed = false;
   bool _isConnecting = false;
 
-  List<ApiChatMessage> get messages => _messages;
+  // Add a stream controller for real-time message updates
+  final StreamController<ApiChatMessage> _messageStreamController = 
+      StreamController<ApiChatMessage>.broadcast();
+  
+  List<ApiChatMessage> get messages => List.unmodifiable(_messages);
   bool get isConnected => _isConnected;
   bool get isTyping => _isTyping;
+  String? get currentUserId => _currentUserId;
+  
+  // Stream for real-time message updates
+  Stream<ApiChatMessage> get messageStream => _messageStreamController.stream;
 
   ChatService() {
     _initializeService();
   }
 
   Future<void> _initializeService() async {
-    // Get user token and ID first
     try {
       _currentUserId = await TokenService.getUserId();
       debugPrint('ChatService: User ID retrieved: $_currentUserId');
@@ -96,7 +110,6 @@ class ChatService extends ChangeNotifier {
     if (_isDisposed || _isConnecting) return;
     
     try {
-      // Dispose existing socket if any
       _socket?.dispose();
       
       debugPrint('ChatService: Initializing socket to $_serverUrl');
@@ -104,16 +117,16 @@ class ChatService extends ChangeNotifier {
       _socket = io.io(
         _serverUrl,
         <String, dynamic>{
-          'transports': ['websocket', 'polling'], // Allow fallback to polling
+          'transports': ['websocket', 'polling'],
           'autoConnect': false,
-          'timeout': 10000, // Reduced timeout
+          'timeout': 10000,
           'reconnection': true,
           'reconnectionAttempts': 3,
           'reconnectionDelay': 2000,
           'reconnectionDelayMax': 10000,
           'maxReconnectionAttempts': 5,
           'randomizationFactor': 0.5,
-          'forceNew': true, // Force new connection
+          'forceNew': true,
         },
       );
 
@@ -128,17 +141,15 @@ class ChatService extends ChangeNotifier {
     if (_socket == null || _isDisposed) return;
 
     _socket!.onConnect((_) {
-      debugPrint('ChatService: Socket connected successfully to $_serverUrl');
+      debugPrint('ChatService: Socket connected successfully');
       _isConnected = true;
       _isConnecting = false;
       _reconnectAttempts = 0;
       _reconnectTimer?.cancel();
       _connectionTimeoutTimer?.cancel();
       
-      // Authenticate the connection
       _authenticateConnection();
       
-      // Rejoin room if we were in one
       if (_currentRoomId != null && _currentUserId != null) {
         _rejoinRoom();
       }
@@ -176,33 +187,81 @@ class ChatService extends ChangeNotifier {
       
       if (!_isDisposed) {
         notifyListeners();
-        // Only attempt reconnect if it wasn't a manual disconnect
         if (reason != 'io client disconnect' && reason != 'client namespace disconnect') {
           _scheduleReconnect();
         }
       }
     });
 
-    // Message handlers
+    // CRITICAL: Enhanced message handlers for real-time updates
     _socket!.on('receive_message', (data) {
       if (_isDisposed) return;
-      debugPrint('ChatService: Received message: $data');
+      debugPrint('ChatService: 🔥 Received real-time message: $data');
+      
       if (data != null) {
         try {
-          final message = ApiChatMessage.fromJson(data);
+          // Handle both single message and message object formats
+          Map<String, dynamic> messageData;
+          if (data is Map<String, dynamic>) {
+            messageData = data;
+          } else if (data is String) {
+            messageData = jsonDecode(data);
+          } else {
+            debugPrint('ChatService: Unknown message format: ${data.runtimeType}');
+            return;
+          }
+          
+          final message = ApiChatMessage.fromJson(messageData);
+          debugPrint('ChatService: ✅ Parsed incoming message from ${message.senderType}: ${message.content}');
+          
+          // Add message and notify listeners immediately
           _addMessage(message);
+          
+          // Also emit to stream for immediate UI updates
+          if (!_messageStreamController.isClosed) {
+            _messageStreamController.add(message);
+          }
+          
         } catch (e) {
-          debugPrint('ChatService: Error parsing received message: $e');
+          debugPrint('ChatService: ❌ Error parsing received message: $e');
+          debugPrint('ChatService: Raw data: $data');
         }
       }
     });
 
+    // Handle different possible message event names
+    _socket!.on('message', (data) {
+      if (_isDisposed) return;
+      debugPrint('ChatService: 📨 Received message via "message" event: $data');
+      _handleIncomingMessage(data);
+    });
+
+    _socket!.on('new_message', (data) {
+      if (_isDisposed) return;
+      debugPrint('ChatService: 📨 Received message via "new_message" event: $data');
+      _handleIncomingMessage(data);
+    });
+
+    _socket!.on('chat_message', (data) {
+      if (_isDisposed) return;
+      debugPrint('ChatService: 📨 Received message via "chat_message" event: $data');
+      _handleIncomingMessage(data);
+    });
+
+    // Typing indicators
     _socket!.on('user_typing', (data) {
       if (_isDisposed) return;
       debugPrint('ChatService: User typing: $data');
-      if (data != null && data['userId'] != _currentUserId) {
-        _isTyping = true;
-        notifyListeners();
+      if (data != null) {
+        try {
+          final userId = data['userId'] ?? data['senderId'];
+          if (userId != null && userId != _currentUserId) {
+            _isTyping = true;
+            notifyListeners();
+          }
+        } catch (e) {
+          debugPrint('ChatService: Error handling typing event: $e');
+        }
       }
     });
 
@@ -213,7 +272,7 @@ class ChatService extends ChangeNotifier {
       notifyListeners();
     });
 
-    // Authentication response
+    // Authentication and room events
     _socket!.on('authenticated', (data) {
       debugPrint('ChatService: Authentication successful: $data');
     });
@@ -222,7 +281,6 @@ class ChatService extends ChangeNotifier {
       debugPrint('ChatService: Authentication failed: $data');
     });
 
-    // Room events
     _socket!.on('joined_room', (data) {
       debugPrint('ChatService: Successfully joined room: $data');
     });
@@ -230,6 +288,49 @@ class ChatService extends ChangeNotifier {
     _socket!.on('left_room', (data) {
       debugPrint('ChatService: Left room: $data');
     });
+
+    // Add error handling for message sending
+    _socket!.on('message_error', (data) {
+      debugPrint('ChatService: Message sending error: $data');
+    });
+
+    _socket!.on('message_sent', (data) {
+      debugPrint('ChatService: Message sent confirmation: $data');
+    });
+  }
+
+  void _handleIncomingMessage(dynamic data) {
+    if (data == null) return;
+    
+    try {
+      Map<String, dynamic> messageData;
+      if (data is Map<String, dynamic>) {
+        messageData = data;
+      } else if (data is String) {
+        messageData = jsonDecode(data);
+      } else {
+        debugPrint('ChatService: Unsupported message format: ${data.runtimeType}');
+        return;
+      }
+      
+      final message = ApiChatMessage.fromJson(messageData);
+      debugPrint('ChatService: 🚀 Processing incoming message from ${message.senderType}: ${message.content}');
+      
+      // Only process messages that are not from current user
+      if (message.senderId != _currentUserId) {
+        _addMessage(message);
+        
+        // Emit to stream for immediate UI updates
+        if (!_messageStreamController.isClosed) {
+          _messageStreamController.add(message);
+        }
+      } else {
+        debugPrint('ChatService: Ignoring own message');
+      }
+      
+    } catch (e) {
+      debugPrint('ChatService: Error handling incoming message: $e');
+    }
   }
 
   Future<void> _authenticateConnection() async {
@@ -282,7 +383,6 @@ class ChatService extends ChangeNotifier {
       if (_socket != null && !_socket!.connected) {
         debugPrint('ChatService: Attempting to connect socket...');
         
-        // Set connection timeout
         _connectionTimeoutTimer = Timer(const Duration(seconds: 15), () {
           if (_isConnecting && !_isConnected) {
             debugPrint('ChatService: Connection timeout');
@@ -328,33 +428,40 @@ class ChatService extends ChangeNotifier {
     if (_isDisposed) return;
     
     try {
-      debugPrint('ChatService: Joining room: $roomId');
+      debugPrint('ChatService: 🏠 Joining room: $roomId');
       
-      // Ensure we have user ID
       if (_currentUserId == null) {
         _currentUserId = await TokenService.getUserId();
       }
       
       _currentRoomId = roomId;
       
-      // Always load chat history first, regardless of socket connection
+      // Load chat history first
       await loadChatHistory(roomId);
       
-      // Try to connect socket if not connected
+      // Connect socket if not connected
       if (!_isConnected && !_isConnecting) {
-        connect(); // Don't await this, let it connect in background
+        connect();
       }
       
-      // If socket is connected, join the room
+      // Join room via socket if connected
       if (_socket?.connected == true && _currentUserId != null) {
-        debugPrint('ChatService: Emitting join_room event');
+        debugPrint('ChatService: 📡 Emitting join_room event for room: $roomId');
         _socket!.emit('join_room', {
           'roomId': roomId,
           'userId': _currentUserId,
           'userType': 'partner'
         });
+        
+        // Also try alternative event names that the server might be listening for
+        _socket!.emit('joinRoom', {
+          'roomId': roomId,
+          'userId': _currentUserId,
+          'userType': 'partner'
+        });
+        
       } else {
-        debugPrint('ChatService: Socket not connected, room will be joined when connection is established');
+        debugPrint('ChatService: Socket not connected, will join room when connection is established');
       }
     } catch (e) {
       debugPrint('ChatService: Error joining room: $e');
@@ -363,8 +470,15 @@ class ChatService extends ChangeNotifier {
 
   void _rejoinRoom() {
     if (_currentRoomId != null && _currentUserId != null && _socket?.connected == true) {
-      debugPrint('ChatService: Rejoining room: $_currentRoomId');
+      debugPrint('ChatService: 🔄 Rejoining room: $_currentRoomId');
       _socket!.emit('join_room', {
+        'roomId': _currentRoomId,
+        'userId': _currentUserId,
+        'userType': 'partner'
+      });
+      
+      // Try alternative event name
+      _socket!.emit('joinRoom', {
         'roomId': _currentRoomId,
         'userId': _currentUserId,
         'userType': 'partner'
@@ -374,8 +488,14 @@ class ChatService extends ChangeNotifier {
 
   void leaveRoom(String roomId) {
     if (_socket?.connected == true) {
-      debugPrint('ChatService: Leaving room: $roomId');
+      debugPrint('ChatService: 👋 Leaving room: $roomId');
       _socket!.emit('leave_room', {
+        'roomId': roomId,
+        'userId': _currentUserId,
+      });
+      
+      // Try alternative event name
+      _socket!.emit('leaveRoom', {
         'roomId': roomId,
         'userId': _currentUserId,
       });
@@ -395,51 +515,63 @@ class ChatService extends ChangeNotifier {
         return false;
       }
 
-      final url = Uri.parse('${ApiConstants.baseUrl}/chat/message');
-      
       final messageData = {
         'roomId': roomId,
         'senderId': userId,
         'senderType': 'partner',
         'content': content,
         'messageType': messageType,
+        'timestamp': DateTime.now().toIso8601String(),
       };
 
-      debugPrint('ChatService: Sending message via HTTP: $messageData');
+      debugPrint('ChatService: 📤 Sending message: $content');
 
-      final response = await http.post(
-        url,
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-        },
-        body: jsonEncode(messageData),
-      ).timeout(const Duration(seconds: 10));
-
-      debugPrint('ChatService: Send message response: ${response.statusCode} - ${response.body}');
-
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        final responseData = jsonDecode(response.body);
-        
-        // Only add message if it's not already in the list
-        if (!_messages.any((m) => m.id == responseData['_id'])) {
-          final message = ApiChatMessage.fromJson(responseData);
-          _addMessage(message);
-        }
-        
-        // Emit via socket for real-time updates to other users
-        if (_socket?.connected == true) {
-          debugPrint('ChatService: Broadcasting message via socket');
+      // 1. First, try to send via socket for immediate delivery
+      bool socketSent = false;
+      if (_socket?.connected == true) {
+        try {
           _socket!.emit('send_message', messageData);
-        } else {
-          debugPrint('ChatService: Socket not connected, message sent via HTTP only');
+          _socket!.emit('sendMessage', messageData); // Try alternative event name
+          socketSent = true;
+          debugPrint('ChatService: ✅ Message sent via socket');
+        } catch (e) {
+          debugPrint('ChatService: ❌ Socket send failed: $e');
         }
-        
-        return true;
-      } else {
-        debugPrint('ChatService: Failed to send message: ${response.statusCode}');
-        return false;
       }
+
+      // 2. Also send via HTTP API for persistence
+      try {
+        final url = Uri.parse('${ApiConstants.baseUrl}/chat/message');
+        
+        final response = await http.post(
+          url,
+          headers: {
+            'Authorization': 'Bearer $token',
+            'Content-Type': 'application/json',
+          },
+          body: jsonEncode(messageData),
+        ).timeout(const Duration(seconds: 10));
+
+        debugPrint('ChatService: HTTP send response: ${response.statusCode}');
+
+        if (response.statusCode == 200 || response.statusCode == 201) {
+          final responseData = jsonDecode(response.body);
+          
+          // Add the message to local list if not already present
+          if (!_messages.any((m) => m.content == content && m.senderId == userId)) {
+            final message = ApiChatMessage.fromJson(responseData);
+            _addMessage(message);
+          }
+          
+          return true;
+        }
+      } catch (e) {
+        debugPrint('ChatService: HTTP send failed: $e');
+      }
+
+      // If socket sent successfully, consider it a success even if HTTP failed
+      return socketSent;
+      
     } catch (e) {
       debugPrint('ChatService: Error sending message: $e');
       return false;
@@ -459,7 +591,7 @@ class ChatService extends ChangeNotifier {
 
       final url = Uri.parse('${ApiConstants.baseUrl}/chat/history/$roomId');
       
-      debugPrint('ChatService: Loading chat history from: $url');
+      debugPrint('ChatService: 📚 Loading chat history from: $url');
 
       final response = await http.get(
         url,
@@ -477,10 +609,16 @@ class ChatService extends ChangeNotifier {
             .map((messageJson) => ApiChatMessage.fromJson(messageJson))
             .toList();
         
-        // Sort messages by creation time
         _messages.sort((a, b) => a.createdAt.compareTo(b.createdAt));
         
-        debugPrint('ChatService: Loaded ${_messages.length} messages from history');
+        debugPrint('ChatService: ✅ Loaded ${_messages.length} messages from history');
+        if (!_isDisposed) {
+          notifyListeners();
+        }
+      } else if (response.statusCode == 404) {
+        // No chat history exists yet, start with empty list
+        _messages = [];
+        debugPrint('ChatService: No chat history found, starting fresh');
         if (!_isDisposed) {
           notifyListeners();
         }
@@ -497,6 +635,7 @@ class ChatService extends ChangeNotifier {
       _socket!.emit('typing', {
         'roomId': roomId,
         'userId': _currentUserId,
+        'userType': 'partner',
       });
     }
   }
@@ -506,6 +645,7 @@ class ChatService extends ChangeNotifier {
       _socket!.emit('stop_typing', {
         'roomId': roomId,
         'userId': _currentUserId,
+        'userType': 'partner',
       });
     }
   }
@@ -514,11 +654,22 @@ class ChatService extends ChangeNotifier {
     if (_isDisposed) return;
     
     // Check if message already exists to avoid duplicates
-    if (!_messages.any((m) => m.id == message.id)) {
+    final existingIndex = _messages.indexWhere((m) => 
+      m.id == message.id || 
+      (m.content == message.content && 
+       m.senderId == message.senderId && 
+       m.createdAt.difference(message.createdAt).abs().inSeconds < 5));
+    
+    if (existingIndex == -1) {
       _messages.add(message);
       _messages.sort((a, b) => a.createdAt.compareTo(b.createdAt));
-      debugPrint('ChatService: Added new message: ${message.content}');
+      
+      debugPrint('ChatService: ➕ Added new message from ${message.senderType}: ${message.content}');
+      debugPrint('ChatService: Total messages: ${_messages.length}');
+      
       notifyListeners();
+    } else {
+      debugPrint('ChatService: 🔄 Message already exists, skipping duplicate');
     }
   }
 
@@ -531,12 +682,13 @@ class ChatService extends ChangeNotifier {
 
   @override
   void dispose() {
-    debugPrint('ChatService: Disposing service');
+    debugPrint('ChatService: 🗑️ Disposing service');
     _isDisposed = true;
     _reconnectTimer?.cancel();
     _connectionTimeoutTimer?.cancel();
     disconnect();
     _socket?.dispose();
+    _messageStreamController.close();
     super.dispose();
   }
 }
