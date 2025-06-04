@@ -1,3 +1,5 @@
+// lib/presentation/screens/chat/event.dart
+
 import 'package:equatable/equatable.dart';
 
 abstract class ChatEvent extends Equatable {
@@ -32,4 +34,16 @@ class ReceiveMessage extends ChatEvent {
   
   @override
   List<Object?> get props => [message];
+}
+
+class StartTyping extends ChatEvent {
+  const StartTyping();
+}
+
+class StopTyping extends ChatEvent {
+  const StopTyping();
+}
+
+class RefreshChat extends ChatEvent {
+  const RefreshChat();
 }

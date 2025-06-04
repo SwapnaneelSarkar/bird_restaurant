@@ -5,10 +5,11 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'dart:async';
 
 import '../../../models/chat_room_model.dart';
-import '../../../ui_components/universal_widget/topbar.dart';
+import '../../../ui_components/universal_widget/nav_bar.dart';
 import '../../resources/colors.dart';
 import '../../resources/font.dart';
 import '../chat/view.dart';
+import '../homePage/view.dart';
 import 'bloc.dart';
 import 'event.dart';
 import 'state.dart';
@@ -30,6 +31,9 @@ class _ChatListViewState extends State<ChatListView> with TickerProviderStateMix
   late Animation<double> _searchSlideAnimation;
   late Animation<double> _searchFadeAnimation;
   bool _isSearchExpanded = false;
+  
+  // Bottom navigation
+  int _selectedIndex = 1; // Set to 1 since this is the chat screen
 
   @override
   void initState() {
@@ -99,6 +103,20 @@ class _ChatListViewState extends State<ChatListView> with TickerProviderStateMix
     }
   }
 
+  void _onBottomNavTapped(int index) {
+    if (index != _selectedIndex) {
+      if (index == 0) {
+        // Navigate to home
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (context) => const HomeView(),
+          ),
+        );
+      }
+      // If index == 1, we're already on the chat list page, so do nothing
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocProvider.value(
@@ -113,16 +131,31 @@ class _ChatListViewState extends State<ChatListView> with TickerProviderStateMix
         builder: (context, state) {
           return Scaffold(
             backgroundColor: Colors.grey[50],
-            body: SafeArea(
-              child: Column(
-                children: [
-                  _buildHeader(),
-                  _buildSearchBar(),
-                  Expanded(
-                    child: _buildBody(state),
+            body: Stack(
+              children: [
+                SafeArea(
+                  child: Column(
+                    children: [
+                      _buildHeader(),
+                      _buildSearchBar(),
+                      Expanded(
+                        child: _buildBody(state),
+                      ),
+                    ],
                   ),
-                ],
-              ),
+                ),
+                
+                // Bottom Navigation
+                Positioned(
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                  child: BottomNavigationWidget(
+                    selectedIndex: _selectedIndex,
+                    onItemTapped: _onBottomNavTapped,
+                  ),
+                ),
+              ],
             ),
           );
         },
@@ -288,7 +321,7 @@ class _ChatListViewState extends State<ChatListView> with TickerProviderStateMix
       backgroundColor: Colors.white,
       child: ListView.separated(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.symmetric(vertical: 8),
+        padding: const EdgeInsets.only(top: 8, bottom: 120), // Add bottom padding for nav bar
         itemCount: chatRooms.length,
         separatorBuilder: (context, index) => Container(
           height: 0.5,

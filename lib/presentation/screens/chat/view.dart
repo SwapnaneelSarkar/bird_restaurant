@@ -1,11 +1,15 @@
+// lib/presentation/screens/chat/view.dart
+
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../../services/chat_services.dart';
 import '../../../ui_components/universal_widget/topbar.dart';
 import '../../resources/colors.dart';
 import '../../resources/font.dart';
 import 'bloc.dart';
 import 'event.dart';
-import 'state.dart';
+import 'state.dart' as chat_state;
 
 class ChatView extends StatefulWidget {
   final String orderId;
@@ -22,12 +26,56 @@ class ChatView extends StatefulWidget {
 class _ChatViewState extends State<ChatView> {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
+  Timer? _typingTimer;
+  bool _isTyping = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Remove the listener that was causing issues
+    // We'll handle typing in the onChanged callback instead
+  }
 
   @override
   void dispose() {
     _messageController.dispose();
     _scrollController.dispose();
+    _typingTimer?.cancel();
     super.dispose();
+  }
+
+  void _handleTyping(String text) {
+    // Handle typing directly in the text field's onChanged
+    if (!mounted) return;
+    
+    try {
+      final chatBloc = context.read<ChatBloc>();
+      
+      if (text.isNotEmpty && !_isTyping) {
+        _isTyping = true;
+        chatBloc.add(const StartTyping());
+      } else if (text.isEmpty && _isTyping) {
+        _isTyping = false;
+        chatBloc.add(const StopTyping());
+      }
+      
+      // Reset typing timer
+      _typingTimer?.cancel();
+      if (text.isNotEmpty) {
+        _typingTimer = Timer(const Duration(seconds: 2), () {
+          if (_isTyping && mounted) {
+            _isTyping = false;
+            try {
+              chatBloc.add(const StopTyping());
+            } catch (e) {
+              // Ignore if bloc is disposed
+            }
+          }
+        });
+      }
+    } catch (e) {
+      // Ignore context errors during disposal
+    }
   }
 
   void _scrollToBottom() {
@@ -43,26 +91,41 @@ class _ChatViewState extends State<ChatView> {
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
-      create: (context) => ChatBloc()..add(LoadChatData(widget.orderId)),
+      create: (context) => ChatBloc(chatService: ChatService())
+        ..add(LoadChatData(widget.orderId)),
       child: Scaffold(
         backgroundColor: Colors.white,
-        body: BlocConsumer<ChatBloc, ChatState>(
+        body: BlocConsumer<ChatBloc, chat_state.ChatState>(
           listener: (context, state) {
-            if (state is ChatLoaded) {
+            if (state is chat_state.ChatLoaded) {
               // Scroll to bottom when new messages arrive
               WidgetsBinding.instance.addPostFrameCallback((_) {
                 _scrollToBottom();
               });
             }
+            
+            if (state is chat_state.ChatError) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(state.message),
+                  backgroundColor: Colors.red,
+                  action: SnackBarAction(
+                    label: 'Retry',
+                    textColor: Colors.white,
+                    onPressed: () {
+                      context.read<ChatBloc>().add(LoadChatData(widget.orderId));
+                    },
+                  ),
+                ),
+              );
+            }
           },
           builder: (context, state) {
-            if (state is ChatLoading) {
-              return const Center(
-                child: CircularProgressIndicator(),
-              );
-            } else if (state is ChatLoaded) {
+            if (state is chat_state.ChatLoading) {
+              return _buildLoadingState();
+            } else if (state is chat_state.ChatLoaded) {
               return _buildChatContent(context, state);
-            } else if (state is ChatError) {
+            } else if (state is chat_state.ChatError) {
               return _buildErrorState(context, state);
             }
             
@@ -73,14 +136,36 @@ class _ChatViewState extends State<ChatView> {
     );
   }
 
-  Widget _buildChatContent(BuildContext context, ChatLoaded state) {
+  Widget _buildLoadingState() {
+    return const SafeArea(
+      child: Column(
+        children: [
+          AppBackHeader(title: 'Chat'),
+          Expanded(
+            child: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  CircularProgressIndicator(),
+                  SizedBox(height: 16),
+                  Text('Loading chat...'),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildChatContent(BuildContext context, chat_state.ChatLoaded state) {
     return SafeArea(
       child: Column(
         children: [
-          const AppBackHeader(title: 'Chat'),
+          _buildHeader(context),
           _buildOrderHeader(state.orderInfo),
           Expanded(
-            child: _buildMessagesList(state.messages),
+            child: _buildMessagesList(context, state.messages),
           ),
           _buildMessageInput(context, state.isSendingMessage),
         ],
@@ -88,7 +173,58 @@ class _ChatViewState extends State<ChatView> {
     );
   }
 
-  Widget _buildOrderHeader(ChatOrderInfo orderInfo) {
+  Widget _buildHeader(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 1,
+            offset: const Offset(0, 1),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          const Expanded(
+            child: AppBackHeader(title: 'Chat'),
+          ),
+          // Connection status indicator
+          Container(
+            margin: const EdgeInsets.only(right: 16),
+            child: const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircleAvatar(
+                  radius: 4,
+                  backgroundColor: Colors.green,
+                ),
+                SizedBox(width: 4),
+                Text(
+                  'Online',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.green,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Refresh button
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: () {
+              context.read<ChatBloc>().add(const RefreshChat());
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildOrderHeader(chat_state.ChatOrderInfo orderInfo) {
     return Container(
       width: double.infinity,
       padding: EdgeInsets.all(MediaQuery.of(context).size.width * 0.04),
@@ -168,7 +304,40 @@ class _ChatViewState extends State<ChatView> {
     );
   }
 
-  Widget _buildMessagesList(List<ChatMessage> messages) {
+  Widget _buildMessagesList(BuildContext context, List<chat_state.ChatMessage> messages) {
+    if (messages.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.chat_bubble_outline,
+              size: 48,
+              color: Colors.grey.shade400,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'No messages yet',
+              style: TextStyle(
+                fontSize: 16,
+                color: Colors.grey.shade600,
+                fontFamily: FontFamily.Montserrat,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Start a conversation with your customer',
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey.shade500,
+                fontFamily: FontFamily.Montserrat,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     return ListView.builder(
       controller: _scrollController,
       padding: EdgeInsets.all(MediaQuery.of(context).size.width * 0.035),
@@ -180,7 +349,7 @@ class _ChatViewState extends State<ChatView> {
     );
   }
 
-  Widget _buildMessageBubble(ChatMessage message) {
+  Widget _buildMessageBubble(chat_state.ChatMessage message) {
     return Padding(
       padding: EdgeInsets.only(
         bottom: MediaQuery.of(context).size.height * 0.012,
@@ -271,6 +440,7 @@ class _ChatViewState extends State<ChatView> {
               ),
               child: TextField(
                 controller: _messageController,
+                enabled: !isSending,
                 style: TextStyle(
                   fontSize: MediaQuery.of(context).size.width * 0.035,
                   fontWeight: FontWeightManager.regular,
@@ -292,6 +462,8 @@ class _ChatViewState extends State<ChatView> {
                 ),
                 maxLines: null,
                 textCapitalization: TextCapitalization.sentences,
+                onSubmitted: (_) => _sendMessage(),
+                onChanged: _handleTyping, // Handle typing here instead of listener
               ),
             ),
           ),
@@ -330,67 +502,87 @@ class _ChatViewState extends State<ChatView> {
     );
   }
 
-  Widget _buildErrorState(BuildContext context, ChatError state) {
-    return Center(
-      child: Padding(
-        padding: EdgeInsets.all(MediaQuery.of(context).size.width * 0.04),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.error_outline,
-              size: MediaQuery.of(context).size.width * 0.12,
-              color: Colors.grey.shade400,
-            ),
-            SizedBox(height: MediaQuery.of(context).size.height * 0.015),
-            Text(
-              state.message,
-              style: TextStyle(
-                fontSize: MediaQuery.of(context).size.width * 0.035,
-                fontWeight: FontWeightManager.regular,
-                color: Colors.grey.shade600,
-                fontFamily: FontFamily.Montserrat,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            SizedBox(height: MediaQuery.of(context).size.height * 0.02),
-            ElevatedButton(
-              onPressed: () {
-                context.read<ChatBloc>().add(LoadChatData(widget.orderId));
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFE17A47),
-                foregroundColor: Colors.white,
-                padding: EdgeInsets.symmetric(
-                  horizontal: MediaQuery.of(context).size.width * 0.06,
-                  vertical: MediaQuery.of(context).size.height * 0.01,
+  Widget _buildErrorState(BuildContext context, chat_state.ChatError state) {
+    return SafeArea(
+      child: Column(
+        children: [
+          const AppBackHeader(title: 'Chat'),
+          Expanded(
+            child: Center(
+              child: Padding(
+                padding: EdgeInsets.all(MediaQuery.of(context).size.width * 0.04),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.error_outline,
+                      size: MediaQuery.of(context).size.width * 0.12,
+                      color: Colors.grey.shade400,
+                    ),
+                    SizedBox(height: MediaQuery.of(context).size.height * 0.015),
+                    Text(
+                      state.message,
+                      style: TextStyle(
+                        fontSize: MediaQuery.of(context).size.width * 0.035,
+                        fontWeight: FontWeightManager.regular,
+                        color: Colors.grey.shade600,
+                        fontFamily: FontFamily.Montserrat,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    SizedBox(height: MediaQuery.of(context).size.height * 0.02),
+                    ElevatedButton(
+                      onPressed: () {
+                        context.read<ChatBloc>().add(LoadChatData(widget.orderId));
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFE17A47),
+                        foregroundColor: Colors.white,
+                        padding: EdgeInsets.symmetric(
+                          horizontal: MediaQuery.of(context).size.width * 0.06,
+                          vertical: MediaQuery.of(context).size.height * 0.01,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(
+                            MediaQuery.of(context).size.width * 0.015,
+                          ),
+                        ),
+                      ),
+                      child: Text(
+                        'Retry',
+                        style: TextStyle(
+                          fontSize: MediaQuery.of(context).size.width * 0.032,
+                          fontWeight: FontWeightManager.medium,
+                          fontFamily: FontFamily.Montserrat,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(
-                    MediaQuery.of(context).size.width * 0.015,
-                  ),
-                ),
-              ),
-              child: Text(
-                'Retry',
-                style: TextStyle(
-                  fontSize: MediaQuery.of(context).size.width * 0.032,
-                  fontWeight: FontWeightManager.medium,
-                  fontFamily: FontFamily.Montserrat,
-                ),
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 
   void _sendMessage() {
     final message = _messageController.text.trim();
-    if (message.isNotEmpty) {
-      context.read<ChatBloc>().add(SendMessage(message));
-      _messageController.clear();
+    if (message.isNotEmpty && mounted) {
+      try {
+        context.read<ChatBloc>().add(SendMessage(message));
+        _messageController.clear();
+        
+        // Stop typing
+        if (_isTyping) {
+          _isTyping = false;
+          context.read<ChatBloc>().add(const StopTyping());
+        }
+      } catch (e) {
+        // Handle any context errors gracefully
+        debugPrint('Error sending message: $e');
+      }
     }
   }
 }

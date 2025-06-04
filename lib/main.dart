@@ -4,9 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:provider/provider.dart';
 
 import 'presentation/resources/router/router.dart';
 import 'presentation/screens/signin/bloc.dart';
+import 'services/chat_services.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -22,8 +24,18 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider<LoginBloc>(
-      create: (_) => LoginBloc(),
+    return MultiProvider(
+      providers: [
+        // Chat service provider for global access
+        ChangeNotifierProvider<ChatService>(
+          create: (_) => ChatService(),
+          lazy: false, // Create immediately
+        ),
+        // Login bloc provider
+        BlocProvider<LoginBloc>(
+          create: (_) => LoginBloc(),
+        ),
+      ],
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
         title: 'Bird Partner',
