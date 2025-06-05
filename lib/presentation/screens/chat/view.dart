@@ -28,14 +28,30 @@ class _ChatViewState extends State<ChatView> {
   Timer? _typingTimer;
   bool _isTyping = false;
   int _previousMessageCount = 0;
+  bool _shouldAutoScroll = true;
 
   @override
   void initState() {
     super.initState();
+    
     // Load chat data when the widget initializes
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         context.read<ChatBloc>().add(LoadChatData(widget.orderId));
+      }
+    });
+
+    // Listen to scroll events to determine if we should auto-scroll
+    _scrollController.addListener(() {
+      if (_scrollController.hasClients) {
+        final maxScroll = _scrollController.position.maxScrollExtent;
+        final currentScroll = _scrollController.position.pixels;
+        
+        // If user scrolls up more than 100 pixels from bottom, disable auto-scroll
+        // If they scroll back to within 100 pixels of bottom, re-enable auto-scroll
+        setState(() {
+          _shouldAutoScroll = (maxScroll - currentScroll) < 100;
+        });
       }
     });
   }
@@ -82,30 +98,31 @@ class _ChatViewState extends State<ChatView> {
   }
 
   void _scrollToBottom({bool animated = true}) {
-    if (_scrollController.hasClients) {
-      if (animated) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (_scrollController.hasClients) {
-            _scrollController.animateTo(
-              _scrollController.position.maxScrollExtent,
-              duration: const Duration(milliseconds: 300),
-              curve: Curves.easeOut,
-            );
-          }
-        });
-      } else {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (_scrollController.hasClients) {
-            _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
-          }
-        });
-      }
+    if (!_shouldAutoScroll || !_scrollController.hasClients) return;
+    
+    if (animated) {
+      // Use a slight delay to ensure the widget tree is updated
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_scrollController.hasClients) {
+          _scrollController.animateTo(
+            _scrollController.position.maxScrollExtent,
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeOut,
+          );
+        }
+      });
+    } else {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_scrollController.hasClients) {
+          _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
+        }
+      });
     }
   }
 
   void _checkForNewMessages(List<chat_state.ChatMessage> messages) {
-    // Check if new messages were added
-    if (messages.length > _previousMessageCount) {
+    // CRITICAL: Always scroll to bottom when new messages arrive if auto-scroll is enabled
+    if (messages.length > _previousMessageCount && _shouldAutoScroll) {
       debugPrint('ChatView: 📱 New messages detected (${messages.length} vs $_previousMessageCount), scrolling to bottom');
       _scrollToBottom();
     }
@@ -119,7 +136,7 @@ class _ChatViewState extends State<ChatView> {
       body: BlocConsumer<ChatBloc, chat_state.ChatState>(
         listener: (context, state) {
           if (state is chat_state.ChatLoaded) {
-            // Check for new messages and scroll to bottom
+            // CRITICAL: Check for new messages and scroll to bottom immediately
             _checkForNewMessages(state.messages);
           }
           
@@ -243,16 +260,16 @@ class _ChatViewState extends State<ChatView> {
                   width: 8,
                   height: 8,
                   decoration: BoxDecoration(
-                    color: state.isConnected ? Colors.green : Colors.red,
+                    color: state.isConnected ? Colors.green : Colors.orange,
                     shape: BoxShape.circle,
                   ),
                 ),
                 const SizedBox(width: 4),
                 Text(
-                  state.isConnected ? 'Online' : 'Offline',
+                  state.isConnected ? 'Live' : 'Offline',
                   style: TextStyle(
                     fontSize: 12,
-                    color: state.isConnected ? Colors.green : Colors.red,
+                    color: state.isConnected ? Colors.green : Colors.orange,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -384,19 +401,6 @@ class _ChatViewState extends State<ChatView> {
         ),
       );
     }
-
-    // Add scroll listener to automatically scroll to bottom when content changes
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_scrollController.hasClients) {
-        final maxScroll = _scrollController.position.maxScrollExtent;
-        final currentScroll = _scrollController.position.pixels;
-        
-        // Auto-scroll if user is near the bottom (within 100 pixels)
-        if (maxScroll - currentScroll < 100) {
-          _scrollToBottom();
-        }
-      }
-    });
 
     return ListView.builder(
       controller: _scrollController,
@@ -631,6 +635,7 @@ class _ChatViewState extends State<ChatView> {
     final message = _messageController.text.trim();
     if (message.isNotEmpty && mounted) {
       try {
+        debugPrint('ChatView: 📤 Sending message: $message');
         context.read<ChatBloc>().add(SendMessage(message));
         _messageController.clear();
         
@@ -640,7 +645,8 @@ class _ChatViewState extends State<ChatView> {
           context.read<ChatBloc>().add(const StopTyping());
         }
         
-        // Scroll to bottom after sending
+        // Ensure we scroll to bottom after sending
+        _shouldAutoScroll = true;
         _scrollToBottom();
         
       } catch (e) {

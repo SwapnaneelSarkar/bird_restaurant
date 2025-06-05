@@ -1,4 +1,4 @@
-// lib/presentation/resources/router/router.dart - FIXED VERSION
+// lib/presentation/resources/router/router.dart - UPDATED FOR POLLING CHAT
 
 import 'package:bird_restaurant/presentation/screens/add_product/view.dart';
 import 'package:bird_restaurant/presentation/screens/add_resturant_info/view.dart';
@@ -12,7 +12,7 @@ import 'package:bird_restaurant/presentation/screens/signin/view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import '../../../services/chat_services.dart';
+import '../../../services/chat_services.dart'; // Import polling service
 import '../../screens/application_status/view.dart';
 import '../../screens/chat/bloc.dart';
 import '../../screens/homePage/view.dart';
@@ -106,7 +106,7 @@ class RouteGenerator {
           final String? orderId = routeSettings.arguments as String?;
           return MaterialPageRoute(
             builder: (_) => BlocProvider<ChatBloc>(
-              create: (context) => ChatBloc(chatService: ChatService()),
+              create: (context) => ChatBloc(chatService: PollingChatService()), // Use polling service
               child: ChatView(orderId: orderId ?? ""),
             ),
           );
