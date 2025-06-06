@@ -1,5 +1,8 @@
 // lib/presentation/screens/orders/bloc.dart
 import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../../constants/enums.dart';
+import '../../../models/order_model.dart';
+import '../../../services/orders_api_service.dart';
 import 'event.dart';
 import 'state.dart';
 
@@ -14,12 +17,31 @@ class OrdersBloc extends Bloc<OrdersEvent, OrdersState> {
     emit(OrdersLoading());
     
     try {
-      // In a real app, this would be fetched from an API
-      final orders = _getDummyOrders();
-      final stats = _calculateStats(orders);
+      final historyResponse = await OrdersApiService.getOrderHistory(
+        page: 1,
+        limit: 50,
+      );
+      
+      OrderStats stats;
+      
+      try {
+        final dateRange = OrdersApiService.getThisMonthDateRange();
+        final summaryResponse = await OrdersApiService.getOrderSummary(
+          startDate: dateRange['startDate'],
+          endDate: dateRange['endDate'],
+        );
+        
+        if (summaryResponse.data != null) {
+          stats = OrdersApiService.convertSummaryToStats(summaryResponse.data!);
+        } else {
+          stats = _calculateStatsFromOrders(historyResponse.data);
+        }
+      } catch (e) {
+        stats = _calculateStatsFromOrders(historyResponse.data);
+      }
       
       emit(OrdersLoaded(
-        orders: orders,
+        orders: historyResponse.data,
         stats: stats,
       ));
     } catch (e) {
@@ -27,16 +49,21 @@ class OrdersBloc extends Bloc<OrdersEvent, OrdersState> {
     }
   }
 
+  OrderStats _calculateStatsFromOrders(List<Order> orders) {
+    return OrderStats(
+      total: orders.length,
+      pending: orders.where((o) => o.orderStatus == OrderStatus.pending).length,
+      confirmed: orders.where((o) => o.orderStatus == OrderStatus.confirmed).length,
+      preparing: orders.where((o) => o.orderStatus == OrderStatus.preparing).length,
+      delivery: orders.where((o) => o.orderStatus == OrderStatus.delivery).length,
+      delivered: orders.where((o) => o.orderStatus == OrderStatus.delivered).length,
+      cancelled: orders.where((o) => o.orderStatus == OrderStatus.cancelled).length,
+    );
+  }
+
   void _onFilterOrders(FilterOrdersEvent event, Emitter<OrdersState> emit) {
     if (state is OrdersLoaded) {
       final currentState = state as OrdersLoaded;
-      List<Order> filteredOrders = currentState.orders;
-      
-      if (event.status != OrderStatus.all) {
-        filteredOrders = currentState.orders
-            .where((order) => order.status == event.status)
-            .toList();
-      }
       
       emit(currentState.copyWith(
         filterStatus: event.status,
@@ -44,78 +71,48 @@ class OrdersBloc extends Bloc<OrdersEvent, OrdersState> {
     }
   }
 
-  void _onUpdateOrderStatus(UpdateOrderStatusEvent event, Emitter<OrdersState> emit) {
+  void _onUpdateOrderStatus(UpdateOrderStatusEvent event, Emitter<OrdersState> emit) async {
     if (state is OrdersLoaded) {
       final currentState = state as OrdersLoaded;
       
-      // Update the order status
-      final updatedOrders = currentState.orders.map((order) {
-        if (order.id == event.orderId) {
-          return Order(
-            id: order.id,
-            customerName: order.customerName,
-            amount: order.amount,
-            date: order.date,
-            status: event.newStatus,
-          );
-        }
-        return order;
-      }).toList();
-      
-      // Recalculate stats
-      final updatedStats = _calculateStats(updatedOrders);
-      
-      emit(currentState.copyWith(
-        orders: updatedOrders,
-        stats: updatedStats,
+      emit(OrderStatusUpdating(
+        orderId: event.orderId,
+        newStatus: event.newStatus,
       ));
+      
+      try {
+        final success = await OrdersApiService.updateOrderStatus(
+          orderId: event.orderId,
+          newStatus: _mapOrderStatusToString(event.newStatus),
+        );
+        
+        if (success) {
+          add(LoadOrdersEvent());
+        } else {
+          emit(OrdersError('Failed to update order status'));
+        }
+      } catch (e) {
+        emit(OrdersError('Failed to update order status: ${e.toString()}'));
+      }
     }
   }
 
-  List<Order> _getDummyOrders() {
-    return [
-      Order(
-        id: '12345',
-        customerName: 'James Anderson',
-        amount: 500,
-        date: DateTime(2025, 4, 26),
-        status: OrderStatus.pending,
-      ),
-      Order(
-        id: '12346',
-        customerName: 'Emily Parker',
-        amount: 750,
-        date: DateTime(2025, 4, 26),
-        status: OrderStatus.preparing,
-      ),
-      Order(
-        id: '12347',
-        customerName: 'Michael Thompson',
-        amount: 1200,
-        date: DateTime(2025, 4, 26),
-        status: OrderStatus.delivery,
-      ),
-      // Add more dummy orders if needed
-    ];
-  }
-
-  OrderStats _calculateStats(List<Order> orders) {
-    int total = orders.length;
-    int pending = orders.where((o) => o.status == OrderStatus.pending).length;
-    int confirmed = orders.where((o) => o.status == OrderStatus.confirmed).length;
-    int delivery = orders.where((o) => o.status == OrderStatus.delivery).length;
-    int delivered = orders.where((o) => o.status == OrderStatus.delivered).length;
-    int cancelled = orders.where((o) => o.status == OrderStatus.cancelled).length;
-    int preparing = orders.where((o) => o.status == OrderStatus.preparing).length;
-    
-    return OrderStats(
-      total: total,
-      pending: pending,
-      confirmed: confirmed,
-      delivery: delivery,
-      delivered: delivered,
-      cancelled: cancelled,
-      preparing: preparing,
-    );
+  String _mapOrderStatusToString(OrderStatus status) {
+    switch (status) {
+      case OrderStatus.pending:
+        return 'PENDING';
+      case OrderStatus.confirmed:
+        return 'CONFIRMED';
+      case OrderStatus.preparing:
+        return 'PREPARING';
+      case OrderStatus.delivery:
+        return 'OUT_FOR_DELIVERY';
+      case OrderStatus.delivered:
+        return 'DELIVERED';
+      case OrderStatus.cancelled:
+        return 'CANCELLED';
+      default:
+        return 'PENDING';
+    }
   }
 }

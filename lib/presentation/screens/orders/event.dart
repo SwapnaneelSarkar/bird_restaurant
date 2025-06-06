@@ -1,12 +1,8 @@
 // lib/presentation/screens/orders/event.dart
-import 'package:equatable/equatable.dart';
-import 'state.dart';
+import '../../../constants/enums.dart';
 
-abstract class OrdersEvent extends Equatable {
+abstract class OrdersEvent {
   const OrdersEvent();
-  
-  @override
-  List<Object?> get props => [];
 }
 
 class LoadOrdersEvent extends OrdersEvent {}
@@ -15,9 +11,6 @@ class FilterOrdersEvent extends OrdersEvent {
   final OrderStatus status;
   
   const FilterOrdersEvent(this.status);
-  
-  @override
-  List<Object?> get props => [status];
 }
 
 class UpdateOrderStatusEvent extends OrdersEvent {
@@ -28,7 +21,4 @@ class UpdateOrderStatusEvent extends OrdersEvent {
     required this.orderId,
     required this.newStatus,
   });
-  
-  @override
-  List<Object?> get props => [orderId, newStatus];
 }
