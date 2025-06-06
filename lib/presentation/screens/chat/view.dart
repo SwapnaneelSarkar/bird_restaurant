@@ -368,183 +368,183 @@ class _ChatViewState extends State<ChatView> {
     );
   }
 
-  Widget _buildMessagesList(BuildContext context, List<chat_state.ChatMessage> messages) {
-    if (messages.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.chat_bubble_outline,
-              size: 48,
-              color: Colors.grey.shade400,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'No messages yet',
-              style: TextStyle(
-                fontSize: 16,
-                color: Colors.grey.shade600,
-                fontFamily: FontFamily.Montserrat,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Start a conversation with your customer',
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey.shade500,
-                fontFamily: FontFamily.Montserrat,
-              ),
-            ),
-          ],
-        ),
-      );
-    }
+// Updated methods in lib/presentation/screens/chat/view.dart
 
-    return ListView.builder(
-      controller: _scrollController,
-      padding: EdgeInsets.all(MediaQuery.of(context).size.width * 0.035),
-      itemCount: messages.length,
-      itemBuilder: (context, index) {
-        final message = messages[index];
-        return _buildMessageBubble(message);
-      },
+// Updated _buildMessagesList method
+Widget _buildMessagesList(BuildContext context, List<chat_state.ChatMessage> messages) {
+  if (messages.isEmpty) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.chat_bubble_outline,
+            size: 48,
+            color: Colors.grey.shade400,
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'No messages yet',
+            style: TextStyle(
+              fontSize: 16,
+              color: Colors.grey.shade600,
+              fontFamily: FontFamily.Montserrat,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Start a conversation with your customer',
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.grey.shade500,
+              fontFamily: FontFamily.Montserrat,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
-  Widget _buildMessageBubble(chat_state.ChatMessage message) {
-    // CRITICAL FIX: Let's debug and verify the message direction
-    debugPrint('ChatView: 🎯 Rendering message:');
-    debugPrint('  - Content: ${message.message}');
-    debugPrint('  - isUserMessage: ${message.isUserMessage}');
-    debugPrint('  - Should appear on: ${message.isUserMessage ? 'RIGHT (Partner)' : 'LEFT (Customer)'}');
-    
-    // Partner messages (sent by restaurant) should be on RIGHT
-    // Customer messages (sent by user) should be on LEFT
-    final isPartnerMessage = message.isUserMessage; // TRUE = Partner message = RIGHT side
-    final isCustomerMessage = !message.isUserMessage; // FALSE = Customer message = LEFT side
-    
-    return Padding(
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).size.height * 0.012,
-      ),
-      child: Row(
-        mainAxisAlignment: message.isUserMessage 
-            ? MainAxisAlignment.end     // TRUE = Partner messages on RIGHT
-            : MainAxisAlignment.start,  // FALSE = Customer messages on LEFT
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Customer avatar on LEFT side (only for customer messages)
-          if (!message.isUserMessage) ...[
-            Container(
-              width: 32,
-              height: 32,
-              margin: const EdgeInsets.only(right: 8, top: 4),
-              decoration: BoxDecoration(
-                color: Colors.grey.shade300,
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                Icons.person,
-                color: Colors.grey.shade600,
-                size: 20,
-              ),
+  return ListView.builder(
+    controller: _scrollController,
+    padding: const EdgeInsets.symmetric(vertical: 8), // Reduced padding
+    itemCount: messages.length,
+    itemBuilder: (context, index) {
+      final message = messages[index];
+      return _buildMessageBubble(message);
+    },
+  );
+}
+
+// Updated _buildMessageBubble method
+
+Widget _buildMessageBubble(chat_state.ChatMessage message) {
+  debugPrint('ChatView: 🎯 Rendering message:');
+  debugPrint('  - Content: ${message.message}');
+  debugPrint('  - isUserMessage: ${message.isUserMessage}');
+  debugPrint('  - Should appear on: ${message.isUserMessage ? 'RIGHT (Partner)' : 'LEFT (Customer)'}');
+  
+  final screenWidth = MediaQuery.of(context).size.width;
+  
+  return Padding(
+    padding: EdgeInsets.only(
+      bottom: 8.0,
+      left: 16.0, // Standard left padding
+      right: 16.0, // Standard right padding
+    ),
+    child: Row(
+      mainAxisAlignment: message.isUserMessage 
+          ? MainAxisAlignment.end     // Partner messages on RIGHT
+          : MainAxisAlignment.start,  // Customer messages on LEFT
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Customer avatar on LEFT side (only for customer messages)
+        if (!message.isUserMessage) ...[
+          Container(
+            width: 32,
+            height: 32,
+            margin: const EdgeInsets.only(right: 8, top: 4),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade300,
+              shape: BoxShape.circle,
             ),
-          ],
-          
-          // Message bubble
-          Flexible(
-            flex: 7,
-            child: Column(
-              crossAxisAlignment: message.isUserMessage 
-                  ? CrossAxisAlignment.end    // TRUE = Partner messages aligned to right
-                  : CrossAxisAlignment.start, // FALSE = Customer messages aligned to left
-              children: [
-                Container(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: MediaQuery.of(context).size.width * 0.038,
-                    vertical: MediaQuery.of(context).size.height * 0.012,
+            child: Icon(
+              Icons.person,
+              color: Colors.grey.shade600,
+              size: 20,
+            ),
+          ),
+        ],
+        
+        // Message bubble with proper width constraints
+        ConstrainedBox(
+          constraints: BoxConstraints(
+            maxWidth: screenWidth * 0.75, // Max 75% of screen width
+            minWidth: screenWidth * 0.15,  // Min 15% of screen width
+          ),
+          child: Column(
+            crossAxisAlignment: message.isUserMessage 
+                ? CrossAxisAlignment.end    // Partner messages aligned to right
+                : CrossAxisAlignment.start, // Customer messages aligned to left
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 10,
+                ),
+                decoration: BoxDecoration(
+                  color: message.isUserMessage 
+                      ? const Color(0xFFE17A47)  // Orange for partner
+                      : Colors.grey.shade100,    // Light grey for customer
+                  borderRadius: BorderRadius.only(
+                    topLeft: const Radius.circular(18),
+                    topRight: const Radius.circular(18),
+                    bottomLeft: Radius.circular(
+                      message.isUserMessage ? 18 : 4, // Tail effect for incoming
+                    ),
+                    bottomRight: Radius.circular(
+                      message.isUserMessage ? 4 : 18, // Tail effect for outgoing
+                    ),
                   ),
-                  decoration: BoxDecoration(
-                    // TRUE = Partner messages: Orange, FALSE = Customer messages: Light grey
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.05),
+                      blurRadius: 3,
+                      offset: const Offset(0, 1),
+                    ),
+                  ],
+                ),
+                child: Text(
+                  message.message,
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeightManager.regular,
                     color: message.isUserMessage 
-                        ? const Color(0xFFE17A47)  // Orange for partner (TRUE)
-                        : Colors.grey.shade100,    // Light grey for customer (FALSE)
-                    borderRadius: BorderRadius.only(
-                      topLeft: Radius.circular(
-                        MediaQuery.of(context).size.width * 0.038,
-                      ),
-                      topRight: Radius.circular(
-                        MediaQuery.of(context).size.width * 0.038,
-                      ),
-                      bottomLeft: Radius.circular(
-                        message.isUserMessage 
-                            ? MediaQuery.of(context).size.width * 0.038
-                            : MediaQuery.of(context).size.width * 0.008, // Smaller radius for incoming tail
-                      ),
-                      bottomRight: Radius.circular(
-                        message.isUserMessage 
-                            ? MediaQuery.of(context).size.width * 0.008  // Smaller radius for outgoing tail
-                            : MediaQuery.of(context).size.width * 0.038,
-                      ),
-                    ),
-                  ),
-                  child: Text(
-                    message.message,
-                    style: TextStyle(
-                      fontSize: MediaQuery.of(context).size.width * 0.035,
-                      fontWeight: FontWeightManager.regular,
-                      color: message.isUserMessage 
-                          ? Colors.white          // White text for partner messages (TRUE)
-                          : ColorManager.black,   // Black text for customer messages (FALSE)
-                      fontFamily: FontFamily.Montserrat,
-                      height: 1.35,
-                    ),
+                        ? Colors.white          // White text for partner messages
+                        : ColorManager.black,   // Black text for customer messages
+                    fontFamily: FontFamily.Montserrat,
+                    height: 1.3,
                   ),
                 ),
-                SizedBox(height: MediaQuery.of(context).size.height * 0.004),
-                // Time and delivery status
-                Row(
+              ),
+              const SizedBox(height: 4),
+              // Time and delivery status
+              Padding(
+                padding: EdgeInsets.only(
+                  left: message.isUserMessage ? 0 : 8,
+                  right: message.isUserMessage ? 8 : 0,
+                ),
+                child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
                       message.time,
                       style: TextStyle(
-                        fontSize: MediaQuery.of(context).size.width * 0.028,
+                        fontSize: 11,
                         fontWeight: FontWeightManager.regular,
                         color: Colors.grey.shade500,
                         fontFamily: FontFamily.Montserrat,
                       ),
                     ),
-                    // Show delivery status only for partner messages (like WhatsApp)
+                    // Show delivery status only for partner messages
                     if (message.isUserMessage) ...[
-                      SizedBox(width: MediaQuery.of(context).size.width * 0.008),
+                      const SizedBox(width: 4),
                       Icon(
                         Icons.done_all, // Double check mark for delivered
-                        size: MediaQuery.of(context).size.width * 0.035,
+                        size: 14,
                         color: Colors.grey.shade500,
                       ),
                     ],
                   ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-          
-          // Spacer for partner messages to push them to the right
-          if (message.isUserMessage) ...[
-            SizedBox(width: MediaQuery.of(context).size.width * 0.1),
-          ],
-          
-          // Spacer for customer messages to give them breathing room
-          if (!message.isUserMessage) ...[
-            SizedBox(width: MediaQuery.of(context).size.width * 0.1),
-          ],
-        ],
-      ),
-    );
-  }
+        ),
+      ],
+    ),
+  );
+}
 
   Widget _buildMessageInput(BuildContext context, bool isSending) {
     return Container(
