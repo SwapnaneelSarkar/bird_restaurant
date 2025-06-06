@@ -1,5 +1,15 @@
 // android/app/build.gradle.kts (App level)
 
+import java.util.Properties
+import java.io.FileInputStream
+
+// Load keystore properties
+val keystorePropertiesFile = rootProject.file("key.properties")
+val keystoreProperties = Properties()
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(FileInputStream(keystorePropertiesFile))
+}
+
 plugins {
     id("com.android.application")
     id("com.google.gms.google-services")
@@ -8,7 +18,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.bird_restaurant"
+    namespace = "com.birdpartner.app"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = "27.0.12077973"
 
@@ -22,12 +32,22 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.example.bird_restaurant"
+        applicationId = "com.birdpartner.app"
         minSdk = 23
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        manifestPlaceholders.put("playIntegrityFallback", "true")
         multiDexEnabled = true
+    }
+
+    signingConfigs {
+        create("release") {
+            keyAlias = keystoreProperties["keyAlias"] as String?
+            keyPassword = keystoreProperties["keyPassword"] as String?
+            storeFile = keystoreProperties["storeFile"]?.let { file(it) }
+            storePassword = keystoreProperties["storePassword"] as String?
+        }
     }
 
     buildTypes {
@@ -35,7 +55,12 @@ android {
             signingConfig = signingConfigs.getByName("debug")
         }
         release {
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName("release")
+            isMinifyEnabled = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
         }
     }
 }

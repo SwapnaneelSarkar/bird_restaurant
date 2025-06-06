@@ -1,4 +1,4 @@
-// lib/services/polling_chat_service.dart - COMPLETE RELIABLE POLLING SOLUTION
+// lib/services/chat_services.dart - SIMPLE SENDER ID COMPARISON
 
 import 'dart:async';
 import 'dart:convert';
@@ -43,6 +43,20 @@ class ApiChatMessage {
     );
   }
 
+  // SIMPLE: Check if this message is from current user by comparing sender IDs
+  bool isFromCurrentUser(String? currentUserId) {
+    if (currentUserId == null || currentUserId.isEmpty) return false;
+    
+    final isMatch = senderId == currentUserId;
+    debugPrint('ChatService: 🔍 Comparing sender IDs:');
+    debugPrint('  - Message sender ID: "$senderId"');
+    debugPrint('  - Current user ID: "$currentUserId"');
+    debugPrint('  - Match: $isMatch');
+    debugPrint('  - Message: "${content.length > 20 ? content.substring(0, 20) + '...' : content}"');
+    
+    return isMatch;
+  }
+
   Map<String, dynamic> toJson() {
     return {
       '_id': id,
@@ -54,10 +68,6 @@ class ApiChatMessage {
       'readBy': readBy,
       'createdAt': createdAt.toIso8601String(),
     };
-  }
-
-  bool isFromCurrentUser(String? currentUserId) {
-    return senderId == currentUserId;
   }
 }
 
@@ -177,7 +187,7 @@ class PollingChatService extends ChangeNotifier {
               }
               
               // Only emit to stream if it's not from current user (incoming message)
-              if (newMessage.senderId != _currentUserId) {
+              if (!newMessage.isFromCurrentUser(_currentUserId)) {
                 hasNewIncomingMessages = true;
                 debugPrint('PollingChatService: ✨ New incoming message from ${newMessage.senderType}: "${newMessage.content}"');
                 
@@ -279,8 +289,10 @@ class PollingChatService extends ChangeNotifier {
     try {
       debugPrint('PollingChatService: 🏠 Joining room: $roomId');
       
+      // Ensure we have current user ID
       if (_currentUserId == null) {
         _currentUserId = await TokenService.getUserId();
+        debugPrint('PollingChatService: 🆔 Retrieved user ID: $_currentUserId');
       }
       
       // Stop any existing polling
@@ -318,7 +330,7 @@ class PollingChatService extends ChangeNotifier {
     
     try {
       final token = await TokenService.getToken();
-      final userId = await TokenService.getUserId();
+      final userId = _currentUserId ?? await TokenService.getUserId();
       
       if (token == null || userId == null) {
         debugPrint('PollingChatService: ❌ No token or user ID found');
@@ -335,6 +347,7 @@ class PollingChatService extends ChangeNotifier {
       };
 
       debugPrint('PollingChatService: 📤 Sending message: "$content"');
+      debugPrint('PollingChatService: 🆔 Using sender ID: $userId');
 
       final url = Uri.parse('${ApiConstants.baseUrl}/chat/message');
       
@@ -455,6 +468,14 @@ class PollingChatService extends ChangeNotifier {
         }
         
         debugPrint('PollingChatService: ✅ Loaded ${_messages.length} messages from history');
+        
+        // Debug: Print all messages with sender comparison
+        for (int i = 0; i < _messages.length; i++) {
+          final msg = _messages[i];
+          final isFromCurrentUser = msg.isFromCurrentUser(_currentUserId);
+          debugPrint('PollingChatService: Message $i - "${msg.content}" - From current user: $isFromCurrentUser');
+        }
+        
         if (!_isDisposed) {
           notifyListeners();
         }
@@ -511,6 +532,7 @@ class PollingChatService extends ChangeNotifier {
     return {
       'isPolling': _isPolling,
       'currentRoomId': _currentRoomId,
+      'currentUserId': _currentUserId,
       'pollIntervalMs': _pollIntervalMs,
       'consecutiveEmptyPolls': _consecutiveEmptyPolls,
       'messageCount': _messages.length,

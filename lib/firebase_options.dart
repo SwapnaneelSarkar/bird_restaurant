@@ -51,7 +51,7 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions android = FirebaseOptions(
     apiKey: 'AIzaSyB7_8Nvi1WnwJZokAOmXKeE_k4kUKNEiFM',
-    appId: '1:230772297916:android:cd1e337da9aa1f7b1700b9',
+    appId: '1:230772297916:android:52b998d9c8d49efe1700b9',
     messagingSenderId: '230772297916',
     projectId: 'bird-partner',
     storageBucket: 'bird-partner.firebasestorage.app',
@@ -59,13 +59,13 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions ios = FirebaseOptions(
     apiKey: 'AIzaSyD0Debq9bc4i-jLiW-R2hwRs6FiaYEc1Mo',
-    appId: '1:230772297916:ios:f7b14dd6f704da811700b9',
+    appId: '1:230772297916:ios:979f7849d39c87621700b9',
     messagingSenderId: '230772297916',
     projectId: 'bird-partner',
     storageBucket: 'bird-partner.firebasestorage.app',
     androidClientId: '230772297916-s51nthchbk4tp62ks61kgt9fsafldr7a.apps.googleusercontent.com',
-    iosClientId: '230772297916-7gume5659n91tk4utjji6adun0jhimrq.apps.googleusercontent.com',
-    iosBundleId: 'com.example.birdRestaurant',
+    iosClientId: '230772297916-bd92kf9frm7bkmii867aappau4un0h97.apps.googleusercontent.com',
+    iosBundleId: 'com.birdpartner.app',
   );
 
 }

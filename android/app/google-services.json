@@ -7,6 +7,42 @@
   "client": [
     {
       "client_info": {
+        "mobilesdk_app_id": "1:230772297916:android:52b998d9c8d49efe1700b9",
+        "android_client_info": {
+          "package_name": "com.birdpartner.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "230772297916-l3i6iga4uft3u4s0gt58m6ndtgdk8ka1.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB7_8Nvi1WnwJZokAOmXKeE_k4kUKNEiFM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "230772297916-l3i6iga4uft3u4s0gt58m6ndtgdk8ka1.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "230772297916-7gume5659n91tk4utjji6adun0jhimrq.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.birdRestaurant"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
         "mobilesdk_app_id": "1:230772297916:android:cd1e337da9aa1f7b1700b9",
         "android_client_info": {
           "package_name": "com.example.bird_restaurant"

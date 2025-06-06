@@ -1,15 +1,15 @@
-// lib/presentation/screens/chat/bloc.dart - COMPLETE UPDATED FOR POLLING SERVICE
+// lib/presentation/screens/chat/bloc.dart - SIMPLIFIED WITH DIRECT SENDER ID COMPARISON
 
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import '../../../services/chat_services.dart'; // Import the polling service
+import '../../../services/chat_services.dart';
 import '../../../services/token_service.dart';
 import 'event.dart';
 import 'state.dart';
 
 class ChatBloc extends Bloc<ChatEvent, ChatState> {
-  final PollingChatService _chatService; // Use polling service
+  final PollingChatService _chatService;
   Timer? _typingTimer;
   String? _currentRoomId;
   String? _currentUserId;
@@ -49,12 +49,22 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
   void _onChatServiceUpdate() {
     if (!isClosed) {
       // Convert chat service messages to chat state messages
-      final messages = _chatService.messages.map((msg) {
+      final messages = _chatService.messages.map((apiMsg) {
+        // SIMPLE: Compare sender ID directly with current user ID
+        final isFromCurrentUser = apiMsg.isFromCurrentUser(_currentUserId);
+        
+        debugPrint('ChatBloc: 🔄 Converting API message to UI message:');
+        debugPrint('  - Content: "${apiMsg.content}"');
+        debugPrint('  - API Sender ID: "${apiMsg.senderId}"');
+        debugPrint('  - Current User ID: "${_currentUserId ?? 'null'}"');
+        debugPrint('  - Is from current user: $isFromCurrentUser');
+        debugPrint('  - Will appear on: ${isFromCurrentUser ? 'RIGHT' : 'LEFT'} side');
+        
         return ChatMessage(
-          id: msg.id,
-          message: msg.content,
-          isUserMessage: msg.senderType == 'partner',
-          time: _formatTime(msg.createdAt),
+          id: apiMsg.id,
+          message: apiMsg.content,
+          isUserMessage: isFromCurrentUser, // TRUE = Current user = RIGHT side, FALSE = Other user = LEFT side
+          time: _formatTime(apiMsg.createdAt),
         );
       }).toList();
 
@@ -79,6 +89,8 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
         return;
       }
 
+      debugPrint('ChatBloc: 🆔 Current User ID: $_currentUserId');
+
       // Set the room ID
       _currentRoomId = event.orderId.isNotEmpty ? event.orderId : 'default_room';
       
@@ -93,15 +105,25 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
         status: 'Preparing',
       );
 
-      // Convert chat service messages to UI messages
-      final messages = _chatService.messages.map((msg) {
+      // Convert chat service messages to UI messages with SIMPLE logic
+      final messages = _chatService.messages.map((apiMsg) {
+        final isFromCurrentUser = apiMsg.isFromCurrentUser(_currentUserId);
+        
         return ChatMessage(
-          id: msg.id,
-          message: msg.content,
-          isUserMessage: msg.senderType == 'partner',
-          time: _formatTime(msg.createdAt),
+          id: apiMsg.id,
+          message: apiMsg.content,
+          isUserMessage: isFromCurrentUser, // TRUE = Current user = RIGHT, FALSE = Other user = LEFT
+          time: _formatTime(apiMsg.createdAt),
         );
       }).toList();
+
+      // Debug: Count and show message directions
+      final rightMessages = messages.where((m) => m.isUserMessage).length;
+      final leftMessages = messages.where((m) => !m.isUserMessage).length;
+      debugPrint('ChatBloc: 📊 Message summary:');
+      debugPrint('  - RIGHT side (current user): $rightMessages messages');
+      debugPrint('  - LEFT side (other users): $leftMessages messages');
+      debugPrint('  - Total messages: ${messages.length}');
 
       emit(ChatLoaded(
         orderInfo: orderInfo,
@@ -109,7 +131,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
         isConnected: _chatService.isConnected,
       ));
       
-      debugPrint('ChatBloc: ✅ Chat data loaded successfully with ${messages.length} messages (Polling: ${_chatService.isConnected ? 'Active' : 'Inactive'})');
+      debugPrint('ChatBloc: ✅ Chat data loaded successfully');
     } catch (e) {
       debugPrint('ChatBloc: ❌ Error loading chat data: $e');
       emit(const ChatError('Failed to load chat. Please try again.'));
@@ -119,6 +141,15 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
   void _onUpdateMessages(_UpdateMessages event, Emitter<ChatState> emit) {
     if (state is ChatLoaded) {
       final currentState = state as ChatLoaded;
+      
+      // Debug: Count and show message directions
+      final rightMessages = event.messages.where((m) => m.isUserMessage).length;
+      final leftMessages = event.messages.where((m) => !m.isUserMessage).length;
+      debugPrint('ChatBloc: 📊 Updating messages:');
+      debugPrint('  - RIGHT side (current user): $rightMessages messages');
+      debugPrint('  - LEFT side (other users): $leftMessages messages');
+      debugPrint('  - Total messages: ${event.messages.length}');
+      
       emit(currentState.copyWith(
         messages: event.messages,
         isSendingMessage: false,
@@ -130,13 +161,22 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     if (state is ChatLoaded) {
       final currentState = state as ChatLoaded;
       
-      // Convert API message to UI message
+      // Convert API message to UI message with SIMPLE logic
+      final isFromCurrentUser = event.message.isFromCurrentUser(_currentUserId);
+      
       final newChatMessage = ChatMessage(
         id: event.message.id,
         message: event.message.content,
-        isUserMessage: event.message.senderType == 'partner',
+        isUserMessage: isFromCurrentUser, // TRUE = Current user = RIGHT, FALSE = Other user = LEFT
         time: _formatTime(event.message.createdAt),
       );
+      
+      debugPrint('ChatBloc: 🔥 Adding incoming message:');
+      debugPrint('  - Content: "${event.message.content}"');
+      debugPrint('  - API Sender ID: "${event.message.senderId}"');
+      debugPrint('  - Current User ID: "${_currentUserId ?? 'null'}"');
+      debugPrint('  - From current user: $isFromCurrentUser');
+      debugPrint('  - Will appear on: ${isFromCurrentUser ? 'RIGHT' : 'LEFT'} side');
       
       // Check if message already exists to avoid duplicates
       final messageExists = currentState.messages.any((m) => 
@@ -164,7 +204,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
           return a.id.compareTo(b.id);
         });
         
-        debugPrint('ChatBloc: ✅ Added incoming message from ${event.message.senderType}: ${event.message.content}');
+        debugPrint('ChatBloc: ✅ Added incoming message');
         
         emit(currentState.copyWith(
           messages: updatedMessages,
@@ -193,14 +233,18 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       
       try {
         debugPrint('ChatBloc: 📤 Sending message: ${event.message}');
+        debugPrint('ChatBloc: 🆔 Will be sent from current user ID: $_currentUserId');
         
         // Create the sent message immediately for better UX (optimistic update)
+        // Current user sends message = TRUE (appears on RIGHT side)
         final sentMessage = ChatMessage(
           id: DateTime.now().millisecondsSinceEpoch.toString(),
           message: event.message,
-          isUserMessage: true,
+          isUserMessage: true, // TRUE = Current user message = RIGHT side
           time: _getCurrentTime(),
         );
+        
+        debugPrint('ChatBloc: 🎯 Creating optimistic message for RIGHT side');
         
         // Add sent message to the list immediately
         final updatedMessages = [...currentState.messages, sentMessage];
@@ -255,13 +299,15 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       try {
         debugPrint('ChatBloc: 📨 Receiving message via event: ${event.message}');
         
-        // Create new message
+        // Create new message - Other user message = FALSE (appears on LEFT side)
         final newMessage = ChatMessage(
           id: DateTime.now().millisecondsSinceEpoch.toString(),
           message: event.message,
-          isUserMessage: false,
+          isUserMessage: false, // FALSE = Other user message = LEFT side
           time: _getCurrentTime(),
         );
+        
+        debugPrint('ChatBloc: 🎯 Creating other user message for LEFT side');
         
         // Check if message already exists to avoid duplicates
         final messageExists = currentState.messages.any((m) => 
@@ -340,13 +386,15 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
         if (state is ChatLoaded) {
           final currentState = state as ChatLoaded;
           
-          // Convert the refreshed messages
-          final refreshedMessages = _chatService.messages.map((msg) {
+          // Convert the refreshed messages with SIMPLE logic
+          final refreshedMessages = _chatService.messages.map((apiMsg) {
+            final isFromCurrentUser = apiMsg.isFromCurrentUser(_currentUserId);
+            
             return ChatMessage(
-              id: msg.id,
-              message: msg.content,
-              isUserMessage: msg.senderType == 'partner',
-              time: _formatTime(msg.createdAt),
+              id: apiMsg.id,
+              message: apiMsg.content,
+              isUserMessage: isFromCurrentUser, // TRUE = Current user = RIGHT, FALSE = Other user = LEFT
+              time: _formatTime(apiMsg.createdAt),
             );
           }).toList();
           
@@ -370,12 +418,14 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
           if (!isClosed && state is ChatError) {
             // Try to get the previous loaded state from chat service
             if (_chatService.messages.isNotEmpty) {
-              final messages = _chatService.messages.map((msg) {
+              final messages = _chatService.messages.map((apiMsg) {
+                final isFromCurrentUser = apiMsg.isFromCurrentUser(_currentUserId);
+                
                 return ChatMessage(
-                  id: msg.id,
-                  message: msg.content,
-                  isUserMessage: msg.senderType == 'partner',
-                  time: _formatTime(msg.createdAt),
+                  id: apiMsg.id,
+                  message: apiMsg.content,
+                  isUserMessage: isFromCurrentUser, // TRUE = Current user = RIGHT, FALSE = Other user = LEFT
+                  time: _formatTime(apiMsg.createdAt),
                 );
               }).toList();
               

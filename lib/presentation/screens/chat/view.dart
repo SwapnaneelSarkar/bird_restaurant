@@ -1,4 +1,4 @@
-// lib/presentation/screens/chat/view.dart - FIXED VERSION FOR REAL-TIME MESSAGES
+// lib/presentation/screens/chat/view.dart - FIXED VERSION WITH WHATSAPP-STYLE MESSAGE LAYOUT
 
 import 'dart:async';
 import 'package:flutter/material.dart';
@@ -414,23 +414,52 @@ class _ChatViewState extends State<ChatView> {
   }
 
   Widget _buildMessageBubble(chat_state.ChatMessage message) {
+    // CRITICAL FIX: Let's debug and verify the message direction
+    debugPrint('ChatView: 🎯 Rendering message:');
+    debugPrint('  - Content: ${message.message}');
+    debugPrint('  - isUserMessage: ${message.isUserMessage}');
+    debugPrint('  - Should appear on: ${message.isUserMessage ? 'RIGHT (Partner)' : 'LEFT (Customer)'}');
+    
+    // Partner messages (sent by restaurant) should be on RIGHT
+    // Customer messages (sent by user) should be on LEFT
+    final isPartnerMessage = message.isUserMessage; // TRUE = Partner message = RIGHT side
+    final isCustomerMessage = !message.isUserMessage; // FALSE = Customer message = LEFT side
+    
     return Padding(
       padding: EdgeInsets.only(
         bottom: MediaQuery.of(context).size.height * 0.012,
       ),
       child: Row(
         mainAxisAlignment: message.isUserMessage 
-            ? MainAxisAlignment.end 
-            : MainAxisAlignment.start,
+            ? MainAxisAlignment.end     // TRUE = Partner messages on RIGHT
+            : MainAxisAlignment.start,  // FALSE = Customer messages on LEFT
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (message.isUserMessage) const Spacer(),
+          // Customer avatar on LEFT side (only for customer messages)
+          if (!message.isUserMessage) ...[
+            Container(
+              width: 32,
+              height: 32,
+              margin: const EdgeInsets.only(right: 8, top: 4),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade300,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.person,
+                color: Colors.grey.shade600,
+                size: 20,
+              ),
+            ),
+          ],
+          
+          // Message bubble
           Flexible(
             flex: 7,
             child: Column(
               crossAxisAlignment: message.isUserMessage 
-                  ? CrossAxisAlignment.end 
-                  : CrossAxisAlignment.start,
+                  ? CrossAxisAlignment.end    // TRUE = Partner messages aligned to right
+                  : CrossAxisAlignment.start, // FALSE = Customer messages aligned to left
               children: [
                 Container(
                   padding: EdgeInsets.symmetric(
@@ -438,11 +467,27 @@ class _ChatViewState extends State<ChatView> {
                     vertical: MediaQuery.of(context).size.height * 0.012,
                   ),
                   decoration: BoxDecoration(
+                    // TRUE = Partner messages: Orange, FALSE = Customer messages: Light grey
                     color: message.isUserMessage 
-                        ? const Color(0xFFE17A47)
-                        : Colors.grey.shade100,
-                    borderRadius: BorderRadius.circular(
-                      MediaQuery.of(context).size.width * 0.038,
+                        ? const Color(0xFFE17A47)  // Orange for partner (TRUE)
+                        : Colors.grey.shade100,    // Light grey for customer (FALSE)
+                    borderRadius: BorderRadius.only(
+                      topLeft: Radius.circular(
+                        MediaQuery.of(context).size.width * 0.038,
+                      ),
+                      topRight: Radius.circular(
+                        MediaQuery.of(context).size.width * 0.038,
+                      ),
+                      bottomLeft: Radius.circular(
+                        message.isUserMessage 
+                            ? MediaQuery.of(context).size.width * 0.038
+                            : MediaQuery.of(context).size.width * 0.008, // Smaller radius for incoming tail
+                      ),
+                      bottomRight: Radius.circular(
+                        message.isUserMessage 
+                            ? MediaQuery.of(context).size.width * 0.008  // Smaller radius for outgoing tail
+                            : MediaQuery.of(context).size.width * 0.038,
+                      ),
                     ),
                   ),
                   child: Text(
@@ -451,27 +496,51 @@ class _ChatViewState extends State<ChatView> {
                       fontSize: MediaQuery.of(context).size.width * 0.035,
                       fontWeight: FontWeightManager.regular,
                       color: message.isUserMessage 
-                          ? Colors.white 
-                          : ColorManager.black,
+                          ? Colors.white          // White text for partner messages (TRUE)
+                          : ColorManager.black,   // Black text for customer messages (FALSE)
                       fontFamily: FontFamily.Montserrat,
                       height: 1.35,
                     ),
                   ),
                 ),
                 SizedBox(height: MediaQuery.of(context).size.height * 0.004),
-                Text(
-                  message.time,
-                  style: TextStyle(
-                    fontSize: MediaQuery.of(context).size.width * 0.028,
-                    fontWeight: FontWeightManager.regular,
-                    color: Colors.grey.shade500,
-                    fontFamily: FontFamily.Montserrat,
-                  ),
+                // Time and delivery status
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      message.time,
+                      style: TextStyle(
+                        fontSize: MediaQuery.of(context).size.width * 0.028,
+                        fontWeight: FontWeightManager.regular,
+                        color: Colors.grey.shade500,
+                        fontFamily: FontFamily.Montserrat,
+                      ),
+                    ),
+                    // Show delivery status only for partner messages (like WhatsApp)
+                    if (message.isUserMessage) ...[
+                      SizedBox(width: MediaQuery.of(context).size.width * 0.008),
+                      Icon(
+                        Icons.done_all, // Double check mark for delivered
+                        size: MediaQuery.of(context).size.width * 0.035,
+                        color: Colors.grey.shade500,
+                      ),
+                    ],
+                  ],
                 ),
               ],
             ),
           ),
-          if (!message.isUserMessage) const Spacer(),
+          
+          // Spacer for partner messages to push them to the right
+          if (message.isUserMessage) ...[
+            SizedBox(width: MediaQuery.of(context).size.width * 0.1),
+          ],
+          
+          // Spacer for customer messages to give them breathing room
+          if (!message.isUserMessage) ...[
+            SizedBox(width: MediaQuery.of(context).size.width * 0.1),
+          ],
         ],
       ),
     );

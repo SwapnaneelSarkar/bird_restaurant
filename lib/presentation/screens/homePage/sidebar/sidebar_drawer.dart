@@ -590,67 +590,128 @@ Widget _buildRestaurantImage() {
     );
   }
 
-  Future<void> _handleLogout(BuildContext context) async {
-    try {
-      // Show confirmation dialog
-      bool confirm = await showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text(
-            'Logout',
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          content: const Text(
-            'Are you sure you want to logout?',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('Cancel'),
-            ),
-            TextButton(
-  onPressed: () => Navigator.of(context).pushNamedAndRemoveUntil(
-    '/signin', // Replace with your login route name
-    (route) => false, // This removes all previous routes
-  ),
-  child: Text(
-    'Logout',
-    style: TextStyle(
-      color: Colors.red[700],
-    ),
-  ),
-),
-          ],
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+  // Updated logout function in lib/presentation/screens/homePage/sidebar/sidebar_drawer.dart
+
+Future<void> _handleLogout(BuildContext context) async {
+  try {
+    // Show confirmation dialog
+    bool confirm = await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text(
+          'Logout',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
           ),
         ),
-      ) ?? false;
+        content: const Text(
+          'Are you sure you want to logout?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: Text(
+              'Logout',
+              style: TextStyle(
+                color: Colors.red[700],
+              ),
+            ),
+          ),
+        ],
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+      ),
+    ) ?? false;
+    
+    if (!confirm) return;
+    
+    debugPrint('Logout: Starting logout process...');
+    
+    // CRITICAL: Clear ALL authentication data completely
+    final prefs = await SharedPreferences.getInstance();
+    
+    // Get all keys and remove them one by one to ensure complete cleanup
+    final allKeys = prefs.getKeys().toList();
+    debugPrint('Logout: Found ${allKeys.length} keys to clear: $allKeys');
+    
+    for (String key in allKeys) {
+      await prefs.remove(key);
+      debugPrint('Logout: Removed key: $key');
+    }
+    
+    // Double-check by calling clear() as well
+    await prefs.clear();
+    
+    // Verify that critical auth keys are actually removed
+    final tokenAfter = prefs.getString('token');
+    final userIdAfter = prefs.getString('user_id');
+    final mobileAfter = prefs.getString('mobile');
+    
+    debugPrint('Logout: Verification after clear:');
+    debugPrint('  - token: ${tokenAfter ?? 'null'}');
+    debugPrint('  - user_id: ${userIdAfter ?? 'null'}');
+    debugPrint('  - mobile: ${mobileAfter ?? 'null'}');
+    
+    if (tokenAfter != null || userIdAfter != null || mobileAfter != null) {
+      debugPrint('WARNING: Some auth data still exists after logout!');
       
-      if (!confirm) return;
+      // Force remove the specific auth keys
+      await prefs.remove('token');
+      await prefs.remove('user_id');
+      await prefs.remove('mobile');
+      await prefs.remove('user_id_int');
       
-      // Clear all stored data using SharedPreferences directly
+      // Verify again
+      final finalToken = prefs.getString('token');
+      final finalUserId = prefs.getString('user_id');
+      final finalMobile = prefs.getString('mobile');
+      
+      debugPrint('Logout: Final verification:');
+      debugPrint('  - token: ${finalToken ?? 'null'}');
+      debugPrint('  - user_id: ${finalUserId ?? 'null'}');
+      debugPrint('  - mobile: ${finalMobile ?? 'null'}');
+    }
+    
+    debugPrint('Logout: Auth data cleared successfully');
+    
+    // Navigate to login and remove all previous routes
+    if (context.mounted) {
+      Navigator.of(context).pushNamedAndRemoveUntil(
+        '/signin',
+        (route) => false,
+      );
+      debugPrint('Logout: Navigated to sign in screen');
+    }
+    
+  } catch (e) {
+    debugPrint('Logout: Error during logout: $e');
+    
+    // Even if there's an error, try to force clear auth data and navigate
+    try {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.clear();
+      await prefs.remove('token');
+      await prefs.remove('user_id');
+      await prefs.remove('mobile');
+      await prefs.remove('user_id_int');
+      await prefs.clear(); // Nuclear option
       
-      // Navigate to login and remove all previous routes
-      if (context.mounted) {
-        Navigator.of(context).pushNamedAndRemoveUntil(
-          '/signin',
-          (route) => false,
-        );
-      }
-    } catch (e) {
-      debugPrint('Error during logout: $e');
-      // Still attempt to navigate even if clearing fails
-      if (context.mounted) {
-        Navigator.of(context).pushNamedAndRemoveUntil(
-          '/signin',
-          (route) => false,
-        );
-      }
+      debugPrint('Logout: Force cleared auth data after error');
+    } catch (clearError) {
+      debugPrint('Logout: Error even in force clear: $clearError');
+    }
+    
+    // Still attempt to navigate
+    if (context.mounted) {
+      Navigator.of(context).pushNamedAndRemoveUntil(
+        '/signin',
+        (route) => false,
+      );
     }
   }
+}
 }
