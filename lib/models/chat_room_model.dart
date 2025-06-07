@@ -1,6 +1,6 @@
 // lib/models/chat_room_model.dart
 
-import '../utils/time_utils.dart'; // Import the new time utils
+import '../utils/time_utils.dart';
 
 class ChatRoomResponse {
   final List<ChatRoom> chatRooms;
@@ -57,6 +57,10 @@ class ChatRoom {
   }
 
   // Get formatted time for chat list display using IST 12-hour format
+  // Shows: 
+  // - Today: "2:30 PM" (12-hour IST time)
+  // - Yesterday: "Yesterday" 
+  // - Older: "12/25/2024" (date)
   String get formattedTime {
     return TimeUtils.formatChatListTime(lastMessageTime);
   }
@@ -108,15 +112,5 @@ class Participant {
       name: json['name'] ?? '',
       profilePicture: json['profilePicture'] ?? '',
     );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      '_id': id,
-      'userId': userId,
-      'userType': userType,
-      'name': name,
-      'profilePicture': profilePicture,
-    };
   }
 }
