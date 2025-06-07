@@ -1,10 +1,11 @@
-// lib/presentation/screens/chat/bloc.dart - SIMPLIFIED WITH DIRECT SENDER ID COMPARISON
+// lib/presentation/screens/chat/bloc.dart - Updated with IST time formatting
 
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../services/chat_services.dart';
 import '../../../services/token_service.dart';
+import '../../../utils/time_utils.dart'; // Import time utils
 import 'event.dart';
 import 'state.dart';
 
@@ -64,7 +65,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
           id: apiMsg.id,
           message: apiMsg.content,
           isUserMessage: isFromCurrentUser, // TRUE = Current user = RIGHT side, FALSE = Other user = LEFT side
-          time: _formatTime(apiMsg.createdAt),
+          time: _formatMessageTime(apiMsg.createdAt), // Use IST formatting
         );
       }).toList();
 
@@ -113,7 +114,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
           id: apiMsg.id,
           message: apiMsg.content,
           isUserMessage: isFromCurrentUser, // TRUE = Current user = RIGHT, FALSE = Other user = LEFT
-          time: _formatTime(apiMsg.createdAt),
+          time: _formatMessageTime(apiMsg.createdAt), // Use IST formatting
         );
       }).toList();
 
@@ -138,92 +139,6 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     }
   }
 
-  void _onUpdateMessages(_UpdateMessages event, Emitter<ChatState> emit) {
-    if (state is ChatLoaded) {
-      final currentState = state as ChatLoaded;
-      
-      // Debug: Count and show message directions
-      final rightMessages = event.messages.where((m) => m.isUserMessage).length;
-      final leftMessages = event.messages.where((m) => !m.isUserMessage).length;
-      debugPrint('ChatBloc: 📊 Updating messages:');
-      debugPrint('  - RIGHT side (current user): $rightMessages messages');
-      debugPrint('  - LEFT side (other users): $leftMessages messages');
-      debugPrint('  - Total messages: ${event.messages.length}');
-      
-      emit(currentState.copyWith(
-        messages: event.messages,
-        isSendingMessage: false,
-      ));
-    }
-  }
-
-  void _onAddIncomingMessage(_AddIncomingMessage event, Emitter<ChatState> emit) {
-    if (state is ChatLoaded) {
-      final currentState = state as ChatLoaded;
-      
-      // Convert API message to UI message with SIMPLE logic
-      final isFromCurrentUser = event.message.isFromCurrentUser(_currentUserId);
-      
-      final newChatMessage = ChatMessage(
-        id: event.message.id,
-        message: event.message.content,
-        isUserMessage: isFromCurrentUser, // TRUE = Current user = RIGHT, FALSE = Other user = LEFT
-        time: _formatTime(event.message.createdAt),
-      );
-      
-      debugPrint('ChatBloc: 🔥 Adding incoming message:');
-      debugPrint('  - Content: "${event.message.content}"');
-      debugPrint('  - API Sender ID: "${event.message.senderId}"');
-      debugPrint('  - Current User ID: "${_currentUserId ?? 'null'}"');
-      debugPrint('  - From current user: $isFromCurrentUser');
-      debugPrint('  - Will appear on: ${isFromCurrentUser ? 'RIGHT' : 'LEFT'} side');
-      
-      // Check if message already exists to avoid duplicates
-      final messageExists = currentState.messages.any((m) => 
-        m.id == newChatMessage.id ||
-        (m.message == newChatMessage.message && 
-         m.isUserMessage == newChatMessage.isUserMessage &&
-         m.time == newChatMessage.time));
-      
-      if (!messageExists) {
-        final updatedMessages = [...currentState.messages, newChatMessage];
-        
-        // Sort messages by timestamp
-        updatedMessages.sort((a, b) {
-          // Try to parse timestamp from ID if possible
-          try {
-            final aTime = int.tryParse(a.id) ?? 0;
-            final bTime = int.tryParse(b.id) ?? 0;
-            if (aTime != 0 && bTime != 0) {
-              return aTime.compareTo(bTime);
-            }
-          } catch (e) {
-            // Fall back to string comparison
-            debugPrint('ChatBloc: Error parsing message IDs for sorting: $e');
-          }
-          return a.id.compareTo(b.id);
-        });
-        
-        debugPrint('ChatBloc: ✅ Added incoming message');
-        
-        emit(currentState.copyWith(
-          messages: updatedMessages,
-        ));
-      } else {
-        debugPrint('ChatBloc: 🔄 Message already exists, skipping duplicate');
-      }
-    }
-  }
-
-  void _onUpdateConnectionStatus(_UpdateConnectionStatus event, Emitter<ChatState> emit) {
-    if (state is ChatLoaded) {
-      final currentState = state as ChatLoaded;
-      emit(currentState.copyWith(
-        isConnected: event.isConnected,
-      ));
-    }
-  }
-
   Future<void> _onSendMessage(SendMessage event, Emitter<ChatState> emit) async {
     if (state is ChatLoaded && _currentRoomId != null) {
       final currentState = state as ChatLoaded;
@@ -241,7 +156,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
           id: DateTime.now().millisecondsSinceEpoch.toString(),
           message: event.message,
           isUserMessage: true, // TRUE = Current user message = RIGHT side
-          time: _getCurrentTime(),
+          time: _getCurrentTime(), // Use IST formatting
         );
         
         debugPrint('ChatBloc: 🎯 Creating optimistic message for RIGHT side');
@@ -304,7 +219,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
           id: DateTime.now().millisecondsSinceEpoch.toString(),
           message: event.message,
           isUserMessage: false, // FALSE = Other user message = LEFT side
-          time: _getCurrentTime(),
+          time: _getCurrentTime(), // Use IST formatting
         );
         
         debugPrint('ChatBloc: 🎯 Creating other user message for LEFT side');
@@ -356,7 +271,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       try {
         _chatService.sendStopTyping(_currentRoomId!);
         _typingTimer?.cancel();
-        debugPrint('ChatBloc: 🛑 Stopped typing indicator');
+        debugPrint('ChatBloc: 🎯 Stopped typing indicator');
       } catch (e) {
         debugPrint('ChatBloc: ❌ Error stopping typing: $e');
       }
@@ -364,117 +279,124 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
   }
 
   Future<void> _onRefreshChat(RefreshChat event, Emitter<ChatState> emit) async {
-    if (_currentRoomId != null) {
+    if (state is ChatLoaded) {
+      final currentState = state as ChatLoaded;
+      emit(currentState.copyWith(isRefreshing: true));
+      
       try {
-        debugPrint('ChatBloc: 🔄 Refreshing chat history');
-        
-        // Show refreshing state briefly
-        if (state is ChatLoaded) {
-          final currentState = state as ChatLoaded;
-          emit(currentState.copyWith(isRefreshing: true));
-        }
-        
-        // Manually trigger a poll for new messages
         await _chatService.refreshMessages();
-        
-        // Reload complete chat history from server
-        await _chatService.loadChatHistory(_currentRoomId!);
-        debugPrint('ChatBloc: ✅ Chat refreshed successfully');
-        
-        // The updated messages will be handled by the chat service listener
-        // Just update the refreshing state
-        if (state is ChatLoaded) {
-          final currentState = state as ChatLoaded;
-          
-          // Convert the refreshed messages with SIMPLE logic
-          final refreshedMessages = _chatService.messages.map((apiMsg) {
-            final isFromCurrentUser = apiMsg.isFromCurrentUser(_currentUserId);
-            
-            return ChatMessage(
-              id: apiMsg.id,
-              message: apiMsg.content,
-              isUserMessage: isFromCurrentUser, // TRUE = Current user = RIGHT, FALSE = Other user = LEFT
-              time: _formatTime(apiMsg.createdAt),
-            );
-          }).toList();
-          
-          emit(currentState.copyWith(
-            messages: refreshedMessages,
-            isRefreshing: false,
-          ));
-        }
+        emit(currentState.copyWith(isRefreshing: false));
       } catch (e) {
+        emit(currentState.copyWith(isRefreshing: false));
         debugPrint('ChatBloc: ❌ Error refreshing chat: $e');
-        if (state is ChatLoaded) {
-          final currentState = state as ChatLoaded;
-          emit(currentState.copyWith(isRefreshing: false));
-        }
-        
-        // Show error message briefly
-        emit(const ChatError('Failed to refresh chat. Please try again.'));
-        
-        // Restore previous state after showing error
-        Timer(const Duration(seconds: 2), () {
-          if (!isClosed && state is ChatError) {
-            // Try to get the previous loaded state from chat service
-            if (_chatService.messages.isNotEmpty) {
-              final messages = _chatService.messages.map((apiMsg) {
-                final isFromCurrentUser = apiMsg.isFromCurrentUser(_currentUserId);
-                
-                return ChatMessage(
-                  id: apiMsg.id,
-                  message: apiMsg.content,
-                  isUserMessage: isFromCurrentUser, // TRUE = Current user = RIGHT, FALSE = Other user = LEFT
-                  time: _formatTime(apiMsg.createdAt),
-                );
-              }).toList();
-              
-              final orderInfo = ChatOrderInfo(
-                orderId: _formatOrderId(_currentRoomId ?? ''),
-                restaurantName: 'Your Restaurant',
-                estimatedDelivery: '30 mins',
-                status: 'Preparing',
-              );
-              
-              emit(ChatLoaded(
-                orderInfo: orderInfo,
-                messages: messages,
-                isConnected: _chatService.isConnected,
-              ));
-            }
-          }
-        });
       }
     }
   }
 
-  String _getCurrentTime() {
-    final now = DateTime.now();
-    final hour = now.hour > 12 ? now.hour - 12 : (now.hour == 0 ? 12 : now.hour);
-    final minute = now.minute.toString().padLeft(2, '0');
-    final period = now.hour >= 12 ? 'PM' : 'AM';
-    return '$hour:$minute $period';
+  void _onUpdateMessages(_UpdateMessages event, Emitter<ChatState> emit) {
+    if (state is ChatLoaded) {
+      final currentState = state as ChatLoaded;
+      
+      // Debug: Count and show message directions
+      final rightMessages = event.messages.where((m) => m.isUserMessage).length;
+      final leftMessages = event.messages.where((m) => !m.isUserMessage).length;
+      debugPrint('ChatBloc: 📊 Updating messages:');
+      debugPrint('  - RIGHT side (current user): $rightMessages messages');
+      debugPrint('  - LEFT side (other users): $leftMessages messages');
+      debugPrint('  - Total messages: ${event.messages.length}');
+      
+      emit(currentState.copyWith(
+        messages: event.messages,
+        isSendingMessage: false,
+      ));
+    }
   }
 
-  String _formatTime(DateTime dateTime) {
-    final hour = dateTime.hour > 12 ? dateTime.hour - 12 : (dateTime.hour == 0 ? 12 : dateTime.hour);
-    final minute = dateTime.minute.toString().padLeft(2, '0');
-    final period = dateTime.hour >= 12 ? 'PM' : 'AM';
-    return '$hour:$minute $period';
+  void _onUpdateConnectionStatus(_UpdateConnectionStatus event, Emitter<ChatState> emit) {
+    if (state is ChatLoaded) {
+      final currentState = state as ChatLoaded;
+      emit(currentState.copyWith(
+        isConnected: event.isConnected,
+      ));
+    }
+  }
+
+  void _onAddIncomingMessage(_AddIncomingMessage event, Emitter<ChatState> emit) {
+    if (state is ChatLoaded) {
+      final currentState = state as ChatLoaded;
+      
+      // Convert API message to UI message with SIMPLE logic
+      final isFromCurrentUser = event.message.isFromCurrentUser(_currentUserId);
+      
+      final newChatMessage = ChatMessage(
+        id: event.message.id,
+        message: event.message.content,
+        isUserMessage: isFromCurrentUser, // TRUE = Current user = RIGHT, FALSE = Other user = LEFT
+        time: _formatMessageTime(event.message.createdAt), // Use IST formatting
+      );
+      
+      debugPrint('ChatBloc: 🔥 Adding incoming message:');
+      debugPrint('  - Content: "${event.message.content}"');
+      debugPrint('  - API Sender ID: "${event.message.senderId}"');
+      debugPrint('  - Current User ID: "${_currentUserId ?? 'null'}"');
+      debugPrint('  - From current user: $isFromCurrentUser');
+      debugPrint('  - Will appear on: ${isFromCurrentUser ? 'RIGHT' : 'LEFT'} side');
+      
+      // Check if message already exists to avoid duplicates
+      final messageExists = currentState.messages.any((m) => 
+        m.id == newChatMessage.id ||
+        (m.message == newChatMessage.message && 
+         m.isUserMessage == newChatMessage.isUserMessage &&
+         m.time == newChatMessage.time));
+      
+      if (!messageExists) {
+        final updatedMessages = [...currentState.messages, newChatMessage];
+        
+        // Sort messages by timestamp
+        updatedMessages.sort((a, b) {
+          // Try to parse timestamp from ID if possible
+          try {
+            final aTime = int.tryParse(a.id) ?? 0;
+            final bTime = int.tryParse(b.id) ?? 0;
+            if (aTime != 0 && bTime != 0) {
+              return aTime.compareTo(bTime);
+            }
+          } catch (e) {
+            // Fall back to string comparison
+            debugPrint('ChatBloc: Error parsing message IDs for sorting: $e');
+          }
+          return a.id.compareTo(b.id);
+        });
+        
+        debugPrint('ChatBloc: ✅ Added incoming message');
+        
+        emit(currentState.copyWith(
+          messages: updatedMessages,
+        ));
+      } else {
+        debugPrint('ChatBloc: 🔄 Message already exists, skipping duplicate');
+      }
+    }
+  }
+
+  // IST Time formatting methods
+  String _getCurrentTime() {
+    return TimeUtils.formatChatMessageTime(TimeUtils.getCurrentIST());
+  }
+
+  String _formatMessageTime(DateTime dateTime) {
+    return TimeUtils.formatChatMessageTime(dateTime);
   }
 
   String _formatOrderId(String orderId) {
     if (orderId.isEmpty) return '#2504';
     
-    // If it's already formatted with #, return as is
     if (orderId.startsWith('#')) return orderId;
     
-    // If it's a long order ID, take the last 4-8 characters
     if (orderId.length > 8) {
       return '#${orderId.substring(orderId.length - 6)}';
     }
     
-    // Otherwise, just add # prefix
     return '#$orderId';
   }
 
@@ -522,7 +444,7 @@ class _UpdateConnectionStatus extends ChatEvent {
 }
 
 class _AddIncomingMessage extends ChatEvent {
-  final ApiChatMessage message;
+  final dynamic message; // ApiChatMessage type
   
   const _AddIncomingMessage(this.message);
   

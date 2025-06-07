@@ -1,5 +1,7 @@
 // lib/models/chat_room_model.dart
 
+import '../utils/time_utils.dart'; // Import the new time utils
+
 class ChatRoomResponse {
   final List<ChatRoom> chatRooms;
 
@@ -54,59 +56,67 @@ class ChatRoom {
     }
   }
 
-  // Get formatted time for display
+  // Get formatted time for chat list display using IST 12-hour format
   String get formattedTime {
-    final now = DateTime.now();
-    final difference = now.difference(lastMessageTime);
-
-    if (difference.inDays == 0) {
-      // Today - show time
-      final hour = lastMessageTime.hour > 12 
-          ? lastMessageTime.hour - 12 
-          : lastMessageTime.hour == 0 ? 12 : lastMessageTime.hour;
-      final minute = lastMessageTime.minute.toString().padLeft(2, '0');
-      final period = lastMessageTime.hour >= 12 ? 'PM' : 'AM';
-      return '$hour:$minute $period';
-    } else if (difference.inDays == 1) {
-      // Yesterday
-      return 'Yesterday';
-    } else if (difference.inDays < 7) {
-      // This week - show day name
-      const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-      return days[lastMessageTime.weekday - 1];
-    } else {
-      // Older - show date
-      final month = lastMessageTime.month.toString().padLeft(2, '0');
-      final day = lastMessageTime.day.toString().padLeft(2, '0');
-      return '$month/$day/${lastMessageTime.year}';
-    }
+    return TimeUtils.formatChatListTime(lastMessageTime);
   }
 
-  // Get display message
+  // Get display message with proper fallback
   String get displayMessage {
     if (lastMessage.isEmpty) {
       return 'No messages yet';
     }
     return lastMessage;
   }
+
+  // Get partner name for display
+  String get partnerName {
+    final partner = participants.firstWhere(
+      (p) => p.userType != 'user',
+      orElse: () => Participant(
+        id: '',
+        userId: '',
+        userType: 'partner',
+        name: 'Unknown Partner',
+        profilePicture: '',
+      ),
+    );
+    return partner.name.isNotEmpty ? partner.name : 'Partner';
+  }
 }
 
 class Participant {
+  final String id;
   final String userId;
   final String userType;
-  final String id;
+  final String name;
+  final String profilePicture;
 
   Participant({
+    required this.id,
     required this.userId,
     required this.userType,
-    required this.id,
+    required this.name,
+    required this.profilePicture,
   });
 
   factory Participant.fromJson(Map<String, dynamic> json) {
     return Participant(
+      id: json['_id'] ?? '',
       userId: json['userId'] ?? '',
       userType: json['userType'] ?? '',
-      id: json['_id'] ?? '',
+      name: json['name'] ?? '',
+      profilePicture: json['profilePicture'] ?? '',
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      '_id': id,
+      'userId': userId,
+      'userType': userType,
+      'name': name,
+      'profilePicture': profilePicture,
+    };
   }
 }
