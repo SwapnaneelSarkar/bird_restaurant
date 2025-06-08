@@ -21,7 +21,7 @@ class ChatListView extends StatefulWidget {
   State<ChatListView> createState() => _ChatListViewState();
 }
 
-class _ChatListViewState extends State<ChatListView> with TickerProviderStateMixin {
+class _ChatListViewState extends State<ChatListView> with TickerProviderStateMixin, WidgetsBindingObserver {
   late ChatListBloc _chatListBloc;
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
@@ -38,6 +38,9 @@ class _ChatListViewState extends State<ChatListView> with TickerProviderStateMix
   @override
   void initState() {
     super.initState();
+    // Add observer to listen to app lifecycle changes
+    WidgetsBinding.instance.addObserver(this);
+    
     _chatListBloc = ChatListBloc()..add(const LoadChatRooms());
     
     // Initialize search animations
@@ -68,12 +71,25 @@ class _ChatListViewState extends State<ChatListView> with TickerProviderStateMix
 
   @override
   void dispose() {
+    // Remove observer
+    WidgetsBinding.instance.removeObserver(this);
+    
     _searchController.removeListener(_onSearchChanged);
     _searchController.dispose();
     _searchFocusNode.dispose();
     _searchAnimationController.dispose();
     _chatListBloc.close();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    // Refresh chat list when app becomes active (when user returns from chat)
+    if (state == AppLifecycleState.resumed) {
+      debugPrint('ChatListView: App resumed, refreshing chat list');
+      _chatListBloc.add(const RefreshChatRooms());
+    }
   }
 
   void _onSearchChanged() {
@@ -144,8 +160,7 @@ class _ChatListViewState extends State<ChatListView> with TickerProviderStateMix
                     ],
                   ),
                 ),
-                
-                // Bottom Navigation
+                // Bottom Navigation Bar
                 Positioned(
                   bottom: 0,
                   left: 0,
@@ -165,61 +180,36 @@ class _ChatListViewState extends State<ChatListView> with TickerProviderStateMix
 
   Widget _buildHeader() {
     return Container(
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 1,
-            offset: const Offset(0, 1),
+        border: Border(
+          bottom: BorderSide(
+            color: Colors.grey.shade200,
+            width: 1,
+          ),
+        ),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            'Chats',
+            style: TextStyle(
+              fontSize: FontSize.s22,
+              fontWeight: FontWeightManager.bold,
+              color: ColorManager.black,
+              fontFamily: FontFamily.Montserrat,
+            ),
+          ),
+          IconButton(
+            icon: Icon(
+              _isSearchExpanded ? Icons.close : Icons.search,
+              color: ColorManager.primary,
+            ),
+            onPressed: _toggleSearch,
           ),
         ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        child: Row(
-          children: [
-            GestureDetector(
-              onTap: () => Navigator.pop(context),
-              child: Icon(
-                Icons.chevron_left,
-                size: 28,
-                color: ColorManager.black,
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Text(
-                'Chats',
-                style: TextStyle(
-                  fontSize: FontSize.s20,
-                  fontWeight: FontWeightManager.bold,
-                  color: ColorManager.black,
-                  fontFamily: FontFamily.Montserrat,
-                ),
-              ),
-            ),
-            GestureDetector(
-              onTap: _toggleSearch,
-              child: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: _isSearchExpanded 
-                      ? ColorManager.primary.withOpacity(0.1)
-                      : Colors.transparent,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Icon(
-                  _isSearchExpanded ? Icons.close : Icons.search,
-                  color: _isSearchExpanded 
-                      ? ColorManager.primary 
-                      : ColorManager.black,
-                  size: 22,
-                ),
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -228,62 +218,57 @@ class _ChatListViewState extends State<ChatListView> with TickerProviderStateMix
     return AnimatedBuilder(
       animation: _searchSlideAnimation,
       builder: (context, child) {
-        return ClipRect(
-          child: Align(
-            alignment: Alignment.topCenter,
-            heightFactor: _searchSlideAnimation.value,
-            child: FadeTransition(
-              opacity: _searchFadeAnimation,
-              child: Container(
-                color: Colors.white,
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: Colors.grey[100],
-                    borderRadius: BorderRadius.circular(25),
-                    border: Border.all(
-                      color: Colors.grey[300]!,
-                      width: 0.5,
-                    ),
+        return Container(
+          height: _searchSlideAnimation.value * 60,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            border: Border(
+              bottom: BorderSide(
+                color: Colors.grey.shade200,
+                width: 1,
+              ),
+            ),
+          ),
+          child: FadeTransition(
+            opacity: _searchFadeAnimation,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: TextField(
+                controller: _searchController,
+                focusNode: _searchFocusNode,
+                style: TextStyle(
+                  fontSize: FontSize.s16,
+                  fontFamily: FontFamily.Montserrat,
+                  color: ColorManager.black,
+                ),
+                decoration: InputDecoration(
+                  hintText: 'Search chats...',
+                  hintStyle: TextStyle(
+                    color: Colors.grey[500],
+                    fontFamily: FontFamily.Montserrat,
                   ),
-                  child: TextField(
-                    controller: _searchController,
-                    focusNode: _searchFocusNode,
-                    style: TextStyle(
-                      fontSize: FontSize.s14,
-                      fontFamily: FontFamily.Montserrat,
-                    ),
-                    decoration: InputDecoration(
-                      hintText: 'Search chats...',
-                      hintStyle: TextStyle(
-                        color: Colors.grey[500],
-                        fontSize: FontSize.s14,
-                        fontFamily: FontFamily.Montserrat,
-                      ),
-                      prefixIcon: Icon(
-                        Icons.search,
-                        color: Colors.grey[500],
-                        size: 20,
-                      ),
-                      suffixIcon: _searchController.text.isNotEmpty
-                          ? GestureDetector(
-                              onTap: () {
-                                _searchController.clear();
-                                _chatListBloc.add(const ClearSearch());
-                              },
-                              child: Icon(
-                                Icons.clear,
-                                color: Colors.grey[500],
-                                size: 20,
-                              ),
-                            )
-                          : null,
-                      border: InputBorder.none,
-                      contentPadding: const EdgeInsets.symmetric(
-                        vertical: 12,
-                        horizontal: 8,
-                      ),
-                    ),
+                  prefixIcon: Icon(
+                    Icons.search,
+                    color: Colors.grey[500],
+                    size: 20,
+                  ),
+                  suffixIcon: _searchController.text.isNotEmpty
+                      ? GestureDetector(
+                          onTap: () {
+                            _searchController.clear();
+                            _chatListBloc.add(const ClearSearch());
+                          },
+                          child: Icon(
+                            Icons.clear,
+                            color: Colors.grey[500],
+                            size: 20,
+                          ),
+                        )
+                      : null,
+                  border: InputBorder.none,
+                  contentPadding: const EdgeInsets.symmetric(
+                    vertical: 12,
+                    horizontal: 8,
                   ),
                 ),
               ),
@@ -340,18 +325,22 @@ class _ChatListViewState extends State<ChatListView> with TickerProviderStateMix
     return Material(
       color: Colors.white,
       child: InkWell(
-        onTap: () {
+        onTap: () async {
           _chatListBloc.add(SelectChatRoom(
             roomId: chatRoom.roomId,
             orderId: chatRoom.orderId,
           ));
           
-          // Navigate to chat screen
-          Navigator.of(context).push(
+          // Navigate to chat screen and wait for result
+          final result = await Navigator.of(context).push(
             MaterialPageRoute(
               builder: (context) => ChatView(orderId: chatRoom.orderId),
             ),
           );
+          
+          // Refresh chat list when returning from chat screen
+          debugPrint('ChatListView: Returned from chat screen, refreshing chat list');
+          _chatListBloc.add(const RefreshChatRooms());
         },
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -385,7 +374,7 @@ class _ChatListViewState extends State<ChatListView> with TickerProviderStateMix
                         // Order ID as title
                         Expanded(
                           child: Text(
-                            'Order #${chatRoom.orderId.substring(chatRoom.orderId.length - 8)}',
+                            'Order #${chatRoom.orderId}',
                             style: TextStyle(
                               fontSize: FontSize.s16,
                               fontWeight: FontWeightManager.semiBold,
@@ -411,38 +400,30 @@ class _ChatListViewState extends State<ChatListView> with TickerProviderStateMix
                     const SizedBox(height: 4),
                     
                     // Last message
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            chatRoom.displayMessage,
-                            style: TextStyle(
-                              fontSize: FontSize.s14,
-                              color: chatRoom.lastMessage.isEmpty 
-                                  ? Colors.grey[500]
-                                  : Colors.grey[700],
-                              fontFamily: FontFamily.Montserrat,
-                              fontStyle: chatRoom.lastMessage.isEmpty 
-                                  ? FontStyle.italic 
-                                  : FontStyle.normal,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        
-                        // Message indicator (you can add unread count here)
-                        if (chatRoom.lastMessage.isNotEmpty)
-                          Container(
-                            margin: const EdgeInsets.only(left: 8),
-                            child: Icon(
-                              Icons.chevron_right,
-                              color: Colors.grey[400],
-                              size: 16,
-                            ),
-                          ),
-                      ],
+                    Text(
+                      chatRoom.displayMessage,
+                      style: TextStyle(
+                        fontSize: FontSize.s14,
+                        color: Colors.grey[600],
+                        fontFamily: FontFamily.Montserrat,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
                     ),
+                    
+                    // Customer info if available
+                    if (chatRoom.userParticipant != null) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        'Customer: ${chatRoom.userParticipant!.userId}',
+                        style: TextStyle(
+                          fontSize: FontSize.s12,
+                          color: Colors.grey[500],
+                          fontFamily: FontFamily.Montserrat,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -453,80 +434,145 @@ class _ChatListViewState extends State<ChatListView> with TickerProviderStateMix
     );
   }
 
-  Widget _buildEmptyState(String message) {
-    return RefreshIndicator(
-      key: _refreshIndicatorKey,
-      onRefresh: _handleRefresh,
-      color: ColorManager.primary,
-      child: ListView(
-        physics: const AlwaysScrollableScrollPhysics(),
+  Widget _buildErrorState(String message) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          SizedBox(
-            height: MediaQuery.of(context).size.height * 0.6,
-            child: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Container(
-                    width: 120,
-                    height: 120,
-                    decoration: BoxDecoration(
-                      color: Colors.grey[100],
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      Icons.chat_bubble_outline,
-                      size: 60,
-                      color: Colors.grey[400],
-                    ),
+          Icon(
+            Icons.error_outline,
+            size: 80,
+            color: Colors.grey[400],
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Oops! Something went wrong',
+            style: TextStyle(
+              fontSize: FontSize.s18,
+              fontWeight: FontWeightManager.semiBold,
+              color: ColorManager.black,
+              fontFamily: FontFamily.Montserrat,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 32),
+            child: Text(
+              message,
+              style: TextStyle(
+                fontSize: FontSize.s14,
+                color: Colors.grey[600],
+                fontFamily: FontFamily.Montserrat,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ),
+          const SizedBox(height: 24),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              ElevatedButton(
+                onPressed: () => _handleRefresh(),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: ColorManager.primary,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(25),
                   ),
-                  const SizedBox(height: 24),
-                  Text(
-                    'No Chats Yet',
-                    style: TextStyle(
-                      fontSize: FontSize.s20,
-                      fontWeight: FontWeightManager.semiBold,
-                      color: ColorManager.black,
-                      fontFamily: FontFamily.Montserrat,
-                    ),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 12,
                   ),
-                  const SizedBox(height: 8),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 40),
-                    child: Text(
-                      'Start conversations with your customers when they place orders',
-                      style: TextStyle(
-                        fontSize: FontSize.s14,
-                        color: Colors.grey[600],
-                        fontFamily: FontFamily.Montserrat,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
+                ),
+                child: Text(
+                  'Try Again',
+                  style: TextStyle(
+                    fontSize: FontSize.s14,
+                    fontWeight: FontWeightManager.medium,
+                    fontFamily: FontFamily.Montserrat,
                   ),
-                  const SizedBox(height: 24),
-                  ElevatedButton(
-                    onPressed: () => _handleRefresh(),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: ColorManager.primary,
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(25),
-                      ),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 24,
-                        vertical: 12,
-                      ),
-                    ),
-                    child: Text(
-                      'Refresh',
-                      style: TextStyle(
-                        fontSize: FontSize.s14,
-                        fontWeight: FontWeightManager.medium,
-                        fontFamily: FontFamily.Montserrat,
-                      ),
-                    ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              OutlinedButton(
+                onPressed: () => Navigator.pop(context),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: ColorManager.primary,
+                  side: BorderSide(color: ColorManager.primary),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(25),
                   ),
-                ],
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 12,
+                  ),
+                ),
+                child: Text(
+                  'Go Back',
+                  style: TextStyle(
+                    fontSize: FontSize.s14,
+                    fontWeight: FontWeightManager.medium,
+                    fontFamily: FontFamily.Montserrat,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyState(String message) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.chat_bubble_outline,
+            size: 80,
+            color: Colors.grey[400],
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'No Chats Yet',
+            style: TextStyle(
+              fontSize: FontSize.s18,
+              fontWeight: FontWeightManager.semiBold,
+              color: ColorManager.black,
+              fontFamily: FontFamily.Montserrat,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            message,
+            style: TextStyle(
+              fontSize: FontSize.s14,
+              color: Colors.grey[600],
+              fontFamily: FontFamily.Montserrat,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 24),
+          ElevatedButton(
+            onPressed: () => _handleRefresh(),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: ColorManager.primary,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(25),
+              ),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 24,
+                vertical: 12,
+              ),
+            ),
+            child: Text(
+              'Refresh',
+              style: TextStyle(
+                fontSize: FontSize.s14,
+                fontWeight: FontWeightManager.medium,
+                fontFamily: FontFamily.Montserrat,
               ),
             ),
           ),
@@ -557,9 +603,9 @@ class _ChatListViewState extends State<ChatListView> with TickerProviderStateMix
           ),
           const SizedBox(height: 8),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 40),
+            padding: const EdgeInsets.symmetric(horizontal: 32),
             child: Text(
-              'No chats found for "$query".\nTry searching with a different term.',
+              'No chats found for "$query".\nTry a different search term.',
               style: TextStyle(
                 fontSize: FontSize.s14,
                 color: Colors.grey[600],
@@ -568,129 +614,21 @@ class _ChatListViewState extends State<ChatListView> with TickerProviderStateMix
               textAlign: TextAlign.center,
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 24),
           TextButton(
             onPressed: () {
               _searchController.clear();
               _chatListBloc.add(const ClearSearch());
             },
+            style: TextButton.styleFrom(
+              foregroundColor: ColorManager.primary,
+            ),
             child: Text(
               'Clear Search',
               style: TextStyle(
-                color: ColorManager.primary,
                 fontSize: FontSize.s14,
                 fontWeight: FontWeightManager.medium,
                 fontFamily: FontFamily.Montserrat,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildErrorState(String message) {
-    return RefreshIndicator(
-      key: _refreshIndicatorKey,
-      onRefresh: _handleRefresh,
-      color: ColorManager.primary,
-      child: ListView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        children: [
-          SizedBox(
-            height: MediaQuery.of(context).size.height * 0.6,
-            child: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Container(
-                    width: 120,
-                    height: 120,
-                    decoration: BoxDecoration(
-                      color: Colors.red[50],
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      Icons.error_outline,
-                      size: 60,
-                      color: Colors.red[400],
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  Text(
-                    'Oops! Something went wrong',
-                    style: TextStyle(
-                      fontSize: FontSize.s18,
-                      fontWeight: FontWeightManager.semiBold,
-                      color: ColorManager.black,
-                      fontFamily: FontFamily.Montserrat,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 40),
-                    child: Text(
-                      message,
-                      style: TextStyle(
-                        fontSize: FontSize.s14,
-                        color: Colors.grey[600],
-                        fontFamily: FontFamily.Montserrat,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      ElevatedButton(
-                        onPressed: () => _handleRefresh(),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: ColorManager.primary,
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(25),
-                          ),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 24,
-                            vertical: 12,
-                          ),
-                        ),
-                        child: Text(
-                          'Try Again',
-                          style: TextStyle(
-                            fontSize: FontSize.s14,
-                            fontWeight: FontWeightManager.medium,
-                            fontFamily: FontFamily.Montserrat,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      OutlinedButton(
-                        onPressed: () => Navigator.pop(context),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: ColorManager.primary,
-                          side: BorderSide(color: ColorManager.primary),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(25),
-                          ),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 24,
-                            vertical: 12,
-                          ),
-                        ),
-                        child: Text(
-                          'Go Back',
-                          style: TextStyle(
-                            fontSize: FontSize.s14,
-                            fontWeight: FontWeightManager.medium,
-                            fontFamily: FontFamily.Montserrat,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
               ),
             ),
           ),

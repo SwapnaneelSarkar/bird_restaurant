@@ -63,7 +63,7 @@ class OrdersApiService {
 
   static Future<OrderHistoryResponse> getOrderHistory({
     int page = 1,
-    int limit = 20,
+    int limit = 50,
     String? status,
   }) async {
     try {
@@ -90,7 +90,7 @@ class OrdersApiService {
       debugPrint('OrdersApiService: 📚 Fetching order history from: $url');
       debugPrint('OrdersApiService: 🔑 Using token: ${token.substring(0, 20)}...');
 
-      final response = await http.get(
+      final response = await http.post(
         url,
         headers: {
           'Authorization': 'Bearer $token',

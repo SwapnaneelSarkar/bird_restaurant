@@ -80,6 +80,7 @@ class OrderHistoryResponse {
 
 class Order {
   final String id;
+  final String userId;
   final String customerName;
   final double amount;
   final DateTime date;
@@ -90,6 +91,7 @@ class Order {
 
   const Order({
     required this.id,
+    required this.userId,
     required this.customerName,
     required this.amount,
     required this.date,
@@ -102,16 +104,18 @@ class Order {
   factory Order.fromJson(Map<String, dynamic> json) {
     return Order(
       id: json['order_id'] ?? json['id'] ?? '',
+      userId: json['user_id'] ?? '',
       customerName: json['customer_name'] ?? json['customerName'] ?? 'Unknown Customer',
-      amount: double.tryParse(json['total_amount']?.toString() ?? '0') ?? 0.0,
+      amount: double.tryParse(json['total_price']?.toString() ?? '0') ?? 
+              double.tryParse(json['total_amount']?.toString() ?? '0') ?? 0.0,
       date: json['created_at'] != null 
           ? DateTime.parse(json['created_at'])
           : json['order_date'] != null
               ? DateTime.parse(json['order_date'])
               : DateTime.now(),
       status: json['order_status'] ?? json['status'] ?? 'pending',
-      customerPhone: json['customer_phone'] ?? json['phone'],
-      deliveryAddress: json['delivery_address'] ?? json['address'],
+      customerPhone: json['user_mobile'] ?? json['customer_phone'] ?? json['phone'],
+      deliveryAddress: json['address'] ?? json['delivery_address'],
       items: json['items'] != null
           ? (json['items'] as List).map((item) => OrderItem.fromJson(item)).toList()
           : null,
@@ -140,6 +144,24 @@ class Order {
       default:
         return OrderStatus.pending;
     }
+  }
+
+  String get displayCustomerName {
+    if (customerName != 'Unknown Customer' && customerName.isNotEmpty) {
+      return customerName;
+    }
+    // If no customer name, show shortened user ID
+    if (userId.isNotEmpty) {
+      return 'User ${userId.length > 8 ? userId.substring(userId.length - 8) : userId}';
+    }
+    return 'Unknown Customer';
+  }
+
+  String get shortOrderId {
+    if (id.length > 8) {
+      return id.substring(id.length - 8);
+    }
+    return id;
   }
 }
 

@@ -12,6 +12,8 @@ class OrderCard extends StatelessWidget {
   final double amount;
   final DateTime date;
   final OrderStatus status;
+  final String? customerPhone;
+  final String? deliveryAddress;
   final VoidCallback onTap;
 
   const OrderCard({
@@ -21,6 +23,8 @@ class OrderCard extends StatelessWidget {
     required this.amount,
     required this.date,
     required this.status,
+    this.customerPhone,
+    this.deliveryAddress,
     required this.onTap,
   }) : super(key: key);
 
@@ -46,76 +50,134 @@ class OrderCard extends StatelessWidget {
             ),
           ],
         ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Customer Avatar Circle
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: Colors.grey[200],
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.person_outline,
-                color: Colors.grey,
-                size: 24,
-              ),
+            // Header Row with Order ID and Status
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Order #${orderId.length > 8 ? orderId.substring(orderId.length - 8) : orderId}',
+                  style: TextStyle(
+                    fontSize: FontSize.s14,
+                    fontWeight: FontWeightManager.medium,
+                    color: Colors.grey[700],
+                  ),
+                ),
+                _buildStatusBadge(status),
+              ],
             ),
-            const SizedBox(width: 16),
-            // Order Details
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            const SizedBox(height: 12),
+            
+            // Customer Info Row
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                // Customer Avatar Circle
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: Colors.grey[200],
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.person_outline,
+                    color: Colors.grey,
+                    size: 24,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                
+                // Customer Details
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Order #$orderId',
+                        customerName,
                         style: TextStyle(
-                          fontSize: FontSize.s14,
-                          fontWeight: FontWeightManager.medium,
-                          color: Colors.grey[700],
-                        ),
-                      ),
-                      _buildStatusBadge(status),
-                    ],
-                  ),
-                  const SizedBox(height: 5),
-                  Text(
-                    customerName,
-                    style: TextStyle(
-                      fontSize: FontSize.s16,
-                      fontWeight: FontWeightManager.semiBold,
-                      color: ColorManager.black,
-                    ),
-                  ),
-                  const SizedBox(height: 5),
-                  Row(
-                    children: [
-                      Text(
-                        'Payable: ₹${amount.toStringAsFixed(0)}',
-                        style: TextStyle(
-                          fontSize: FontSize.s14,
-                          fontWeight: FontWeightManager.medium,
+                          fontSize: FontSize.s16,
+                          fontWeight: FontWeightManager.semiBold,
                           color: ColorManager.black,
                         ),
                       ),
-                      const SizedBox(width: 8),
-                      Text(
-                        DateFormat('MMMM d, yyyy').format(date),
-                        style: TextStyle(
-                          fontSize: FontSize.s14,
-                          color: Colors.grey[600],
+                      if (customerPhone != null) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          customerPhone!,
+                          style: TextStyle(
+                            fontSize: FontSize.s12,
+                            color: Colors.grey[600],
+                          ),
                         ),
-                      ),
+                      ],
                     ],
                   ),
-                ],
-              ),
+                ),
+                
+                // Amount and Date
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      '₹${amount.toStringAsFixed(0)}',
+                      style: TextStyle(
+                        fontSize: FontSize.s16,
+                        fontWeight: FontWeightManager.bold,
+                        color: ColorManager.primary,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      DateFormat('MMM dd, HH:mm').format(date),
+                      style: TextStyle(
+                        fontSize: FontSize.s12,
+                        color: Colors.grey[600],
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
+            
+            // Address (if available)
+            if (deliveryAddress != null && deliveryAddress!.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.grey[50],
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: Colors.grey.withOpacity(0.2),
+                    width: 1,
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.location_on_outlined,
+                      size: 16,
+                      color: Colors.grey[600],
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        deliveryAddress!,
+                        style: TextStyle(
+                          fontSize: FontSize.s12,
+                          color: Colors.grey[700],
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ],
         ),
       ),
@@ -123,60 +185,56 @@ class OrderCard extends StatelessWidget {
   }
 
   Widget _buildStatusBadge(OrderStatus status) {
-    late final Color backgroundColor;
-    late final Color textColor;
-    late final String statusText;
+    Color badgeColor;
+    String statusText;
     
     switch (status) {
       case OrderStatus.pending:
-        backgroundColor = const Color(0xFFFFEFD6);
-        textColor = Colors.orange[800]!;
+        badgeColor = Colors.orange;
         statusText = 'Pending';
         break;
       case OrderStatus.confirmed:
-        backgroundColor = const Color(0xFFD1F5EA);
-        textColor = Colors.green[700]!;
+        badgeColor = Colors.blue;
         statusText = 'Confirmed';
         break;
+      case OrderStatus.preparing:
+        badgeColor = Colors.amber;
+        statusText = 'Preparing';
+        break;
       case OrderStatus.delivery:
-        backgroundColor = const Color(0xFFE3EAFF);
-        textColor = Colors.blue[700]!;
-        statusText = 'Out for Delivery';
+        badgeColor = Colors.indigo;
+        statusText = 'Delivery';
         break;
       case OrderStatus.delivered:
-        backgroundColor = const Color(0xFFD1F5EA);
-        textColor = Colors.green[700]!;
+        badgeColor = Colors.green;
         statusText = 'Delivered';
         break;
       case OrderStatus.cancelled:
-        backgroundColor = const Color(0xFFFFE5E5);
-        textColor = Colors.red[700]!;
+        badgeColor = Colors.red;
         statusText = 'Cancelled';
         break;
-      case OrderStatus.preparing:
-        backgroundColor = const Color(0xFFFFF8E1);
-        textColor = Colors.amber[800]!;
-        statusText = 'Preparing';
-        break;
-      case OrderStatus.all:
       default:
-        backgroundColor = Colors.grey[200]!;
-        textColor = Colors.grey[700]!;
+        badgeColor = Colors.grey;
         statusText = 'Unknown';
+        break;
     }
-    
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: backgroundColor,
-        borderRadius: BorderRadius.circular(20),
+        color: badgeColor.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: badgeColor.withOpacity(0.3),
+          width: 1,
+        ),
       ),
       child: Text(
         statusText,
         style: TextStyle(
-          fontSize: FontSize.s12,
+          fontSize: FontSize.s10,
           fontWeight: FontWeightManager.medium,
-          color: textColor,
+          color: badgeColor,
         ),
       ),
     );

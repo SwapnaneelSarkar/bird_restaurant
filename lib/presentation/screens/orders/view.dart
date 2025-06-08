@@ -76,6 +76,7 @@ class OrdersScreen extends StatelessWidget {
         slivers: [
           const SliverToBoxAdapter(child: SizedBox(height: 16)),
           
+          // First Row of Stats
           SliverToBoxAdapter(
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -105,6 +106,7 @@ class OrdersScreen extends StatelessWidget {
             ),
           ),
           
+          // Second Row of Stats
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.symmetric(vertical: 16),
@@ -152,29 +154,118 @@ class OrdersScreen extends StatelessWidget {
             ),
           ),
           
-          const SliverToBoxAdapter(child: SizedBox(height: 24)),
+          // Order History Section Header
+          const SliverToBoxAdapter(child: SizedBox(height: 32)),
           
-          SliverList(
-            delegate: SliverChildBuilderDelegate(
-              (context, index) {
-                final order = state.filteredOrders[index];
-                return OrderCard(
-                  orderId: order.id,
-                  customerName: order.customerName,
-                  amount: order.amount,
-                  date: order.date,
-                  status: order.orderStatus,
-                  onTap: () => _showOrderActionSheet(context, order, bloc),
-                );
-              },
-              childCount: state.filteredOrders.length,
+          SliverToBoxAdapter(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Order History',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey[800],
+                  ),
+                ),
+                if (state.filterStatus != OrderStatus.all)
+                  TextButton(
+                    onPressed: () => bloc.add(const FilterOrdersEvent(OrderStatus.all)),
+                    child: Text(
+                      'Show All',
+                      style: TextStyle(
+                        color: Colors.blue[600],
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+              ],
             ),
           ),
+          
+          const SliverToBoxAdapter(child: SizedBox(height: 16)),
+          
+          // Order History List
+          state.filteredOrders.isEmpty
+              ? SliverToBoxAdapter(
+                  child: Container(
+                    padding: const EdgeInsets.all(32),
+                    child: Column(
+                      children: [
+                        Icon(
+                          Icons.inbox_outlined,
+                          size: 64,
+                          color: Colors.grey[400],
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          state.filterStatus == OrderStatus.all
+                              ? 'No orders found'
+                              : 'No ${_getStatusDisplayName(state.filterStatus)} orders',
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: Colors.grey[600],
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          state.filterStatus == OrderStatus.all
+                              ? 'Orders will appear here once customers start placing orders.'
+                              : 'Try filtering by a different status to see more orders.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey[500],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                )
+              : SliverList(
+                  delegate: SliverChildBuilderDelegate(
+                    (context, index) {
+                      final order = state.filteredOrders[index];
+                      return OrderCard(
+                        orderId: order.id,
+                        customerName: order.displayCustomerName,
+                        amount: order.amount,
+                        date: order.date,
+                        status: order.orderStatus,
+                        customerPhone: order.customerPhone,
+                        deliveryAddress: order.deliveryAddress,
+                        onTap: () => _showOrderActionSheet(context, order, bloc),
+                      );
+                    },
+                    childCount: state.filteredOrders.length,
+                  ),
+                ),
           
           const SliverToBoxAdapter(child: SizedBox(height: 16)),
         ],
       ),
     );
+  }
+
+  String _getStatusDisplayName(OrderStatus status) {
+    switch (status) {
+      case OrderStatus.pending:
+        return 'pending';
+      case OrderStatus.confirmed:
+        return 'confirmed';
+      case OrderStatus.preparing:
+        return 'preparing';
+      case OrderStatus.delivery:
+        return 'delivery';
+      case OrderStatus.delivered:
+        return 'delivered';
+      case OrderStatus.cancelled:
+        return 'cancelled';
+      default:
+        return 'unknown';
+    }
   }
 
   void _showOrderActionSheet(BuildContext context, Order order, OrdersBloc bloc) {
@@ -195,7 +286,7 @@ class OrdersScreen extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                'Update Order #${order.id}',
+                'Update Order #${order.shortOrderId}',
                 style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 16),
