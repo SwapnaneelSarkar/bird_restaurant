@@ -6,6 +6,7 @@ import '../presentation/resources/colors.dart';
 import '../presentation/resources/font.dart';
 import '../presentation/screens/orders/state.dart';
 import '../services/order_service.dart';
+import '../services/token_service.dart';
 import 'universal_widget/order_widgets.dart';
 
 class OrderCard extends StatelessWidget {
@@ -184,18 +185,18 @@ class OrderCard extends StatelessWidget {
     _showOrderOptionsBottomSheet(context);
   }
 
-  void _showOrderOptionsBottomSheet(BuildContext context) {
-    // Get partner ID - this should be retrieved from the current user/session
-    const partnerId = 'current_partner_id'; // TODO: Replace with actual partner ID retrieval
-    
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => OrderOptionsBottomSheet(
-        orderId: orderId,
-        partnerId: partnerId,
-      ),
-    );
-  }
+  Future<void> _showOrderOptionsBottomSheet(BuildContext context) async {
+  // Get partner ID - this should be retrieved from the current user/session
+  final partnerId = await TokenService.getUserId();
+  
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    builder: (context) => OrderOptionsBottomSheet(
+      orderId: orderId,
+      partnerId: partnerId ?? 'default_partner_id', // Handle null case
+    ),
+  );
+}
 }

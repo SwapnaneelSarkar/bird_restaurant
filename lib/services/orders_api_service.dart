@@ -9,7 +9,7 @@ import '../models/order_model.dart';
 class OrdersApiService {
   static const int timeoutSeconds = 10;
 
-  // Fetch order summary - existing method
+  // Fetch order summary - UPDATED with partner ID
   static Future<OrderSummaryResponse> fetchOrderSummary() async {
     try {
       final token = await TokenService.getToken();
@@ -18,7 +18,13 @@ class OrdersApiService {
         throw Exception('No authentication found. Please login again.');
       }
 
-      final url = Uri.parse('${ApiConstants.baseUrl}/partner/orders/summary');
+      // Get partner ID - you'll need to implement this method in TokenService
+      final partnerId = await TokenService.getUserId();
+      if (partnerId == null) {
+        throw Exception('Partner ID not found. Please login again.');
+      }
+
+      final url = Uri.parse('${ApiConstants.baseUrl}/partner/orders/summary/$partnerId');
       
       debugPrint('OrdersApiService: 📊 Fetching order summary: $url');
 
@@ -47,7 +53,7 @@ class OrdersApiService {
     }
   }
 
-  // Fetch order history - ADDED MISSING METHOD
+  // Fetch order history - UPDATED with partner ID
   static Future<OrderHistoryResponse> fetchOrderHistory() async {
     try {
       final token = await TokenService.getToken();
@@ -56,11 +62,17 @@ class OrdersApiService {
         throw Exception('No authentication found. Please login again.');
       }
 
-      final url = Uri.parse('${ApiConstants.baseUrl}/partner/orders/history');
+      // Get partner ID - you'll need to implement this method in TokenService
+      final partnerId = await TokenService.getUserId();
+      if (partnerId == null) {
+        throw Exception('Partner ID not found. Please login again.');
+      }
+
+      final url = Uri.parse('${ApiConstants.baseUrl}/partner/orders/history/$partnerId');
       
       debugPrint('OrdersApiService: 📋 Fetching order history: $url');
 
-      final response = await http.get(
+      final response = await http.post(
         url,
         headers: {
           'Authorization': 'Bearer $token',
@@ -85,7 +97,7 @@ class OrdersApiService {
     }
   }
 
-  // Update order status - existing method
+  // Update order status - existing method (unchanged)
   static Future<bool> updateOrderStatus({
     required String orderId,
     required String newStatus,
@@ -130,7 +142,7 @@ class OrdersApiService {
     }
   }
 
-  // Fetch orders with date range - additional method
+  // Fetch orders with date range - UPDATED with partner ID
   static Future<OrderHistoryResponse> fetchOrdersWithDateRange({
     required DateTime startDate,
     required DateTime endDate,
@@ -142,12 +154,18 @@ class OrdersApiService {
         throw Exception('No authentication found. Please login again.');
       }
 
+      // Get partner ID - you'll need to implement this method in TokenService
+      final partnerId = await TokenService.getUserId();
+      if (partnerId == null) {
+        throw Exception('Partner ID not found. Please login again.');
+      }
+
       final queryParams = {
         'start_date': startDate.toIso8601String().split('T')[0],
         'end_date': endDate.toIso8601String().split('T')[0],
       };
       
-      final url = Uri.parse('${ApiConstants.baseUrl}/partner/orders/history').replace(
+      final url = Uri.parse('${ApiConstants.baseUrl}/partner/orders/history/$partnerId').replace(
         queryParameters: queryParams,
       );
       
