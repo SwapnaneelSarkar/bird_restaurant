@@ -1,65 +1,37 @@
-// lib/presentation/screens/chat/event.dart - Updated with order details events
+// lib/presentation/screens/chat/event.dart
 
 import 'package:equatable/equatable.dart';
-import '../../../services/order_service.dart';
 
 abstract class ChatEvent extends Equatable {
   const ChatEvent();
-  
+
   @override
   List<Object?> get props => [];
 }
 
 class LoadChatData extends ChatEvent {
   final String orderId;
-  
+
   const LoadChatData(this.orderId);
-  
+
   @override
   List<Object?> get props => [orderId];
-}
-
-class LoadOrderDetails extends ChatEvent {
-  final String orderId;
-  
-  const LoadOrderDetails(this.orderId);
-  
-  @override
-  List<Object?> get props => [orderId];
-}
-
-class OrderDetailsLoaded extends ChatEvent {
-  final OrderDetails orderDetails;
-  
-  const OrderDetailsLoaded(this.orderDetails);
-  
-  @override
-  List<Object?> get props => [orderDetails];
-}
-
-class OrderDetailsLoadFailed extends ChatEvent {
-  final String error;
-  
-  const OrderDetailsLoadFailed(this.error);
-  
-  @override
-  List<Object?> get props => [error];
 }
 
 class SendMessage extends ChatEvent {
   final String message;
-  
+
   const SendMessage(this.message);
-  
+
   @override
   List<Object?> get props => [message];
 }
 
 class ReceiveMessage extends ChatEvent {
   final String message;
-  
+
   const ReceiveMessage(this.message);
-  
+
   @override
   List<Object?> get props => [message];
 }
@@ -76,11 +48,57 @@ class RefreshChat extends ChatEvent {
   const RefreshChat();
 }
 
-class RefreshOrderDetails extends ChatEvent {
+// New events for order functionality
+class ShowOrderOptions extends ChatEvent {
   final String orderId;
-  
-  const RefreshOrderDetails(this.orderId);
-  
+  final String partnerId;
+
+  const ShowOrderOptions({
+    required this.orderId,
+    required this.partnerId,
+  });
+
   @override
-  List<Object?> get props => [orderId];
+  List<Object?> get props => [orderId, partnerId];
+}
+
+class LoadOrderDetails extends ChatEvent {
+  final String orderId;
+  final String partnerId;
+
+  const LoadOrderDetails({
+    required this.orderId,
+    required this.partnerId,
+  });
+
+  @override
+  List<Object?> get props => [orderId, partnerId];
+}
+
+class ChangeOrderStatus extends ChatEvent {
+  final String orderId;
+  final String partnerId;
+
+  const ChangeOrderStatus({
+    required this.orderId,
+    required this.partnerId,
+  });
+
+  @override
+  List<Object?> get props => [orderId, partnerId];
+}
+
+class UpdateOrderStatus extends ChatEvent {
+  final String orderId;
+  final String partnerId;
+  final String newStatus;
+
+  const UpdateOrderStatus({
+    required this.orderId,
+    required this.partnerId,
+    required this.newStatus,
+  });
+
+  @override
+  List<Object?> get props => [orderId, partnerId, newStatus];
 }

@@ -1,127 +1,126 @@
-// lib/services/order_service.dart - Service for fetching order details
+// lib/services/order_service.dart
 
 import 'dart:convert';
-import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
-import '../constants/api_constants.dart';
+import '../presentation/screens/chat/state.dart';
 import 'token_service.dart';
 
-// Update the ChatOrderInfo class to include more order details
-class ChatOrderInfo {
-  final String orderId;
-  final String restaurantName;
-  final String estimatedDelivery;
-  final String status;
-  final double totalAmount;
-  final double deliveryFees;
-  final int totalItems;
-  final String userId;
+class OrderService {
+  static const String baseUrl = 'https://api.bird.delivery/api';
+  
+  static Future<OrderDetails?> getOrderDetails({
+    required String partnerId,
+    required String orderId,
+  }) async {
+    try {
+      final token = await TokenService.getToken();
+      if (token == null) {
+        throw Exception('No authentication token found');
+      }
 
-  const ChatOrderInfo({
-    required this.orderId,
-    required this.restaurantName,
-    required this.estimatedDelivery,
-    required this.status,
-    required this.totalAmount,
-    required this.deliveryFees,
-    required this.totalItems,
-    required this.userId,
-  });
+      // Use the FULL order ID - do not truncate or format it
+      final fullOrderId = _getFullOrderId(orderId);
+      final url = Uri.parse('$baseUrl/partner/orders/$partnerId/$fullOrderId');
+      
+      final response = await http.get(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
 
-  factory ChatOrderInfo.fromOrderDetails(OrderDetails orderDetails, String restaurantName) {
-    return ChatOrderInfo(
-      orderId: orderDetails.orderId,
-      restaurantName: restaurantName,
-      estimatedDelivery: OrderService.getEstimatedDelivery(orderDetails.orderStatus),
-      status: orderDetails.formattedStatus,
-      totalAmount: orderDetails.totalAmount,
-      deliveryFees: orderDetails.deliveryFees,
-      totalItems: orderDetails.totalItems,
-      userId: orderDetails.userId,
-    );
+      print('OrderService: GET $url');
+      print('OrderService: Using Partner ID: $partnerId');
+      print('OrderService: Using Full Order ID: $fullOrderId');
+      print('OrderService: Response status: ${response.statusCode}');
+      print('OrderService: Response body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> responseBody = json.decode(response.body);
+        
+        if (responseBody['status'] == 'SUCCESS' && responseBody['data'] != null) {
+          return OrderDetails.fromJson(responseBody['data']);
+        } else {
+          throw Exception(responseBody['message'] ?? 'Failed to get order details');
+        }
+      } else {
+        throw Exception('HTTP ${response.statusCode}: Failed to fetch order details');
+      }
+    } catch (e) {
+      print('OrderService: Error fetching order details: $e');
+      rethrow;
+    }
   }
 
-  double get grandTotal => totalAmount + deliveryFees;
-  
-  String get formattedTotal => OrderService.formatCurrency(grandTotal);
-  String get formattedAmount => OrderService.formatCurrency(totalAmount);
-  String get formattedDeliveryFees => OrderService.formatCurrency(deliveryFees);
-  
-  String get shortOrderId {
-    if (orderId.length > 8) {
-      return orderId.substring(orderId.length - 8);
+  static Future<bool> updateOrderStatus({
+    required String partnerId,
+    required String orderId,
+    required String newStatus,
+  }) async {
+    try {
+      final token = await TokenService.getToken();
+      if (token == null) {
+        throw Exception('No authentication token found');
+      }
+
+      // Use the FULL order ID - do not truncate or format it
+      final fullOrderId = _getFullOrderId(orderId);
+      final url = Uri.parse('$baseUrl/partner/orders/$partnerId/$fullOrderId/status');
+      
+      final response = await http.put(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: json.encode({
+          'status': newStatus,
+        }),
+      );
+
+      print('OrderService: PUT $url');
+      print('OrderService: Request body: {"status": "$newStatus"}');
+      print('OrderService: Response status: ${response.statusCode}');
+      print('OrderService: Response body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> responseBody = json.decode(response.body);
+        return responseBody['status'] == 'SUCCESS';
+      } else {
+        throw Exception('HTTP ${response.statusCode}: Failed to update order status');
+      }
+    } catch (e) {
+      print('OrderService: Error updating order status: $e');
+      return false;
+    }
+  }
+
+  // Helper method to get partner ID from token or user preferences
+  static Future<String?> getPartnerId() async {
+    try {
+      // This should be implemented based on how partner ID is stored
+      // It might be in the token, user preferences, or a separate API call
+      final userId = await TokenService.getUserId();
+      return userId; // Assuming partner ID is same as user ID for now
+    } catch (e) {
+      print('OrderService: Error getting partner ID: $e');
+      return null;
+    }
+  }
+
+  // CRITICAL FIX: Get the full order ID without truncation
+  static String _getFullOrderId(String orderId) {
+    // Remove # prefix if present, but keep the FULL ID
+    if (orderId.startsWith('#')) {
+      return orderId.substring(1);
     }
     return orderId;
   }
-  
-  String get shortUserId {
-    if (userId.length > 10) {
-      return userId.substring(userId.length - 10);
-    }
-    return userId;
-  }
-}
 
-class OrderItem {
-  final String menuId;
-  final int quantity;
-  final double itemPrice;
-
-  OrderItem({
-    required this.menuId,
-    required this.quantity,
-    required this.itemPrice,
-  });
-
-  factory OrderItem.fromJson(Map<String, dynamic> json) {
-    return OrderItem(
-      menuId: json['menu_id'] ?? '',
-      quantity: json['quantity'] ?? 0,
-      itemPrice: (json['item_price'] ?? 0).toDouble(),
-    );
-  }
-}
-
-class OrderDetails {
-  final String orderId;
-  final String userId;
-  final List<String> itemIds;
-  final List<OrderItem> items;
-  final double totalAmount;
-  final double deliveryFees;
-  final String orderStatus;
-
-  OrderDetails({
-    required this.orderId,
-    required this.userId,
-    required this.itemIds,
-    required this.items,
-    required this.totalAmount,
-    required this.deliveryFees,
-    required this.orderStatus,
-  });
-
-  factory OrderDetails.fromJson(Map<String, dynamic> json) {
-    return OrderDetails(
-      orderId: json['order_id'] ?? '',
-      userId: json['user_id'] ?? '',
-      itemIds: List<String>.from(json['item_ids'] ?? []),
-      items: (json['items'] as List<dynamic>?)
-          ?.map((item) => OrderItem.fromJson(item))
-          .toList() ?? [],
-      totalAmount: double.tryParse(json['total_amount']?.toString() ?? '0') ?? 0.0,
-      deliveryFees: double.tryParse(json['delivery_fees']?.toString() ?? '0') ?? 0.0,
-      orderStatus: json['order_status'] ?? 'UNKNOWN',
-    );
-  }
-
-  // Helper methods
-  double get grandTotal => totalAmount + deliveryFees;
-  
-  int get totalItems => items.fold(0, (sum, item) => sum + item.quantity);
-  
-  String get formattedStatus {
-    switch (orderStatus.toUpperCase()) {
+  // Helper method to format order status for display
+  static String formatOrderStatus(String status) {
+    switch (status.toUpperCase()) {
       case 'PENDING':
         return 'Pending';
       case 'CONFIRMED':
@@ -137,134 +136,25 @@ class OrderDetails {
       case 'CANCELLED':
         return 'Cancelled';
       default:
-        return orderStatus;
+        return status;
     }
   }
-  
-  String get statusColor {
-    switch (orderStatus.toUpperCase()) {
+
+  // Get available status options based on current status
+  static List<String> getAvailableStatusOptions(String currentStatus) {
+    switch (currentStatus.toUpperCase()) {
       case 'PENDING':
-        return 'orange';
+        return ['CONFIRMED', 'CANCELLED'];
       case 'CONFIRMED':
-        return 'blue';
+        return ['PREPARING', 'CANCELLED'];
       case 'PREPARING':
-        return 'amber';
+        return ['READY'];
       case 'READY':
-        return 'green';
+        return ['OUT_FOR_DELIVERY'];
       case 'OUT_FOR_DELIVERY':
-        return 'indigo';
-      case 'DELIVERED':
-        return 'green';
-      case 'CANCELLED':
-        return 'red';
+        return ['DELIVERED'];
       default:
-        return 'grey';
-    }
-  }
-}
-
-class OrderResponse {
-  final String status;
-  final String message;
-  final OrderDetails? data;
-
-  OrderResponse({
-    required this.status,
-    required this.message,
-    this.data,
-  });
-
-  factory OrderResponse.fromJson(Map<String, dynamic> json) {
-    return OrderResponse(
-      status: json['status'] ?? '',
-      message: json['message'] ?? '',
-      data: json['data'] != null ? OrderDetails.fromJson(json['data']) : null,
-    );
-  }
-}
-
-class OrderService {
-  static Future<OrderResponse> getOrderDetails(String orderId) async {
-    try {
-      // Get authentication token
-      final token = await TokenService.getToken();
-      
-      if (token == null || token.isEmpty) {
-        throw Exception('No authentication token found. Please login again.');
-      }
-
-      // Construct API URL
-      final url = Uri.parse('${ApiConstants.baseUrl}/partner/orders/$orderId/orderId');
-      
-      debugPrint('OrderService: 📋 Fetching order details from: $url');
-      debugPrint('OrderService: 🔑 Using token: ${token.substring(0, 20)}...');
-
-      // Make API request
-      final response = await http.get(
-        url,
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-        },
-      ).timeout(const Duration(seconds: 15));
-
-      debugPrint('OrderService: 📊 Response status: ${response.statusCode}');
-      debugPrint('OrderService: 📋 Response body: ${response.body}');
-
-      if (response.statusCode == 200) {
-        final Map<String, dynamic> jsonData = json.decode(response.body);
-        final orderResponse = OrderResponse.fromJson(jsonData);
-        
-        if (orderResponse.status == 'SUCCESS' && orderResponse.data != null) {
-          debugPrint('OrderService: ✅ Order details fetched successfully');
-          debugPrint('OrderService: 📦 Order ID: ${orderResponse.data!.orderId}');
-          debugPrint('OrderService: 🔄 Order Status: ${orderResponse.data!.orderStatus}');
-          debugPrint('OrderService: 💰 Total Amount: ${orderResponse.data!.totalAmount}');
-          debugPrint('OrderService: 🚚 Delivery Fees: ${orderResponse.data!.deliveryFees}');
-          
-          return orderResponse;
-        } else {
-          throw Exception(orderResponse.message.isNotEmpty 
-              ? orderResponse.message 
-              : 'Failed to fetch order details');
-        }
-      } else if (response.statusCode == 401) {
-        throw Exception('Unauthorized. Please login again.');
-      } else if (response.statusCode == 404) {
-        throw Exception('Order not found. Please check the order ID.');
-      } else {
-        throw Exception('Failed to fetch order details. Status: ${response.statusCode}');
-      }
-    } catch (e) {
-      debugPrint('OrderService: ❌ Error fetching order details: $e');
-      rethrow;
-    }
-  }
-
-  // Helper method to format currency
-  static String formatCurrency(double amount) {
-    return '₹${amount.toStringAsFixed(2)}';
-  }
-
-  // Helper method to get estimated delivery time based on status
-  static String getEstimatedDelivery(String status) {
-    switch (status.toUpperCase()) {
-      case 'PENDING':
-        return '45-60 mins';
-      case 'CONFIRMED':
-        return '35-45 mins';
-      case 'PREPARING':
-        return '25-35 mins';
-      case 'READY':
-        return '15-25 mins';
-      case 'OUT_FOR_DELIVERY':
-        return '10-15 mins';
-      case 'DELIVERED':
-        return 'Delivered';
-      case 'CANCELLED':
-        return 'Cancelled';
-      default:
-        return '30-45 mins';
+        return [];
     }
   }
 }

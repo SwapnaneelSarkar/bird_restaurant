@@ -3,6 +3,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../../ui_components/universal_widget/order_widgets.dart';
 import '../../../ui_components/universal_widget/topbar.dart';
 import '../../resources/colors.dart';
 import '../../resources/font.dart';
@@ -289,7 +290,9 @@ class _ChatViewState extends State<ChatView> {
   }
 
   Widget _buildOrderHeader(chat_state.ChatOrderInfo orderInfo) {
-    return Container(
+  return GestureDetector(
+    onTap: () => _onOrderHeaderTap(orderInfo),
+    child: Container(
       width: double.infinity,
       padding: EdgeInsets.all(MediaQuery.of(context).size.width * 0.04),
       decoration: BoxDecoration(
@@ -365,10 +368,36 @@ class _ChatViewState extends State<ChatView> {
           ),
         ],
       ),
+    ),
+  );
+}
+
+// 3. Add this new method to your _ChatViewState class:
+
+void _onOrderHeaderTap(chat_state.ChatOrderInfo orderInfo) {
+  // Extract partner ID and order ID for the API call
+  final chatBloc = context.read<ChatBloc>();
+  final partnerId = chatBloc.currentPartnerId ?? '';
+  final orderId = chatBloc.currentOrderId ?? widget.orderId; // Use full order ID
+
+  print('ChatView: Tapping order header');
+  print('ChatView: Partner ID: $partnerId');
+  print('ChatView: Full Order ID: $orderId');
+
+  if (partnerId.isNotEmpty && orderId.isNotEmpty) {
+    // Show the order options bottom sheet
+    OrderOptionsBottomSheet.show(context, orderInfo.orderId, partnerId);
+  } else {
+    // Show error message
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Unable to load order options. Please try again.'),
+        backgroundColor: Colors.red,
+      ),
     );
   }
+}
 
-// Updated methods in lib/presentation/screens/chat/view.dart
 
 // Updated _buildMessagesList method
 Widget _buildMessagesList(BuildContext context, List<chat_state.ChatMessage> messages) {
