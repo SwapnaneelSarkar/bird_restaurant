@@ -28,7 +28,7 @@ class OrdersApiService {
       
       debugPrint('OrdersApiService: 📊 Fetching order summary: $url');
 
-      final response = await http.get(
+      final response = await http.post(
         url,
         headers: {
           'Authorization': 'Bearer $token',

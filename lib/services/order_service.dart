@@ -72,7 +72,7 @@ class OrderService {
 
       // Use the FULL order ID - do not truncate or format it
       final fullOrderId = _getFullOrderId(orderId);
-      final url = Uri.parse('$baseUrl/partner/orders/$partnerId/$fullOrderId/status');
+      final url = Uri.parse('$baseUrl/partner/orders/$fullOrderId/status');
       
       final response = await http.put(
         url,
