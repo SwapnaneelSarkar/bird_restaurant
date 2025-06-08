@@ -46,8 +46,8 @@ class LoginView extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     // SizedBox(height: h * 0.02),
-                    SvgPicture.asset(
-                      'assets/svg/logo_text.jpg',
+                    Image.asset(
+                      'assets/svg/logo_text.png',
                       height: h * 0.2,
                     ),
                     // SizedBox(height: h * 0.02),

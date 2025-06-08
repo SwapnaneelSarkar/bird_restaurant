@@ -177,8 +177,8 @@ class _OtpViewContentState extends State<OtpViewContent> {
                           crossAxisAlignment: CrossAxisAlignment.center,
                           children: [                            
                             // Logo
-                            SvgPicture.asset(
-                              'assets/svg/logo_text.jpg',
+                            Image.asset(
+                              'assets/svg/logo_text.png',
                               height: logoHeight,
                             ),
                             

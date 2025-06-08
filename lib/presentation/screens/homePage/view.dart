@@ -137,10 +137,10 @@ class _HomeViewState extends State<HomeView> with TickerProviderStateMixin {
             padding: const EdgeInsets.all(12),
           ),
           title: Padding(
-            padding: const EdgeInsets.only(left: 8.0),
-            child: SvgPicture.asset(
-              'assets/svg/logo_text.jpg',
-              height: 30,
+            padding: const EdgeInsets.only(left: 0.0),
+            child: Image.asset(
+              'assets/svg/logo_text.png',
+              height: 80,
             ),
           ),
         ) : null,
