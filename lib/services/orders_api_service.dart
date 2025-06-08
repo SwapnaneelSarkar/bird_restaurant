@@ -1,4 +1,4 @@
-// lib/services/orders_api_service.dart
+// ENHANCED DEBUG VERSION: lib/services/orders_api_service.dart
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart';
@@ -18,7 +18,6 @@ class OrdersApiService {
         throw Exception('No authentication found. Please login again.');
       }
 
-      // Get partner ID - you'll need to implement this method in TokenService
       final partnerId = await TokenService.getUserId();
       if (partnerId == null) {
         throw Exception('Partner ID not found. Please login again.');
@@ -53,7 +52,7 @@ class OrdersApiService {
     }
   }
 
-  // Fetch order history - UPDATED with partner ID
+  // ENHANCED DEBUG: Fetch order history with detailed logging
   static Future<OrderHistoryResponse> fetchOrderHistory() async {
     try {
       final token = await TokenService.getToken();
@@ -62,7 +61,6 @@ class OrdersApiService {
         throw Exception('No authentication found. Please login again.');
       }
 
-      // Get partner ID - you'll need to implement this method in TokenService
       final partnerId = await TokenService.getUserId();
       if (partnerId == null) {
         throw Exception('Partner ID not found. Please login again.');
@@ -85,7 +83,49 @@ class OrdersApiService {
 
       if (response.statusCode == 200) {
         final responseData = json.decode(response.body);
-        return OrderHistoryResponse.fromJson(responseData);
+        
+        // ENHANCED DEBUG: Check the actual structure of the API response
+        debugPrint('OrdersApiService: 🔍 DEBUGGING API RESPONSE STRUCTURE');
+        debugPrint('OrdersApiService: 🔍 Response data type: ${responseData.runtimeType}');
+        debugPrint('OrdersApiService: 🔍 Response keys: ${responseData.keys}');
+        
+        if (responseData['data'] != null) {
+          final ordersData = responseData['data'];
+          debugPrint('OrdersApiService: 🔍 Orders data type: ${ordersData.runtimeType}');
+          debugPrint('OrdersApiService: 🔍 Orders data length: ${ordersData.length}');
+          
+          // Log first few orders to see their structure
+          if (ordersData.isNotEmpty) {
+            debugPrint('OrdersApiService: 🔍 FIRST ORDER STRUCTURE:');
+            final firstOrder = ordersData[0];
+            debugPrint('OrdersApiService: 🔍 First order keys: ${firstOrder.keys}');
+            debugPrint('OrdersApiService: 🔍 First order status field: ${firstOrder['status']}');
+            debugPrint('OrdersApiService: 🔍 First order order_status field: ${firstOrder['order_status']}');
+            debugPrint('OrdersApiService: 🔍 First order state field: ${firstOrder['state']}');
+            debugPrint('OrdersApiService: 🔍 Complete first order: $firstOrder');
+            
+            // Check if there are orders with different statuses
+            if (ordersData.length > 1) {
+              debugPrint('OrdersApiService: 🔍 CHECKING OTHER ORDERS FOR STATUS VARIETY:');
+              for (int i = 0; i < ordersData.length && i < 5; i++) {
+                final order = ordersData[i];
+                debugPrint('OrdersApiService: 🔍 Order $i - ID: ${order['order_id'] ?? order['id']}, Status: ${order['status']}, OrderStatus: ${order['order_status']}, State: ${order['state']}');
+              }
+            }
+          }
+        }
+        
+        final historyResponse = OrderHistoryResponse.fromJson(responseData);
+        
+        // ENHANCED DEBUG: Check parsed orders
+        debugPrint('OrdersApiService: 🔍 PARSED ORDERS DEBUG:');
+        debugPrint('OrdersApiService: 🔍 Total parsed orders: ${historyResponse.data.length}');
+        for (int i = 0; i < historyResponse.data.length && i < 5; i++) {
+          final order = historyResponse.data[i];
+          debugPrint('OrdersApiService: 🔍 Parsed Order $i - ID: ${order.id}, Status: "${order.status}", OrderStatus Enum: ${order.orderStatus}');
+        }
+        
+        return historyResponse;
       } else if (response.statusCode == 401) {
         throw Exception('Unauthorized. Please login again.');
       } else {
@@ -154,7 +194,6 @@ class OrdersApiService {
         throw Exception('No authentication found. Please login again.');
       }
 
-      // Get partner ID - you'll need to implement this method in TokenService
       final partnerId = await TokenService.getUserId();
       if (partnerId == null) {
         throw Exception('Partner ID not found. Please login again.');
@@ -193,41 +232,5 @@ class OrdersApiService {
       debugPrint('OrdersApiService: ❌ Error fetching orders with date range: $e');
       rethrow;
     }
-  }
-
-  // Helper method to get date range for today
-  static Map<String, String> getTodayDateRange() {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final tomorrow = today.add(const Duration(days: 1));
-    
-    return {
-      'startDate': today.toIso8601String().split('T')[0],
-      'endDate': tomorrow.toIso8601String().split('T')[0],
-    };
-  }
-
-  // Helper method to get date range for this week
-  static Map<String, String> getThisWeekDateRange() {
-    final now = DateTime.now();
-    final startOfWeek = now.subtract(Duration(days: now.weekday - 1));
-    final endOfWeek = startOfWeek.add(const Duration(days: 7));
-    
-    return {
-      'startDate': startOfWeek.toIso8601String().split('T')[0],
-      'endDate': endOfWeek.toIso8601String().split('T')[0],
-    };
-  }
-
-  // Helper method to get date range for this month
-  static Map<String, String> getThisMonthDateRange() {
-    final now = DateTime.now();
-    final startOfMonth = DateTime(now.year, now.month, 1);
-    final endOfMonth = DateTime(now.year, now.month + 1, 1);
-    
-    return {
-      'startDate': startOfMonth.toIso8601String().split('T')[0],
-      'endDate': endOfMonth.toIso8601String().split('T')[0],
-    };
   }
 }

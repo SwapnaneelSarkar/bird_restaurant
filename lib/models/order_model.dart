@@ -1,5 +1,6 @@
-// lib/models/order_model.dart
+// ENHANCED DEBUG VERSION: lib/models/order_model.dart
 import '../constants/enums.dart';
+import 'package:flutter/foundation.dart';
 
 class OrderSummaryResponse {
   final String status;
@@ -102,20 +103,58 @@ class Order {
   });
 
   factory Order.fromJson(Map<String, dynamic> json) {
-    return Order(
+    // ENHANCED DEBUG: Check all possible status field names
+    debugPrint('Order.fromJson: 🔍 DEBUGGING ORDER PARSING');
+    debugPrint('Order.fromJson: 🔍 Order ID: ${json['order_id'] ?? json['id']}');
+    debugPrint('Order.fromJson: 🔍 Available keys: ${json.keys.toList()}');
+    debugPrint('Order.fromJson: 🔍 status field: ${json['status']}');
+    debugPrint('Order.fromJson: 🔍 order_status field: ${json['order_status']}');
+    debugPrint('Order.fromJson: 🔍 state field: ${json['state']}');
+    debugPrint('Order.fromJson: 🔍 order_state field: ${json['order_state']}');
+    debugPrint('Order.fromJson: 🔍 current_status field: ${json['current_status']}');
+    
+    // Try to find the correct status field - CHECK MULTIPLE POSSIBLE FIELD NAMES
+    String orderStatus = 'PENDING'; // Default fallback
+    
+    // Check common status field names in order of priority
+    if (json['status'] != null && json['status'].toString().isNotEmpty) {
+      orderStatus = json['status'].toString().toUpperCase();
+      debugPrint('Order.fromJson: ✅ Using "status" field: $orderStatus');
+    } else if (json['order_status'] != null && json['order_status'].toString().isNotEmpty) {
+      orderStatus = json['order_status'].toString().toUpperCase();
+      debugPrint('Order.fromJson: ✅ Using "order_status" field: $orderStatus');
+    } else if (json['state'] != null && json['state'].toString().isNotEmpty) {
+      orderStatus = json['state'].toString().toUpperCase();
+      debugPrint('Order.fromJson: ✅ Using "state" field: $orderStatus');
+    } else if (json['order_state'] != null && json['order_state'].toString().isNotEmpty) {
+      orderStatus = json['order_state'].toString().toUpperCase();
+      debugPrint('Order.fromJson: ✅ Using "order_state" field: $orderStatus');
+    } else if (json['current_status'] != null && json['current_status'].toString().isNotEmpty) {
+      orderStatus = json['current_status'].toString().toUpperCase();
+      debugPrint('Order.fromJson: ✅ Using "current_status" field: $orderStatus');
+    } else {
+      debugPrint('Order.fromJson: ⚠️ No valid status field found, using default: PENDING');
+      debugPrint('Order.fromJson: ⚠️ Complete JSON for this order: $json');
+    }
+    
+    final order = Order(
       id: json['order_id'] ?? json['id'] ?? '',
       userId: json['user_id'] ?? '',
       customerName: json['customer_name'] ?? json['customerName'] ?? 'Unknown Customer',
       amount: double.tryParse(json['total_price']?.toString() ?? '0') ?? 
               double.tryParse(json['amount']?.toString() ?? '0') ?? 0.0,
       date: DateTime.tryParse(json['created_at'] ?? json['date'] ?? '') ?? DateTime.now(),
-      status: json['status'] ?? 'PENDING',
+      status: orderStatus,
       customerPhone: json['customer_phone'] ?? json['phone'],
       deliveryAddress: json['delivery_address'] ?? json['address'],
       items: json['items'] != null 
           ? (json['items'] as List).map((item) => OrderItem.fromJson(item)).toList()
           : null,
     );
+    
+    debugPrint('Order.fromJson: ✅ Final parsed order - ID: ${order.id}, Status: "${order.status}", Enum: ${order.orderStatus}');
+    
+    return order;
   }
 
   Map<String, dynamic> toJson() {
@@ -134,7 +173,9 @@ class Order {
 
   // Convert string status to OrderStatus enum
   OrderStatus get orderStatus {
-    return OrderStatusExtension.fromApiValue(status);
+    final enumStatus = OrderStatusExtension.fromApiValue(status);
+    debugPrint('Order.orderStatus: Converting "$status" to enum: $enumStatus');
+    return enumStatus;
   }
 
   // Get display name for customer
@@ -192,10 +233,10 @@ class OrderItem {
     return OrderItem(
       id: json['id'] ?? json['item_id'] ?? '',
       name: json['name'] ?? json['item_name'] ?? '',
-      quantity: json['quantity'] ?? 0,
+      quantity: int.tryParse(json['quantity']?.toString() ?? '1') ?? 1,
       price: double.tryParse(json['price']?.toString() ?? '0') ?? 0.0,
       description: json['description'],
-      imageUrl: json['image_url'] ?? json['image'],
+      imageUrl: json['image_url'] ?? json['imageUrl'],
     );
   }
 
@@ -208,27 +249,5 @@ class OrderItem {
       'description': description,
       'image_url': imageUrl,
     };
-  }
-
-  // Calculate total price for this item
-  double get totalPrice => price * quantity;
-
-  // Create a copy with updated values
-  OrderItem copyWith({
-    String? id,
-    String? name,
-    int? quantity,
-    double? price,
-    String? description,
-    String? imageUrl,
-  }) {
-    return OrderItem(
-      id: id ?? this.id,
-      name: name ?? this.name,
-      quantity: quantity ?? this.quantity,
-      price: price ?? this.price,
-      description: description ?? this.description,
-      imageUrl: imageUrl ?? this.imageUrl,
-    );
   }
 }
