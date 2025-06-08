@@ -386,7 +386,16 @@ void _onOrderHeaderTap(chat_state.ChatOrderInfo orderInfo) {
 
   if (partnerId.isNotEmpty && orderId.isNotEmpty) {
     // Show the order options bottom sheet
-    OrderOptionsBottomSheet.show(context, orderInfo.orderId, partnerId);
+    showModalBottomSheet(
+  context: context,
+  isScrollControlled: true,
+  backgroundColor: Colors.transparent,
+  builder: (context) => OrderOptionsBottomSheet(
+    orderId: orderId,
+    partnerId: partnerId,
+  ),
+);
+
   } else {
     // Show error message
     ScaffoldMessenger.of(context).showSnackBar(

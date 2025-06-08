@@ -1,4 +1,4 @@
-// lib/presentation/screens/chat/event.dart
+// lib/presentation/screens/chat/event.dart - ENHANCED VERSION
 
 import 'package:equatable/equatable.dart';
 
@@ -6,7 +6,7 @@ abstract class ChatEvent extends Equatable {
   const ChatEvent();
 
   @override
-  List<Object?> get props => [];
+  List<Object> get props => [];
 }
 
 class LoadChatData extends ChatEvent {
@@ -15,7 +15,7 @@ class LoadChatData extends ChatEvent {
   const LoadChatData(this.orderId);
 
   @override
-  List<Object?> get props => [orderId];
+  List<Object> get props => [orderId];
 }
 
 class SendMessage extends ChatEvent {
@@ -24,16 +24,11 @@ class SendMessage extends ChatEvent {
   const SendMessage(this.message);
 
   @override
-  List<Object?> get props => [message];
+  List<Object> get props => [message];
 }
 
-class ReceiveMessage extends ChatEvent {
-  final String message;
-
-  const ReceiveMessage(this.message);
-
-  @override
-  List<Object?> get props => [message];
+class RefreshChat extends ChatEvent {
+  const RefreshChat();
 }
 
 class StartTyping extends ChatEvent {
@@ -44,11 +39,7 @@ class StopTyping extends ChatEvent {
   const StopTyping();
 }
 
-class RefreshChat extends ChatEvent {
-  const RefreshChat();
-}
-
-// New events for order functionality
+// NEW: Order-related events
 class ShowOrderOptions extends ChatEvent {
   final String orderId;
   final String partnerId;
@@ -59,7 +50,7 @@ class ShowOrderOptions extends ChatEvent {
   });
 
   @override
-  List<Object?> get props => [orderId, partnerId];
+  List<Object> get props => [orderId, partnerId];
 }
 
 class LoadOrderDetails extends ChatEvent {
@@ -72,20 +63,16 @@ class LoadOrderDetails extends ChatEvent {
   });
 
   @override
-  List<Object?> get props => [orderId, partnerId];
+  List<Object> get props => [orderId, partnerId];
 }
 
 class ChangeOrderStatus extends ChatEvent {
   final String orderId;
-  final String partnerId;
 
-  const ChangeOrderStatus({
-    required this.orderId,
-    required this.partnerId,
-  });
+  const ChangeOrderStatus(this.orderId);
 
   @override
-  List<Object?> get props => [orderId, partnerId];
+  List<Object> get props => [orderId];
 }
 
 class UpdateOrderStatus extends ChatEvent {
@@ -100,5 +87,20 @@ class UpdateOrderStatus extends ChatEvent {
   });
 
   @override
-  List<Object?> get props => [orderId, partnerId, newStatus];
+  List<Object> get props => [orderId, partnerId, newStatus];
+}
+
+// NEW: Force refresh menu items (useful for debugging/retry)
+class ForceRefreshMenuItems extends ChatEvent {
+  const ForceRefreshMenuItems();
+}
+
+// Keep these existing events that are used in the original bloc
+class ReceiveMessage extends ChatEvent {
+  final String message;
+
+  const ReceiveMessage(this.message);
+
+  @override
+  List<Object> get props => [message];
 }

@@ -1,4 +1,4 @@
-// lib/presentation/screens/chat/state.dart - ENHANCED WITH MENU ITEMS
+// lib/presentation/screens/chat/state.dart - ENHANCED WITH BETTER MENU ITEMS SUPPORT
 
 import 'package:equatable/equatable.dart';
 import '../../../services/menu_item_service.dart';
@@ -22,7 +22,7 @@ class ChatLoaded extends ChatState {
   final bool isRefreshing;
   final OrderDetails? orderDetails;
   final bool isLoadingOrderDetails;
-  final Map<String, MenuItem> menuItems; // NEW: Cache for menu items
+  final Map<String, MenuItem> menuItems; // ENHANCED: Cache for menu items
 
   const ChatLoaded({
     required this.orderInfo,
@@ -32,7 +32,7 @@ class ChatLoaded extends ChatState {
     this.isRefreshing = false,
     this.orderDetails,
     this.isLoadingOrderDetails = false,
-    this.menuItems = const {}, // NEW: Default empty map
+    this.menuItems = const {}, // ENHANCED: Default empty map
   });
 
   ChatLoaded copyWith({
@@ -43,7 +43,7 @@ class ChatLoaded extends ChatState {
     bool? isRefreshing,
     OrderDetails? orderDetails,
     bool? isLoadingOrderDetails,
-    Map<String, MenuItem>? menuItems, // NEW: Add menu items to copyWith
+    Map<String, MenuItem>? menuItems, // ENHANCED: Add menu items to copyWith
   }) {
     return ChatLoaded(
       orderInfo: orderInfo ?? this.orderInfo,
@@ -53,7 +53,7 @@ class ChatLoaded extends ChatState {
       isRefreshing: isRefreshing ?? this.isRefreshing,
       orderDetails: orderDetails ?? this.orderDetails,
       isLoadingOrderDetails: isLoadingOrderDetails ?? this.isLoadingOrderDetails,
-      menuItems: menuItems ?? this.menuItems, // NEW: Include in copyWith
+      menuItems: menuItems ?? this.menuItems, // ENHANCED: Include in copyWith
     );
   }
 
@@ -66,7 +66,7 @@ class ChatLoaded extends ChatState {
         isRefreshing,
         orderDetails,
         isLoadingOrderDetails,
-        menuItems, // NEW: Include in props
+        menuItems, // ENHANCED: Include in props
       ];
 }
 
@@ -76,10 +76,10 @@ class ChatError extends ChatState {
   const ChatError(this.message);
 
   @override
-  List<Object?> get props => [message];
+  List<Object> get props => [message];
 }
 
-// Order-related states
+// NEW: Order-related states
 class OrderOptionsVisible extends ChatState {
   final String orderId;
   final String partnerId;
@@ -90,16 +90,16 @@ class OrderOptionsVisible extends ChatState {
   });
 
   @override
-  List<Object?> get props => [orderId, partnerId];
+  List<Object> get props => [orderId, partnerId];
 }
 
 class OrderDetailsLoading extends ChatState {}
 
 class OrderDetailsLoaded extends ChatState {
   final OrderDetails orderDetails;
-  final Map<String, MenuItem> menuItems; // NEW: Include menu items here too
+  final Map<String, MenuItem>? menuItems; // ENHANCED: Include menu items
 
-  const OrderDetailsLoaded(this.orderDetails, {this.menuItems = const {}});
+  const OrderDetailsLoaded(this.orderDetails, {this.menuItems});
 
   @override
   List<Object?> get props => [orderDetails, menuItems];
@@ -111,10 +111,9 @@ class OrderDetailsError extends ChatState {
   const OrderDetailsError(this.message);
 
   @override
-  List<Object?> get props => [message];
+  List<Object> get props => [message];
 }
 
-// Models
 class ChatOrderInfo {
   final String orderId;
   final String restaurantName;
@@ -184,10 +183,21 @@ class OrderDetails {
       items: (json['items'] as List<dynamic>?)
           ?.map((item) => OrderItem.fromJson(item))
           .toList() ?? [],
-      totalAmount: json['total_amount']?.toString() ?? '0.00',
-      deliveryFees: json['delivery_fees']?.toString() ?? '0.00',
+      totalAmount: _parseAmount(json['total_amount']),
+      deliveryFees: _parseAmount(json['delivery_fees']),
       orderStatus: json['order_status'] ?? 'UNKNOWN',
     );
+  }
+
+  // FIXED: Helper method to parse amount from string or number
+  static String _parseAmount(dynamic amount) {
+    if (amount == null) return '0.00';
+    
+    if (amount is String) return amount;
+    if (amount is double) return amount.toStringAsFixed(2);
+    if (amount is int) return amount.toStringAsFixed(2);
+    
+    return amount.toString();
   }
 
   double get totalAmountDouble => double.tryParse(totalAmount) ?? 0.0;
@@ -198,7 +208,7 @@ class OrderDetails {
   String get formattedDeliveryFees => '₹${deliveryFees}';
   String get formattedGrandTotal => '₹${grandTotal.toStringAsFixed(2)}';
 
-  // NEW: Get all menu IDs from the order items
+  // ENHANCED: Get all menu IDs from the order items
   List<String> get allMenuIds => items.map((item) => item.menuId).toList();
 }
 
@@ -217,28 +227,62 @@ class OrderItem {
     return OrderItem(
       menuId: json['menu_id'] ?? '',
       quantity: json['quantity'] ?? 0,
-      itemPrice: (json['item_price'] ?? 0).toDouble(),
+      itemPrice: _parsePrice(json['item_price']),
     );
+  }
+
+  // FIXED: Helper method to parse price from string or number
+  static double _parsePrice(dynamic price) {
+    if (price == null) return 0.0;
+    
+    if (price is double) return price;
+    if (price is int) return price.toDouble();
+    if (price is String) {
+      try {
+        return double.parse(price);
+      } catch (e) {
+        print('OrderItem: Error parsing price "$price": $e');
+        return 0.0;
+      }
+    }
+    
+    print('OrderItem: Unknown price type: ${price.runtimeType}');
+    return 0.0;
   }
 
   double get totalPrice => itemPrice * quantity;
   String get formattedPrice => '₹${itemPrice.toStringAsFixed(2)}';
   String get formattedTotalPrice => '₹${totalPrice.toStringAsFixed(2)}';
 
-  // NEW: Helper method to get menu item info
+  // ENHANCED: Helper method to get menu item info
   MenuItem? getMenuItem(Map<String, MenuItem> menuItems) {
     return menuItems[menuId];
   }
 
-  // NEW: Get display name (either from menu item or fallback to menu ID)
+  // ENHANCED: Get display name (either from menu item or fallback to menu ID)
   String getDisplayName(Map<String, MenuItem> menuItems) {
     final menuItem = getMenuItem(menuItems);
-    return menuItem?.name ?? 'Menu ID: $menuId';
+    if (menuItem != null) {
+      return menuItem.name;
+    }
+    return 'Item ID: $menuId'; // Fallback to show menu ID
   }
 
-  // NEW: Get display image URL
+  // ENHANCED: Get display image URL
   String? getImageUrl(Map<String, MenuItem> menuItems) {
     final menuItem = getMenuItem(menuItems);
     return menuItem?.displayImageUrl;
+  }
+
+  // ENHANCED: Get menu item description
+  String? getDescription(Map<String, MenuItem> menuItems) {
+    final menuItem = getMenuItem(menuItems);
+    return menuItem?.description;
+  }
+
+  // ENHANCED: Check if menu item is available
+  bool? isAvailable(Map<String, MenuItem> menuItems) {
+    final menuItem = getMenuItem(menuItems);
+    return menuItem?.isAvailable;
   }
 }

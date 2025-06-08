@@ -46,19 +46,35 @@ class MenuItemService {
     }
   }
 
-  // Batch fetch multiple menu items
+  // Batch fetch multiple menu items with better error handling
   static Future<Map<String, MenuItem>> getMenuItems(List<String> menuIds) async {
     final Map<String, MenuItem> menuItems = {};
     
+    if (menuIds.isEmpty) {
+      print('MenuItemService: No menu IDs provided');
+      return menuItems;
+    }
+    
+    print('MenuItemService: Fetching ${menuIds.length} menu items: $menuIds');
+    
     // Use Future.wait to make concurrent API calls for better performance
     final futures = menuIds.map((menuId) async {
-      final menuItem = await getMenuItem(menuId);
-      if (menuItem != null) {
-        menuItems[menuId] = menuItem;
+      try {
+        final menuItem = await getMenuItem(menuId);
+        if (menuItem != null) {
+          menuItems[menuId] = menuItem;
+          print('MenuItemService: ✅ Successfully loaded item: ${menuItem.name}');
+        } else {
+          print('MenuItemService: ❌ Failed to load menu item with ID: $menuId');
+        }
+      } catch (e) {
+        print('MenuItemService: ❌ Error loading menu item $menuId: $e');
       }
     });
     
     await Future.wait(futures);
+    
+    print('MenuItemService: 📊 Loaded ${menuItems.length} out of ${menuIds.length} menu items');
     return menuItems;
   }
 }
@@ -89,7 +105,7 @@ class MenuItem {
       id: json['_id'] ?? json['id'] ?? '',
       name: json['name'] ?? 'Unknown Item',
       description: json['description'] ?? '',
-      price: (json['price'] ?? 0).toDouble(),
+      price: _parsePrice(json['price']), // FIXED: Handle string prices
       imageUrl: json['image'] ?? json['imageUrl'] ?? '',
       isAvailable: json['isAvailable'] ?? json['available'] ?? true,
       category: json['category'] ?? '',
@@ -97,14 +113,41 @@ class MenuItem {
     );
   }
 
+  // FIXED: Helper method to parse price from string or number
+  static double _parsePrice(dynamic price) {
+    if (price == null) return 0.0;
+    
+    if (price is double) return price;
+    if (price is int) return price.toDouble();
+    if (price is String) {
+      try {
+        return double.parse(price);
+      } catch (e) {
+        print('MenuItemService: Error parsing price "$price": $e');
+        return 0.0;
+      }
+    }
+    
+    print('MenuItemService: Unknown price type: ${price.runtimeType}');
+    return 0.0;
+  }
+
   String get formattedPrice => '₹${price.toStringAsFixed(2)}';
   
-  // Get a placeholder image URL if no image is provided
+  // FIXED: Get a display image URL with fallback
   String get displayImageUrl {
     if (imageUrl.isNotEmpty) {
-      return imageUrl;
+      // If the imageUrl is already a complete URL, return as is
+      if (imageUrl.startsWith('http')) {
+        return imageUrl;
+      }
+      // If it's a relative path, prepend the base URL
+      return '${ApiConstants.baseUrl}/$imageUrl';
     }
-    // Return a placeholder image URL - you can customize this
+    // Return a placeholder image URL
     return 'https://via.placeholder.com/100x100/E17A47/FFFFFF?text=Food';
   }
+
+  // Additional helper to check if image is available
+  bool get hasImage => imageUrl.isNotEmpty;
 }

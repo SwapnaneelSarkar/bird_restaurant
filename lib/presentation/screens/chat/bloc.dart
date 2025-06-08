@@ -1,4 +1,4 @@
-// lib/presentation/screens/chat/bloc.dart
+// lib/presentation/screens/chat/bloc.dart - ENHANCED VERSION BASED ON ORIGINAL
 
 import 'dart:async';
 import 'package:flutter/foundation.dart';
@@ -33,6 +33,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     on<LoadOrderDetails>(_onLoadOrderDetails);
     on<ChangeOrderStatus>(_onChangeOrderStatus);
     on<UpdateOrderStatus>(_onUpdateOrderStatus);
+    on<ForceRefreshMenuItems>(_onForceRefreshMenuItems); // NEW: Force refresh menu items
     on<_UpdateMessages>(_onUpdateMessages);
     on<_UpdateConnectionStatus>(_onUpdateConnectionStatus);
     on<_AddIncomingMessage>(_onAddIncomingMessage);
@@ -162,62 +163,129 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     ));
   }
 
-  // New method to load order details - USES FULL ORDER ID
+  // ENHANCED: Load order details with better menu item handling
   Future<void> _onLoadOrderDetails(LoadOrderDetails event, Emitter<ChatState> emit) async {
-  try {
-    debugPrint('ChatBloc: 📄 Loading order details for order: ${event.orderId}');
-    debugPrint('ChatBloc: 🔍 Using FULL order ID: $_fullOrderId');
-    
-    if (state is ChatLoaded) {
-      final currentState = state as ChatLoaded;
-      emit(currentState.copyWith(isLoadingOrderDetails: true));
-    } else {
-      emit(OrderDetailsLoading());
-    }
-
-    // CRITICAL: Use the FULL order ID, not the formatted one
-    final orderIdToUse = _fullOrderId ?? event.orderId;
-    debugPrint('ChatBloc: 🎯 API Call - Using order ID: $orderIdToUse');
-
-    final orderDetails = await OrderService.getOrderDetails(
-      partnerId: event.partnerId,
-      orderId: orderIdToUse, // Pass the FULL order ID to API
-    );
-
-    if (orderDetails != null) {
-      debugPrint('ChatBloc: ✅ Order details loaded successfully');
+    try {
+      debugPrint('ChatBloc: 📄 Loading order details for order: ${event.orderId}');
+      debugPrint('ChatBloc: 🔍 Using FULL order ID: $_fullOrderId');
       
       if (state is ChatLoaded) {
         final currentState = state as ChatLoaded;
-        emit(currentState.copyWith(
-          orderDetails: orderDetails,
-          isLoadingOrderDetails: false,
-        ));
-        
-        // NEW: Load menu items after order details are loaded
-        await _loadMenuItemsForOrder(orderDetails, emit);
+        emit(currentState.copyWith(isLoadingOrderDetails: true));
       } else {
-        // For standalone order details loading
-        emit(OrderDetailsLoaded(orderDetails));
-        
-        // Create a temporary state to load menu items
-        final menuItems = await MenuItemService.getMenuItems(orderDetails.allMenuIds);
-        emit(OrderDetailsLoaded(orderDetails, menuItems: menuItems));
+        emit(OrderDetailsLoading());
       }
-    } else {
-      throw Exception('Failed to load order details');
+
+      // CRITICAL: Use the FULL order ID, not the formatted one
+      final orderIdToUse = _fullOrderId ?? event.orderId;
+      debugPrint('ChatBloc: 🎯 API Call - Using order ID: $orderIdToUse');
+
+      final orderDetails = await OrderService.getOrderDetails(
+        partnerId: event.partnerId,
+        orderId: orderIdToUse, // Pass the FULL order ID to API
+      );
+
+      if (orderDetails != null) {
+        debugPrint('ChatBloc: ✅ Order details loaded successfully');
+        debugPrint('ChatBloc: 📦 Found ${orderDetails.items.length} items in order');
+        
+        if (state is ChatLoaded) {
+          final currentState = state as ChatLoaded;
+          emit(currentState.copyWith(
+            orderDetails: orderDetails,
+            isLoadingOrderDetails: false,
+          ));
+          
+          // ENHANCED: Load menu items with better error handling
+          await _loadMenuItemsForOrder(orderDetails, emit);
+        } else {
+          // For standalone order details loading
+          emit(OrderDetailsLoaded(orderDetails));
+          
+          // Load menu items immediately for standalone loading
+          final menuItems = await MenuItemService.getMenuItems(orderDetails.allMenuIds);
+          emit(OrderDetailsLoaded(orderDetails, menuItems: menuItems));
+        }
+      } else {
+        throw Exception('Failed to load order details');
+      }
+    } catch (e) {
+      debugPrint('ChatBloc: ❌ Error loading order details: $e');
+      
+      if (state is ChatLoaded) {
+        final currentState = state as ChatLoaded;
+        emit(currentState.copyWith(isLoadingOrderDetails: false));
+      }
+      
+      emit(OrderDetailsError('Failed to load order details. Please try again.'));
     }
-  } catch (e) {
-    debugPrint('ChatBloc: ❌ Error loading order details: $e');
-    
-    if (state is ChatLoaded) {
-      final currentState = state as ChatLoaded;
-      emit(currentState.copyWith(isLoadingOrderDetails: false));
-    }
-    
-    emit(OrderDetailsError('Failed to load order details. Please try again.'));
   }
 
+  // ENHANCED: Better menu items loading with retry logic
+  Future<void> _loadMenuItemsForOrder(OrderDetails orderDetails, Emitter<ChatState> emit) async {
+    try {
+      debugPrint('ChatBloc: 🍽️ Loading menu items for order items');
+      
+      // Get all unique menu IDs from the order
+      final menuIds = orderDetails.allMenuIds;
+      debugPrint('ChatBloc: 📋 Menu IDs to fetch: $menuIds');
+      
+      if (menuIds.isEmpty) {
+        debugPrint('ChatBloc: ⚠️ No menu items to fetch');
+        return;
+      }
+
+      // Fetch menu items in batch for better performance
+      final menuItems = await MenuItemService.getMenuItems(menuIds);
+      debugPrint('ChatBloc: ✅ Loaded ${menuItems.length} out of ${menuIds.length} menu items');
+
+      // Log which items were successfully loaded and which failed
+      for (final menuId in menuIds) {
+        if (menuItems.containsKey(menuId)) {
+          final item = menuItems[menuId]!;
+          debugPrint('ChatBloc:   ✅ ${item.name} (ID: $menuId)');
+        } else {
+          debugPrint('ChatBloc:   ❌ Failed to load menu item with ID: $menuId');
+        }
+      }
+
+      // Update the state with the menu items
+      if (state is ChatLoaded) {
+        final currentState = state as ChatLoaded;
+        emit(currentState.copyWith(
+          menuItems: {...currentState.menuItems, ...menuItems}, // Merge with existing
+        ));
+        
+        debugPrint('ChatBloc: 🎯 Updated state with ${menuItems.length} menu items');
+      } else if (state is OrderDetailsLoaded) {
+        // Handle standalone order details loading
+        final currentState = state as OrderDetailsLoaded;
+        emit(OrderDetailsLoaded(
+          currentState.orderDetails,
+          menuItems: {...(currentState.menuItems ?? {}), ...menuItems},
+        ));
+      }
+    } catch (e) {
+      debugPrint('ChatBloc: ❌ Error loading menu items: $e');
+      // Don't emit error state for menu items - just log the error
+      // The UI will gracefully fall back to showing menu IDs
+    }
+  }
+
+  // NEW: Force refresh menu items (useful for debugging)
+  Future<void> _onForceRefreshMenuItems(ForceRefreshMenuItems event, Emitter<ChatState> emit) async {
+    if (state is ChatLoaded) {
+      final currentState = state as ChatLoaded;
+      if (currentState.orderDetails != null) {
+        debugPrint('ChatBloc: 🔄 Force refreshing menu items');
+        
+        // Clear existing menu items
+        emit(currentState.copyWith(menuItems: {}));
+        
+        // Reload menu items
+        await _loadMenuItemsForOrder(currentState.orderDetails!, emit);
+      }
+    }
   }
 
   // New method to handle change order status
@@ -499,36 +567,6 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       }
     }
   }
-  Future<void> _loadMenuItemsForOrder(OrderDetails orderDetails, Emitter<ChatState> emit) async {
-  try {
-    debugPrint('ChatBloc: 🍽️ Loading menu items for order items');
-    
-    // Get all unique menu IDs from the order
-    final menuIds = orderDetails.allMenuIds;
-    debugPrint('ChatBloc: Menu IDs to fetch: $menuIds');
-    
-    if (menuIds.isEmpty) {
-      debugPrint('ChatBloc: No menu items to fetch');
-      return;
-    }
-
-    // Fetch menu items in batch for better performance
-    final menuItems = await MenuItemService.getMenuItems(menuIds);
-    debugPrint('ChatBloc: ✅ Loaded ${menuItems.length} menu items');
-
-    // Update the state with the menu items
-    if (state is ChatLoaded) {
-      final currentState = state as ChatLoaded;
-      emit(currentState.copyWith(
-        menuItems: {...currentState.menuItems, ...menuItems}, // Merge with existing
-      ));
-    }
-  } catch (e) {
-    debugPrint('ChatBloc: ❌ Error loading menu items: $e');
-    // Don't emit error state for menu items - just log the error
-    // The UI will gracefully fall back to showing menu IDs
-  }
-}
 
   Future<void> _onRefreshChat(RefreshChat event, Emitter<ChatState> emit) async {
     if (_currentRoomId != null) {
@@ -681,7 +719,7 @@ class _UpdateMessages extends ChatEvent {
   const _UpdateMessages(this.messages);
   
   @override
-  List<Object?> get props => [messages];
+  List<Object> get props => [messages];
 }
 
 class _UpdateConnectionStatus extends ChatEvent {
@@ -690,7 +728,7 @@ class _UpdateConnectionStatus extends ChatEvent {
   const _UpdateConnectionStatus(this.isConnected);
   
   @override
-  List<Object?> get props => [isConnected];
+  List<Object> get props => [isConnected];
 }
 
 class _AddIncomingMessage extends ChatEvent {
@@ -699,5 +737,5 @@ class _AddIncomingMessage extends ChatEvent {
   const _AddIncomingMessage(this.message);
   
   @override
-  List<Object?> get props => [message];
+  List<Object> get props => [message];
 }
