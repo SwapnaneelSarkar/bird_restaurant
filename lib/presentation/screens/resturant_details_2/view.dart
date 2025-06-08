@@ -86,6 +86,43 @@ class _BodyState extends State<_Body> with SingleTickerProviderStateMixin {
     }
   }
 
+  // Method to show validation message
+  void _showValidationMessage(BuildContext context, String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          message,
+          style: TextStyle(
+            fontFamily: FontConstants.fontFamily,
+            fontSize: FontSize.s14,
+            color: Colors.white,
+          ),
+        ),
+        backgroundColor: Colors.orange.shade600,
+        duration: const Duration(seconds: 3),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
+        margin: const EdgeInsets.all(16),
+      ),
+    );
+  }
+
+  // Method to get validation message
+  String _getValidationMessage(RestaurantCategoryState state) {
+    if (state.selected.isEmpty) {
+      return 'Please select at least one cuisine type to continue.';
+    }
+    
+    final enabledDays = state.days.where((day) => day.enabled).toList();
+    if (enabledDays.isEmpty) {
+      return 'Please set operational hours for at least one day to continue.';
+    }
+    
+    return '';
+  }
+
   @override
   Widget build(BuildContext context) {
     final bloc = context.read<RestaurantCategoryBloc>();
@@ -187,6 +224,45 @@ class _BodyState extends State<_Body> with SingleTickerProviderStateMixin {
                             ),
                         ],
                       ),
+                      
+                      // Add validation message for cuisine selection
+                      if (state.selected.isEmpty)
+                        Container(
+                          margin: EdgeInsets.only(top: h * 0.01),
+                          padding: EdgeInsets.symmetric(
+                            horizontal: w * 0.03,
+                            vertical: h * 0.01,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.orange.shade50,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: Colors.orange.shade300,
+                              width: 1,
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.info_outline,
+                                color: Colors.orange.shade600,
+                                size: 16,
+                              ),
+                              SizedBox(width: w * 0.02),
+                              Expanded(
+                                child: Text(
+                                  'Please select at least one cuisine type',
+                                  style: TextStyle(
+                                    fontFamily: FontConstants.fontFamily,
+                                    fontSize: FontSize.s12,
+                                    color: Colors.orange.shade700,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      
                       SizedBox(height: verticalPadding * 1.5),
                       Text(
                         'Operational Hours',
@@ -221,6 +297,45 @@ class _BodyState extends State<_Body> with SingleTickerProviderStateMixin {
                             ),
                         ],
                       ),
+                      
+                      // Add validation message for operational hours
+                      if (state.days.where((day) => day.enabled).isEmpty)
+                        Container(
+                          margin: EdgeInsets.only(top: h * 0.01),
+                          padding: EdgeInsets.symmetric(
+                            horizontal: w * 0.03,
+                            vertical: h * 0.01,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.orange.shade50,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: Colors.orange.shade300,
+                              width: 1,
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.access_time,
+                                color: Colors.orange.shade600,
+                                size: 16,
+                              ),
+                              SizedBox(width: w * 0.02),
+                              Expanded(
+                                child: Text(
+                                  'Please set operational hours for at least one day',
+                                  style: TextStyle(
+                                    fontFamily: FontConstants.fontFamily,
+                                    fontSize: FontSize.s12,
+                                    color: Colors.orange.shade700,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      
                       SizedBox(height: verticalPadding),
                     ],
                   ),
@@ -247,7 +362,13 @@ class _BodyState extends State<_Body> with SingleTickerProviderStateMixin {
                       debugPrint('▶️ Next pressed, navigating to step-3');
                       Navigator.pushNamed(ctx, Routes.detailsAdd3);
                     }
-                  : null,
+                  : () {
+                      // Show validation message when button is pressed but validation fails
+                      final validationMessage = _getValidationMessage(state);
+                      if (validationMessage.isNotEmpty) {
+                        _showValidationMessage(ctx, validationMessage);
+                      }
+                    },
             ),
           );
         },

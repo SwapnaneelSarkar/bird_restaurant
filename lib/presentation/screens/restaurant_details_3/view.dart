@@ -30,6 +30,171 @@ class RestaurantDocumentsSubmitView extends StatelessWidget {
 class _Body extends StatelessWidget {
   const _Body();
 
+  // Method to show validation popup alert
+  void _showValidationAlert(BuildContext context) {
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          title: Row(
+            children: [
+              Icon(
+                Icons.warning_amber_rounded,
+                color: Colors.orange.shade600,
+                size: 24,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Incomplete Documents',
+                style: TextStyle(
+                  fontFamily: FontConstants.fontFamily,
+                  fontSize: FontSize.s16,
+                  fontWeight: FontWeightManager.semiBold,
+                  color: ColorManager.black,
+                ),
+              ),
+            ],
+          ),
+          content: Text(
+            'Please upload all required documents and at least one restaurant photo before submitting.',
+            style: TextStyle(
+              fontFamily: FontConstants.fontFamily,
+              fontSize: FontSize.s14,
+              color: Colors.grey.shade700,
+              height: 1.4,
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: Text(
+                'OK',
+                style: TextStyle(
+                  fontFamily: FontConstants.fontFamily,
+                  fontSize: FontSize.s14,
+                  fontWeight: FontWeightManager.medium,
+                  color: Colors.blue.shade600,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // Method to get missing items for detailed validation
+  List<String> _getMissingItems(RestaurantDocumentsState state) {
+    List<String> missing = [];
+    
+    if (state.uploadedDocs[DocumentType.fssai] == null) {
+      missing.add('FSSAI License');
+    }
+    if (state.uploadedDocs[DocumentType.gst] == null) {
+      missing.add('GST Certificate');
+    }
+    if (state.uploadedDocs[DocumentType.pan] == null) {
+      missing.add('PAN Card');
+    }
+    if (state.restaurantPhotos.isEmpty) {
+      missing.add('Restaurant Photos');
+    }
+    
+    return missing;
+  }
+
+  // Method to show detailed validation popup
+  void _showDetailedValidationAlert(BuildContext context, List<String> missingItems) {
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          title: Row(
+            children: [
+              Icon(
+                Icons.error_outline,
+                color: Colors.red.shade600,
+                size: 24,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Missing Documents',
+                style: TextStyle(
+                  fontFamily: FontConstants.fontFamily,
+                  fontSize: FontSize.s16,
+                  fontWeight: FontWeightManager.semiBold,
+                  color: ColorManager.black,
+                ),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Please upload the following required items:',
+                style: TextStyle(
+                  fontFamily: FontConstants.fontFamily,
+                  fontSize: FontSize.s14,
+                  color: Colors.grey.shade700,
+                ),
+              ),
+              const SizedBox(height: 12),
+              ...missingItems.map((item) => Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.circle,
+                      size: 6,
+                      color: Colors.red.shade600,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      item,
+                      style: TextStyle(
+                        fontFamily: FontConstants.fontFamily,
+                        fontSize: FontSize.s12,
+                        color: Colors.red.shade700,
+                        fontWeight: FontWeightManager.medium,
+                      ),
+                    ),
+                  ],
+                ),
+              )).toList(),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+              ),
+              child: Text(
+                'OK',
+                style: TextStyle(
+                  fontFamily: FontConstants.fontFamily,
+                  fontSize: FontSize.s14,
+                  fontWeight: FontWeightManager.medium,
+                  color: Colors.blue.shade600,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final bloc = context.read<RestaurantDocumentsBloc>();
@@ -69,13 +234,13 @@ class _Body extends StatelessWidget {
       body: BlocConsumer<RestaurantDocumentsBloc, RestaurantDocumentsState>(
         listener: (context, state) {
           if (state.errorMessage != null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(state.errorMessage!),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(state.errorMessage!),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
           if (state.submissionSuccess != null) {
             if (state.submissionSuccess!) {
               ScaffoldMessenger.of(context).showSnackBar(
@@ -86,22 +251,22 @@ class _Body extends StatelessWidget {
               );
               // Navigate to next screen after success
               Navigator.of(context).push(
-  PageRouteBuilder(
-    transitionDuration: const Duration(milliseconds: 300),
-    reverseTransitionDuration: const Duration(milliseconds: 300),
-    pageBuilder: (_, __, ___) => const ApplicationStatusView(),
-    transitionsBuilder: (_, animation, __, child) => SlideTransition(
-      position: Tween<Offset>(
-        begin: const Offset(0, 1),
-        end: Offset.zero,
-      ).animate(CurvedAnimation(
-        parent: animation,
-        curve: Curves.easeOutCubic,
-      )),
-      child: child,
-    ),
-  ),
-);
+                PageRouteBuilder(
+                  transitionDuration: const Duration(milliseconds: 300),
+                  reverseTransitionDuration: const Duration(milliseconds: 300),
+                  pageBuilder: (_, __, ___) => const ApplicationStatusView(),
+                  transitionsBuilder: (_, animation, __, child) => SlideTransition(
+                    position: Tween<Offset>(
+                      begin: const Offset(0, 1),
+                      end: Offset.zero,
+                    ).animate(CurvedAnimation(
+                      parent: animation,
+                      curve: Curves.easeOutCubic,
+                    )),
+                    child: child,
+                  ),
+                ),
+              );
             } else {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
@@ -211,6 +376,55 @@ class _Body extends StatelessWidget {
                         : null,
                   ),
                   
+                  // Add validation message section if items are missing
+                  if (!state.canProceed)
+                    Container(
+                      margin: EdgeInsets.only(top: vertPad),
+                      padding: EdgeInsets.all(w * 0.04),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.shade50,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: Colors.orange.shade300,
+                          width: 1,
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.info_outline,
+                                color: Colors.orange.shade600,
+                                size: 20,
+                              ),
+                              SizedBox(width: w * 0.02),
+                              Text(
+                                'Required Items Missing',
+                                style: TextStyle(
+                                  fontFamily: FontConstants.fontFamily,
+                                  fontSize: FontSize.s14,
+                                  fontWeight: FontWeightManager.semiBold,
+                                  color: Colors.orange.shade700,
+                                ),
+                              ),
+                            ],
+                          ),
+                          SizedBox(height: h * 0.01),
+                          Text(
+                            'Please upload all legal documents and at least one restaurant photo to proceed.',
+                            style: TextStyle(
+                              fontFamily: FontConstants.fontFamily,
+                              fontSize: FontSize.s12,
+                              color: Colors.orange.shade700,
+                              height: 1.3,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  
                   SizedBox(height: h * 0.12),
                 ],
               ),
@@ -226,9 +440,22 @@ class _Body extends StatelessWidget {
             child: NextButton(
               label: state.isSubmitting ? 'Submitting...' : 'Submit',
               suffixIcon: Icons.arrow_forward,
-              onPressed: state.canProceed && !state.isSubmitting
-                  ? () => bloc.add(const SubmitDocumentsEvent())
-                  : null,
+              onPressed: state.isSubmitting
+                  ? null
+                  : () {
+                      if (state.canProceed) {
+                        // Proceed with submission
+                        bloc.add(const SubmitDocumentsEvent());
+                      } else {
+                        // Show validation alert
+                        final missingItems = _getMissingItems(state);
+                        if (missingItems.isNotEmpty) {
+                          _showDetailedValidationAlert(context, missingItems);
+                        } else {
+                          _showValidationAlert(context);
+                        }
+                      }
+                    },
             ),
           );
         },
