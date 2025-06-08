@@ -1,4 +1,4 @@
-// lib/presentation/widgets/order_widgets.dart - FIXED THEME
+// lib/presentation/widgets/order_widgets.dart - COMPLETE FIXED VERSION
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -33,35 +33,34 @@ class OrderDetailsWidget extends StatelessWidget {
       ),
       body: BlocBuilder<ChatBloc, ChatState>(
         builder: (context, state) {
-              print('🔍 DEBUG: Current ChatBloc state: ${state.runtimeType}');
+          print('🔍 DEBUG: Current ChatBloc state: ${state.runtimeType}');
     
-    if (state is ChatLoaded) {
-      print('🔍 DEBUG: ChatLoaded state:');
-      print('  - Has order details: ${state.orderDetails != null}');
-      print('  - Is loading order details: ${state.isLoadingOrderDetails}');
-      print('  - Menu items count: ${state.menuItems.length}');
-      
-      if (state.orderDetails != null) {
-        print('  - Order ID: ${state.orderDetails!.orderId}');
-        print('  - Items count: ${state.orderDetails!.items.length}');
-      }
-    }
-    
-    if (state is OrderDetailsLoaded) {
-      print('🔍 DEBUG: OrderDetailsLoaded state:');
-      print('  - Order ID: ${state.orderDetails.orderId}');
-      print('  - Items count: ${state.orderDetails.items.length}');
-      print('  - Menu items count: ${state.menuItems?.length ?? 0}');
-    }
-    
-    if (state is OrderDetailsLoading) {
-      print('🔍 DEBUG: OrderDetailsLoading state');
-    }
-    
-    if (state is OrderDetailsError) {
-      print('🔍 DEBUG: OrderDetailsError state: ${state.message}');
-    }
-    
+          if (state is ChatLoaded) {
+            print('🔍 DEBUG: ChatLoaded state:');
+            print('  - Has order details: ${state.orderDetails != null}');
+            print('  - Is loading order details: ${state.isLoadingOrderDetails}');
+            print('  - Menu items count: ${state.menuItems.length}');
+            
+            if (state.orderDetails != null) {
+              print('  - Order ID: ${state.orderDetails!.orderId}');
+              print('  - Items count: ${state.orderDetails!.items.length}');
+            }
+          }
+          
+          if (state is OrderDetailsLoaded) {
+            print('🔍 DEBUG: OrderDetailsLoaded state:');
+            print('  - Order ID: ${state.orderDetails.orderId}');
+            print('  - Items count: ${state.orderDetails.items.length}');
+            print('  - Menu items count: ${state.menuItems?.length ?? 0}');
+          }
+          
+          if (state is OrderDetailsLoading) {
+            print('🔍 DEBUG: OrderDetailsLoading state');
+          }
+          
+          if (state is OrderDetailsError) {
+            print('🔍 DEBUG: OrderDetailsError state: ${state.message}');
+          }
 
           if (state is OrderDetailsLoading) {
             return const Center(
@@ -82,7 +81,7 @@ class OrderDetailsWidget extends StatelessWidget {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.error_outline, color: Colors.red, size: 48),
+                  const Icon(Icons.error_outline, color: Colors.red, size: 48),
                   const SizedBox(height: 16),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -102,12 +101,9 @@ class OrderDetailsWidget extends StatelessWidget {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFFE17A47),
                     ),
-                    child: Text(
+                    child: const Text(
                       'Go Back',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontFamily: FontFamily.Montserrat,
-                      ),
+                      style: TextStyle(color: Colors.white),
                     ),
                   ),
                 ],
@@ -164,11 +160,11 @@ class OrderDetailsWidget extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(Icons.receipt_long, color: const Color(0xFFE17A47), size: 24),
+              const Icon(Icons.receipt_long, color: Color(0xFFE17A47), size: 24),
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
-                  'Order #${orderDetails.orderId}',
+                  'Order #${orderDetails.orderId.length > 8 ? orderDetails.orderId.substring(orderDetails.orderId.length - 8) : orderDetails.orderId}',
                   style: TextStyle(
                     color: ColorManager.black,
                     fontSize: 20,
@@ -190,7 +186,7 @@ class OrderDetailsWidget extends StatelessWidget {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  'User ID: ${orderDetails.userId}',
+                  'User ID: ${orderDetails.userId.length > 12 ? orderDetails.userId.substring(orderDetails.userId.length - 12) : orderDetails.userId}',
                   style: TextStyle(
                     color: Colors.grey[600],
                     fontSize: 14,
@@ -220,7 +216,7 @@ class OrderDetailsWidget extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(Icons.restaurant_menu, color: const Color(0xFFE17A47), size: 24),
+              const Icon(Icons.restaurant_menu, color: Color(0xFFE17A47), size: 24),
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
@@ -269,15 +265,15 @@ class OrderDetailsWidget extends StatelessWidget {
       ),
       child: Row(
         children: [
-          // Menu item image - FIXED: Use imageUrl instead of displayImageUrl
+          // Menu item image
           ClipRRect(
             borderRadius: BorderRadius.circular(8),
             child: SizedBox(
               width: 60,
               height: 60,
-              child: menuItem?.hasImage == true
+              child: (menuItem != null && menuItem.imageUrl.isNotEmpty)
                   ? Image.network(
-                      menuItem!.displayImageUrl, // This now works correctly
+                      menuItem.displayImageUrl,
                       fit: BoxFit.cover,
                       errorBuilder: (context, error, stackTrace) {
                         return _buildPlaceholderImage();
@@ -449,7 +445,7 @@ class OrderDetailsWidget extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(Icons.receipt, color: const Color(0xFFE17A47), size: 24),
+              const Icon(Icons.receipt, color: Color(0xFFE17A47), size: 24),
               const SizedBox(width: 12),
               Text(
                 'Order Summary',
@@ -556,7 +552,7 @@ class OrderDetailsWidget extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(Icons.info_outline, color: const Color(0xFFE17A47), size: 24),
+              const Icon(Icons.info_outline, color: Color(0xFFE17A47), size: 24),
               const SizedBox(width: 12),
               Text(
                 'Order Status',
@@ -589,11 +585,10 @@ class OrderDetailsWidget extends StatelessWidget {
                 const SizedBox(width: 8),
                 Text(
                   orderDetails.orderStatus.toUpperCase(),
-                  style: TextStyle(
+                  style: const TextStyle(
                     color: Colors.white,
                     fontSize: 16,
-                    fontWeight: FontWeightManager.bold,
-                    fontFamily: FontFamily.Montserrat,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
               ],
@@ -693,14 +688,24 @@ class OrderOptionsBottomSheet extends StatelessWidget {
           
           const SizedBox(height: 20),
           
-          // View Order Details Option
+          // View Order Details Option - FIXED TO NAVIGATE PROPERLY
           _buildOptionTile(
             context,
             icon: Icons.receipt_long,
             title: 'View Order Details',
             subtitle: 'See items, customer info, and more',
             onTap: () {
-              Navigator.pop(context);
+              Navigator.pop(context); // Close the bottom sheet first
+              
+              // Navigate to order details page
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const OrderDetailsWidget(),
+                ),
+              );
+              
+              // Trigger the bloc event to load order details
               context.read<ChatBloc>().add(LoadOrderDetails(
                 orderId: orderId,
                 partnerId: partnerId,
@@ -721,23 +726,6 @@ class OrderOptionsBottomSheet extends StatelessWidget {
               _showStatusChangeBottomSheet(context, orderId, partnerId);
             },
           ),
-          
-          const SizedBox(height: 12),
-          
-          // Call Customer Option
-          // _buildOptionTile(
-          //   context,
-          //   icon: Icons.phone,
-          //   title: 'Call Customer',
-          //   subtitle: 'Contact the customer directly',
-          //   onTap: () {
-          //     Navigator.pop(context);
-          //     // TODO: Implement call customer functionality
-          //     ScaffoldMessenger.of(context).showSnackBar(
-          //       const SnackBar(content: Text('Call customer feature coming soon')),
-          //     );
-          //   },
-          // ),
           
           const SizedBox(height: 20),
         ],
@@ -844,11 +832,9 @@ class StatusChangeBottomSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     // Get current status from bloc state if available
     String currentStatus = 'PENDING';
-    if (context.read<ChatBloc>().state is ChatLoaded) {
-      final state = context.read<ChatBloc>().state as ChatLoaded;
-      if (state.orderDetails != null) {
-        currentStatus = state.orderDetails!.orderStatus;
-      }
+    final chatBlocState = context.read<ChatBloc>().state;
+    if (chatBlocState is ChatLoaded && chatBlocState.orderDetails != null) {
+      currentStatus = chatBlocState.orderDetails!.orderStatus;
     }
 
     final availableStatuses = OrderService.getAvailableStatusOptions(currentStatus);
