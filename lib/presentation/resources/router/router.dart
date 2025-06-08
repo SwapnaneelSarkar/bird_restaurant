@@ -52,8 +52,8 @@ class RouteGenerator {
     
     try {
       switch (name) {
-        // case Routes.splash:
-        //   return MaterialPageRoute(builder: (_) => const SplashView());
+        case Routes.splash:
+          return MaterialPageRoute(builder: (_) => const SplashView());
           
         case Routes.signin:
           return MaterialPageRoute(builder: (_) => const LoginView());

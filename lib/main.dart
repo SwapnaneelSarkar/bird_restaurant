@@ -39,7 +39,7 @@ class MyApp extends StatelessWidget {
           scaffoldBackgroundColor: Colors.black,
           useMaterial3: true,
         ),
-        initialRoute: Routes.detailsAdd, // Set splash screen as initial route
+        initialRoute: Routes.splash, // Set splash screen as initial route
         onGenerateRoute: RouteGenerator.getRoute,
       ),
     );
