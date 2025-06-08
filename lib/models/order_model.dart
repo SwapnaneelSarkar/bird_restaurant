@@ -84,7 +84,7 @@ class Order {
   final String customerName;
   final double amount;
   final DateTime date;
-  final String status;
+  final String status; // Keep as string for API compatibility
   final String? customerPhone;
   final String? deliveryAddress;
   final List<OrderItem>? items;
@@ -107,86 +107,128 @@ class Order {
       userId: json['user_id'] ?? '',
       customerName: json['customer_name'] ?? json['customerName'] ?? 'Unknown Customer',
       amount: double.tryParse(json['total_price']?.toString() ?? '0') ?? 
-              double.tryParse(json['total_amount']?.toString() ?? '0') ?? 0.0,
-      date: json['created_at'] != null 
-          ? DateTime.parse(json['created_at'])
-          : json['order_date'] != null
-              ? DateTime.parse(json['order_date'])
-              : DateTime.now(),
-      status: json['order_status'] ?? json['status'] ?? 'pending',
-      customerPhone: json['user_mobile'] ?? json['customer_phone'] ?? json['phone'],
-      deliveryAddress: json['address'] ?? json['delivery_address'],
-      items: json['items'] != null
+              double.tryParse(json['amount']?.toString() ?? '0') ?? 0.0,
+      date: DateTime.tryParse(json['created_at'] ?? json['date'] ?? '') ?? DateTime.now(),
+      status: json['status'] ?? 'PENDING',
+      customerPhone: json['customer_phone'] ?? json['phone'],
+      deliveryAddress: json['delivery_address'] ?? json['address'],
+      items: json['items'] != null 
           ? (json['items'] as List).map((item) => OrderItem.fromJson(item)).toList()
           : null,
     );
   }
 
-  // Convert status string to OrderStatus enum
+  Map<String, dynamic> toJson() {
+    return {
+      'order_id': id,
+      'user_id': userId,
+      'customer_name': customerName,
+      'total_price': amount,
+      'created_at': date.toIso8601String(),
+      'status': status,
+      'customer_phone': customerPhone,
+      'delivery_address': deliveryAddress,
+      'items': items?.map((item) => item.toJson()).toList(),
+    };
+  }
+
+  // Convert string status to OrderStatus enum
   OrderStatus get orderStatus {
-    switch (status.toLowerCase()) {
-      case 'pending':
-        return OrderStatus.pending;
-      case 'confirmed':
-        return OrderStatus.confirmed;
-      case 'preparing':
-        return OrderStatus.preparing;
-      case 'ready_for_delivery':
-      case 'ready':
-        return OrderStatus.delivery;
-      case 'out_for_delivery':
-      case 'delivery':
-        return OrderStatus.delivery;
-      case 'delivered':
-        return OrderStatus.delivered;
-      case 'cancelled':
-        return OrderStatus.cancelled;
-      default:
-        return OrderStatus.pending;
-    }
+    return OrderStatusExtension.fromApiValue(status);
   }
 
+  // Get display name for customer
   String get displayCustomerName {
-    if (customerName != 'Unknown Customer' && customerName.isNotEmpty) {
-      return customerName;
+    if (customerName.isEmpty || customerName == 'Unknown Customer') {
+      return customerPhone ?? 'Unknown Customer';
     }
-    // If no customer name, show shortened user ID
-    if (userId.isNotEmpty) {
-      return 'User ${userId.length > 8 ? userId.substring(userId.length - 8) : userId}';
-    }
-    return 'Unknown Customer';
+    return customerName;
   }
 
-  String get shortOrderId {
-    if (id.length > 8) {
-      return id.substring(id.length - 8);
-    }
-    return id;
+  // Create a copy with updated values
+  Order copyWith({
+    String? id,
+    String? userId,
+    String? customerName,
+    double? amount,
+    DateTime? date,
+    String? status,
+    String? customerPhone,
+    String? deliveryAddress,
+    List<OrderItem>? items,
+  }) {
+    return Order(
+      id: id ?? this.id,
+      userId: userId ?? this.userId,
+      customerName: customerName ?? this.customerName,
+      amount: amount ?? this.amount,
+      date: date ?? this.date,
+      status: status ?? this.status,
+      customerPhone: customerPhone ?? this.customerPhone,
+      deliveryAddress: deliveryAddress ?? this.deliveryAddress,
+      items: items ?? this.items,
+    );
   }
 }
 
 class OrderItem {
-  final String itemId;
-  final String itemName;
+  final String id;
+  final String name;
   final int quantity;
   final double price;
+  final String? description;
   final String? imageUrl;
 
   const OrderItem({
-    required this.itemId,
-    required this.itemName,
+    required this.id,
+    required this.name,
     required this.quantity,
     required this.price,
+    this.description,
     this.imageUrl,
   });
 
   factory OrderItem.fromJson(Map<String, dynamic> json) {
     return OrderItem(
-      itemId: json['item_id'] ?? json['id'] ?? '',
-      itemName: json['item_name'] ?? json['name'] ?? 'Unknown Item',
-      quantity: json['quantity'] ?? 1,
+      id: json['id'] ?? json['item_id'] ?? '',
+      name: json['name'] ?? json['item_name'] ?? '',
+      quantity: json['quantity'] ?? 0,
       price: double.tryParse(json['price']?.toString() ?? '0') ?? 0.0,
-      imageUrl: json['image_url'] ?? json['imageUrl'],
+      description: json['description'],
+      imageUrl: json['image_url'] ?? json['image'],
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'name': name,
+      'quantity': quantity,
+      'price': price,
+      'description': description,
+      'image_url': imageUrl,
+    };
+  }
+
+  // Calculate total price for this item
+  double get totalPrice => price * quantity;
+
+  // Create a copy with updated values
+  OrderItem copyWith({
+    String? id,
+    String? name,
+    int? quantity,
+    double? price,
+    String? description,
+    String? imageUrl,
+  }) {
+    return OrderItem(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      quantity: quantity ?? this.quantity,
+      price: price ?? this.price,
+      description: description ?? this.description,
+      imageUrl: imageUrl ?? this.imageUrl,
     );
   }
 }

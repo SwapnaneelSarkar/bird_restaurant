@@ -1,57 +1,43 @@
 // lib/services/orders_api_service.dart
 import 'dart:convert';
-import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:flutter/foundation.dart';
 import '../constants/api_constants.dart';
+import '../services/token_service.dart';
 import '../models/order_model.dart';
-import '../presentation/screens/orders/state.dart';
-import 'token_service.dart';
 
 class OrdersApiService {
-  static Future<OrderSummaryResponse> getOrderSummary({
-    String? startDate,
-    String? endDate,
-  }) async {
+  static const int timeoutSeconds = 10;
+
+  // Fetch order summary - existing method
+  static Future<OrderSummaryResponse> fetchOrderSummary() async {
     try {
       final token = await TokenService.getToken();
-      final partnerId = await TokenService.getUserId();
       
-      if (token == null || partnerId == null) {
+      if (token == null) {
         throw Exception('No authentication found. Please login again.');
       }
 
-      // Build query parameters
-      final queryParams = <String, String>{};
-      if (startDate != null) queryParams['startDate'] = startDate;
-      if (endDate != null) queryParams['endDate'] = endDate;
+      final url = Uri.parse('${ApiConstants.baseUrl}/partner/orders/summary');
       
-      final queryString = queryParams.isNotEmpty 
-          ? '?' + queryParams.entries.map((e) => '${e.key}=${e.value}').join('&')
-          : '';
+      debugPrint('OrdersApiService: 📊 Fetching order summary: $url');
 
-      final url = Uri.parse('${ApiConstants.baseUrl}/partner/orders/summary/$partnerId$queryString');
-      
-      debugPrint('OrdersApiService: 📊 Fetching order summary from: $url');
-      debugPrint('OrdersApiService: 🔑 Using token: ${token.substring(0, 20)}...');
-
-      final response = await http.post(
+      final response = await http.get(
         url,
         headers: {
           'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
         },
-      ).timeout(const Duration(seconds: 15));
+      ).timeout(const Duration(seconds: timeoutSeconds));
 
-      debugPrint('OrdersApiService: 📈 Summary response status: ${response.statusCode}');
+      debugPrint('OrdersApiService: 📊 Summary response status: ${response.statusCode}');
       debugPrint('OrdersApiService: 📋 Summary response body: ${response.body}');
 
       if (response.statusCode == 200) {
-        final Map<String, dynamic> jsonData = json.decode(response.body);
-        return OrderSummaryResponse.fromJson(jsonData);
+        final responseData = json.decode(response.body);
+        return OrderSummaryResponse.fromJson(responseData);
       } else if (response.statusCode == 401) {
         throw Exception('Unauthorized. Please login again.');
-      } else if (response.statusCode == 404) {
-        throw Exception('Order summary not found.');
       } else {
         throw Exception('Failed to fetch order summary. Status: ${response.statusCode}');
       }
@@ -61,58 +47,35 @@ class OrdersApiService {
     }
   }
 
-  static Future<OrderHistoryResponse> getOrderHistory({
-    int page = 1,
-    int limit = 50,
-    String? status,
-  }) async {
+  // Fetch order history - ADDED MISSING METHOD
+  static Future<OrderHistoryResponse> fetchOrderHistory() async {
     try {
       final token = await TokenService.getToken();
-      final partnerId = await TokenService.getUserId();
       
-      if (token == null || partnerId == null) {
+      if (token == null) {
         throw Exception('No authentication found. Please login again.');
       }
 
-      // Build query parameters
-      final queryParams = <String, String>{
-        'page': page.toString(),
-        'limit': limit.toString(),
-      };
-      if (status != null && status != 'all') queryParams['status'] = status;
+      final url = Uri.parse('${ApiConstants.baseUrl}/partner/orders/history');
       
-      final queryString = queryParams.isNotEmpty 
-          ? '?' + queryParams.entries.map((e) => '${e.key}=${e.value}').join('&')
-          : '';
+      debugPrint('OrdersApiService: 📋 Fetching order history: $url');
 
-      final url = Uri.parse('${ApiConstants.baseUrl}/partner/orders/history/$partnerId$queryString');
-      
-      debugPrint('OrdersApiService: 📚 Fetching order history from: $url');
-      debugPrint('OrdersApiService: 🔑 Using token: ${token.substring(0, 20)}...');
-
-      final response = await http.post(
+      final response = await http.get(
         url,
         headers: {
           'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
         },
-      ).timeout(const Duration(seconds: 15));
+      ).timeout(const Duration(seconds: timeoutSeconds));
 
-      debugPrint('OrdersApiService: 📖 History response status: ${response.statusCode}');
+      debugPrint('OrdersApiService: 📋 History response status: ${response.statusCode}');
       debugPrint('OrdersApiService: 📋 History response body: ${response.body}');
 
       if (response.statusCode == 200) {
-        final Map<String, dynamic> jsonData = json.decode(response.body);
-        return OrderHistoryResponse.fromJson(jsonData);
+        final responseData = json.decode(response.body);
+        return OrderHistoryResponse.fromJson(responseData);
       } else if (response.statusCode == 401) {
         throw Exception('Unauthorized. Please login again.');
-      } else if (response.statusCode == 404) {
-        // No orders found is okay, return empty list
-        return OrderHistoryResponse(
-          status: 'SUCCESS',
-          message: 'No orders found',
-          data: [],
-        );
       } else {
         throw Exception('Failed to fetch order history. Status: ${response.statusCode}');
       }
@@ -122,6 +85,7 @@ class OrdersApiService {
     }
   }
 
+  // Update order status - existing method
   static Future<bool> updateOrderStatus({
     required String orderId,
     required String newStatus,
@@ -147,7 +111,7 @@ class OrdersApiService {
         body: json.encode({
           'status': newStatus,
         }),
-      ).timeout(const Duration(seconds: 10));
+      ).timeout(const Duration(seconds: timeoutSeconds));
 
       debugPrint('OrdersApiService: 🔄 Update response status: ${response.statusCode}');
       debugPrint('OrdersApiService: 📋 Update response body: ${response.body}');
@@ -166,17 +130,51 @@ class OrdersApiService {
     }
   }
 
-  // Helper method to convert OrderSummaryData to OrderStats
-  static OrderStats convertSummaryToStats(OrderSummaryData summary) {
-    return OrderStats(
-      total: summary.totalOrders,
-      pending: summary.totalPending,
-      confirmed: summary.totalConfirmed,
-      preparing: summary.totalPreparing,
-      delivery: summary.totalReadyForDelivery + summary.totalOutForDelivery,
-      delivered: summary.totalDelivered,
-      cancelled: summary.totalCancelled,
-    );
+  // Fetch orders with date range - additional method
+  static Future<OrderHistoryResponse> fetchOrdersWithDateRange({
+    required DateTime startDate,
+    required DateTime endDate,
+  }) async {
+    try {
+      final token = await TokenService.getToken();
+      
+      if (token == null) {
+        throw Exception('No authentication found. Please login again.');
+      }
+
+      final queryParams = {
+        'start_date': startDate.toIso8601String().split('T')[0],
+        'end_date': endDate.toIso8601String().split('T')[0],
+      };
+      
+      final url = Uri.parse('${ApiConstants.baseUrl}/partner/orders/history').replace(
+        queryParameters: queryParams,
+      );
+      
+      debugPrint('OrdersApiService: 📅 Fetching orders with date range: $url');
+
+      final response = await http.get(
+        url,
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      ).timeout(const Duration(seconds: timeoutSeconds));
+
+      debugPrint('OrdersApiService: 📅 Date range response status: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        final responseData = json.decode(response.body);
+        return OrderHistoryResponse.fromJson(responseData);
+      } else if (response.statusCode == 401) {
+        throw Exception('Unauthorized. Please login again.');
+      } else {
+        throw Exception('Failed to fetch orders. Status: ${response.statusCode}');
+      }
+    } catch (e) {
+      debugPrint('OrdersApiService: ❌ Error fetching orders with date range: $e');
+      rethrow;
+    }
   }
 
   // Helper method to get date range for today

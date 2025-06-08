@@ -52,12 +52,14 @@ class OrderStatusUpdating extends OrdersState {
   });
 }
 
+// Updated OrderStats class to match new restricted statuses
 class OrderStats {
   final int total;
   final int pending;
   final int confirmed;
   final int preparing;
-  final int delivery;
+  final int readyForDelivery;
+  final int outForDelivery;
   final int delivered;
   final int cancelled;
 
@@ -66,8 +68,54 @@ class OrderStats {
     required this.pending,
     required this.confirmed,
     required this.preparing,
-    required this.delivery,
+    required this.readyForDelivery,
+    required this.outForDelivery,
     required this.delivered,
     required this.cancelled,
   });
+
+  // Helper method to get count by status
+  int getCountByStatus(OrderStatus status) {
+    switch (status) {
+      case OrderStatus.all:
+        return total;
+      case OrderStatus.pending:
+        return pending;
+      case OrderStatus.confirmed:
+        return confirmed;
+      case OrderStatus.preparing:
+        return preparing;
+      case OrderStatus.readyForDelivery:
+        return readyForDelivery;
+      case OrderStatus.outForDelivery:
+        return outForDelivery;
+      case OrderStatus.delivered:
+        return delivered;
+      case OrderStatus.cancelled:
+        return cancelled;
+    }
+  }
+
+  // Create a copy with updated values
+  OrderStats copyWith({
+    int? total,
+    int? pending,
+    int? confirmed,
+    int? preparing,
+    int? readyForDelivery,
+    int? outForDelivery,
+    int? delivered,
+    int? cancelled,
+  }) {
+    return OrderStats(
+      total: total ?? this.total,
+      pending: pending ?? this.pending,
+      confirmed: confirmed ?? this.confirmed,
+      preparing: preparing ?? this.preparing,
+      readyForDelivery: readyForDelivery ?? this.readyForDelivery,
+      outForDelivery: outForDelivery ?? this.outForDelivery,
+      delivered: delivered ?? this.delivered,
+      cancelled: cancelled ?? this.cancelled,
+    );
+  }
 }

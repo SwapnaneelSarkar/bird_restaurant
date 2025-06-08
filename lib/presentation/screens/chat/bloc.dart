@@ -1,4 +1,4 @@
-// lib/presentation/screens/chat/bloc.dart - ENHANCED VERSION BASED ON ORIGINAL
+// lib/presentation/screens/chat/bloc.dart - COMPLETE REWRITE BASED ON ACTUAL CODE STRUCTURE
 
 import 'dart:async';
 import 'package:flutter/foundation.dart';
@@ -16,13 +16,15 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
   String? _currentRoomId;
   String? _currentUserId;
   String? _currentPartnerId;
-  String? _fullOrderId; // CRITICAL: Store the FULL order ID separately
+  String? _fullOrderId; // Store the FULL order ID separately
   StreamSubscription? _chatServiceSubscription;
   StreamSubscription? _messageStreamSubscription;
 
   ChatBloc({PollingChatService? chatService}) 
     : _chatService = chatService ?? PollingChatService(),
       super(ChatInitial()) {
+    
+    // Register all event handlers
     on<LoadChatData>(_onLoadChatData);
     on<SendMessage>(_onSendMessage);
     on<ReceiveMessage>(_onReceiveMessage);
@@ -33,7 +35,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     on<LoadOrderDetails>(_onLoadOrderDetails);
     on<ChangeOrderStatus>(_onChangeOrderStatus);
     on<UpdateOrderStatus>(_onUpdateOrderStatus);
-    on<ForceRefreshMenuItems>(_onForceRefreshMenuItems); // NEW: Force refresh menu items
+    on<ForceRefreshMenuItems>(_onForceRefreshMenuItems);
     on<_UpdateMessages>(_onUpdateMessages);
     on<_UpdateConnectionStatus>(_onUpdateConnectionStatus);
     on<_AddIncomingMessage>(_onAddIncomingMessage);
@@ -55,11 +57,15 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     );
   }
 
+  // Getters for external access
+  String? get currentOrderId => _fullOrderId; // Return the FULL order ID
+  String? get currentPartnerId => _currentPartnerId;
+
   void _onChatServiceUpdate() {
     if (!isClosed) {
       // Convert chat service messages to chat state messages
       final messages = _chatService.messages.map((apiMsg) {
-        // SIMPLE: Compare sender ID directly with current user ID
+        // Use the actual isFromCurrentUser method from ApiChatMessage
         final isFromCurrentUser = apiMsg.isFromCurrentUser(_currentUserId);
         
         debugPrint('ChatBloc: 🔄 Converting API message to UI message:');
@@ -121,7 +127,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
         status: 'Preparing',
       );
 
-      // Convert chat service messages to UI messages with SIMPLE logic
+      // Convert chat service messages to UI messages
       final messages = _chatService.messages.map((apiMsg) {
         final isFromCurrentUser = apiMsg.isFromCurrentUser(_currentUserId);
         
@@ -145,6 +151,11 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
         orderInfo: orderInfo,
         messages: messages,
         isConnected: _chatService.isConnected,
+        menuItems: const {},
+        orderDetails: null,
+        isLoadingOrderDetails: false,
+        isSendingMessage: false,
+        isRefreshing: false,
       ));
       
       debugPrint('ChatBloc: ✅ Chat data loaded successfully');
@@ -154,7 +165,6 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     }
   }
 
-  // New method to handle order options bottom sheet
   void _onShowOrderOptions(ShowOrderOptions event, Emitter<ChatState> emit) {
     debugPrint('ChatBloc: 📋 Showing order options for order: ${event.orderId}');
     emit(OrderOptionsVisible(
@@ -163,7 +173,6 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     ));
   }
 
-  // ENHANCED: Load order details with better menu item handling
   Future<void> _onLoadOrderDetails(LoadOrderDetails event, Emitter<ChatState> emit) async {
     try {
       debugPrint('ChatBloc: 📄 Loading order details for order: ${event.orderId}');
@@ -185,29 +194,25 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
         orderId: orderIdToUse, // Pass the FULL order ID to API
       );
 
-      if (orderDetails != null) {
-        debugPrint('ChatBloc: ✅ Order details loaded successfully');
-        debugPrint('ChatBloc: 📦 Found ${orderDetails.items.length} items in order');
+      debugPrint('ChatBloc: ✅ Order details loaded successfully');
+      debugPrint('ChatBloc: 📦 Found ${orderDetails?.items.length} items in order');
+      
+      if (state is ChatLoaded) {
+        final currentState = state as ChatLoaded;
+        emit(currentState.copyWith(
+          orderDetails: orderDetails,
+          isLoadingOrderDetails: false,
+        ));
         
-        if (state is ChatLoaded) {
-          final currentState = state as ChatLoaded;
-          emit(currentState.copyWith(
-            orderDetails: orderDetails,
-            isLoadingOrderDetails: false,
-          ));
-          
-          // ENHANCED: Load menu items with better error handling
-          await _loadMenuItemsForOrder(orderDetails, emit);
-        } else {
-          // For standalone order details loading
-          emit(OrderDetailsLoaded(orderDetails));
-          
-          // Load menu items immediately for standalone loading
-          final menuItems = await MenuItemService.getMenuItems(orderDetails.allMenuIds);
-          emit(OrderDetailsLoaded(orderDetails, menuItems: menuItems));
-        }
+        // Load menu items with better error handling
+        await _loadMenuItemsForOrder(orderDetails!, emit);
       } else {
-        throw Exception('Failed to load order details');
+        // For standalone order details loading
+        emit(OrderDetailsLoaded(orderDetails!));
+        
+        // Load menu items immediately for standalone loading
+        final menuItems = await MenuItemService.getMenuItems(orderDetails.allMenuIds);
+        emit(OrderDetailsLoaded(orderDetails, menuItems: menuItems));
       }
     } catch (e) {
       debugPrint('ChatBloc: ❌ Error loading order details: $e');
@@ -217,11 +222,11 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
         emit(currentState.copyWith(isLoadingOrderDetails: false));
       }
       
-      emit(OrderDetailsError('Failed to load order details. Please try again.'));
+      emit(const ChatError('Failed to load order details. Please try again.'));
     }
   }
 
-  // ENHANCED: Better menu items loading with retry logic
+  // Load menu items for order with better error handling
   Future<void> _loadMenuItemsForOrder(OrderDetails orderDetails, Emitter<ChatState> emit) async {
     try {
       debugPrint('ChatBloc: 🍽️ Loading menu items for order items');
@@ -235,7 +240,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
         return;
       }
 
-      // Fetch menu items in batch for better performance
+      // Fetch menu items in batch for better performance using the actual method
       final menuItems = await MenuItemService.getMenuItems(menuIds);
       debugPrint('ChatBloc: ✅ Loaded ${menuItems.length} out of ${menuIds.length} menu items');
 
@@ -272,7 +277,6 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     }
   }
 
-  // NEW: Force refresh menu items (useful for debugging)
   Future<void> _onForceRefreshMenuItems(ForceRefreshMenuItems event, Emitter<ChatState> emit) async {
     if (state is ChatLoaded) {
       final currentState = state as ChatLoaded;
@@ -288,14 +292,12 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     }
   }
 
-  // New method to handle change order status
   void _onChangeOrderStatus(ChangeOrderStatus event, Emitter<ChatState> emit) {
     debugPrint('ChatBloc: 🔄 Opening order status change for order: ${event.orderId}');
     // This will trigger the status change bottom sheet in the UI
     // The actual status change happens in _onUpdateOrderStatus
   }
 
-  // New method to update order status - USES FULL ORDER ID
   Future<void> _onUpdateOrderStatus(UpdateOrderStatus event, Emitter<ChatState> emit) async {
     try {
       debugPrint('ChatBloc: 🔄 Updating order status to: ${event.newStatus}');
@@ -366,7 +368,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     if (state is ChatLoaded) {
       final currentState = state as ChatLoaded;
       
-      // Convert API message to UI message with SIMPLE logic
+      // Convert API message to UI message
       final isFromCurrentUser = event.message.isFromCurrentUser(_currentUserId);
       
       final newChatMessage = ChatMessage(
@@ -441,7 +443,6 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
         debugPrint('ChatBloc: 🆔 Will be sent from current user ID: $_currentUserId');
         
         // Create the sent message immediately for better UX (optimistic update)
-        // Current user sends message = TRUE (appears on RIGHT side)
         final sentMessage = ChatMessage(
           id: DateTime.now().millisecondsSinceEpoch.toString(),
           message: event.message,
@@ -478,87 +479,43 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
           // Remove the optimistically added message on failure
           emit(currentState.copyWith(isSendingMessage: false));
           emit(const ChatError('Failed to send message. Please try again.'));
-          
-          // Restore the previous state without the failed message
-          emit(currentState);
         }
       } catch (e) {
         debugPrint('ChatBloc: ❌ Error sending message: $e');
-        
-        // Remove the optimistically added message on error
         emit(currentState.copyWith(isSendingMessage: false));
         emit(const ChatError('Failed to send message. Please try again.'));
-        
-        // Restore the previous state without the failed message
-        emit(currentState);
       }
     }
   }
 
   void _onReceiveMessage(ReceiveMessage event, Emitter<ChatState> emit) {
-    // This is now handled by the message stream listener
-    // Keep this for backward compatibility or manual message injection
-    if (state is ChatLoaded) {
-      final currentState = state as ChatLoaded;
-      
-      try {
-        debugPrint('ChatBloc: 📨 Receiving message via event: ${event.message}');
-        
-        // Create new message - Other user message = FALSE (appears on LEFT side)
-        final newMessage = ChatMessage(
-          id: DateTime.now().millisecondsSinceEpoch.toString(),
-          message: event.message,
-          isUserMessage: false, // FALSE = Other user message = LEFT side
-          time: _getCurrentTime(),
-        );
-        
-        debugPrint('ChatBloc: 🎯 Creating other user message for LEFT side');
-        
-        // Check if message already exists to avoid duplicates
-        final messageExists = currentState.messages.any((m) => 
-          m.message == event.message && 
-          m.isUserMessage == false &&
-          m.time == newMessage.time);
-          
-        if (!messageExists) {
-          // Add message to list
-          final updatedMessages = [...currentState.messages, newMessage];
-          emit(currentState.copyWith(messages: updatedMessages));
-          debugPrint('ChatBloc: ✅ Message received successfully via event');
-        } else {
-          debugPrint('ChatBloc: 🔄 Duplicate message via event, skipping');
-        }
-      } catch (e) {
-        debugPrint('ChatBloc: ❌ Error receiving message: $e');
-      }
-    }
+    // Handle received messages if needed
+    debugPrint('ChatBloc: 📥 Received message: ${event.message}');
   }
 
-  void _onStartTyping(StartTyping event, Emitter<ChatState> emit) {
+  Future<void> _onStartTyping(StartTyping event, Emitter<ChatState> emit) async {
     if (_currentRoomId != null) {
       try {
+        debugPrint('ChatBloc: ⌨️ Starting typing indicator');
         _chatService.sendTyping(_currentRoomId!);
         
-        // Cancel existing timer
+        // Cancel any existing timer
         _typingTimer?.cancel();
         
-        // Set a timer to stop typing after 3 seconds of inactivity
+        // Set a timer to auto-stop typing after 3 seconds
         _typingTimer = Timer(const Duration(seconds: 3), () {
-          if (!isClosed) {
-            add(const StopTyping());
-          }
+          add(StopTyping());
         });
-        
-        debugPrint('ChatBloc: 🎯 Started typing indicator');
       } catch (e) {
         debugPrint('ChatBloc: ❌ Error starting typing: $e');
       }
     }
   }
 
-  void _onStopTyping(StopTyping event, Emitter<ChatState> emit) {
+  Future<void> _onStopTyping(StopTyping event, Emitter<ChatState> emit) async {
     if (_currentRoomId != null) {
       try {
+        debugPrint('ChatBloc: 🛑 Stopping typing indicator');
         _chatService.sendStopTyping(_currentRoomId!);
         _typingTimer?.cancel();
         debugPrint('ChatBloc: 🛑 Stopped typing indicator');
@@ -591,7 +548,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
         if (state is ChatLoaded) {
           final currentState = state as ChatLoaded;
           
-          // Convert the refreshed messages with SIMPLE logic
+          // Convert the refreshed messages
           final refreshedMessages = _chatService.messages.map((apiMsg) {
             final isFromCurrentUser = apiMsg.isFromCurrentUser(_currentUserId);
             
@@ -617,50 +574,19 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
         
         // Show error message briefly
         emit(const ChatError('Failed to refresh chat. Please try again.'));
-        
-        // Restore previous state after showing error
-        Timer(const Duration(seconds: 2), () {
-          if (!isClosed && state is ChatError) {
-            // Try to get the previous loaded state from chat service
-            if (_chatService.messages.isNotEmpty) {
-              final messages = _chatService.messages.map((apiMsg) {
-                final isFromCurrentUser = apiMsg.isFromCurrentUser(_currentUserId);
-                
-                return ChatMessage(
-                  id: apiMsg.id,
-                  message: apiMsg.content,
-                  isUserMessage: isFromCurrentUser, // TRUE = Current user = RIGHT, FALSE = Other user = LEFT
-                  time: _formatTime(apiMsg.createdAt),
-                );
-              }).toList();
-              
-              final orderInfo = ChatOrderInfo(
-                orderId: _formatOrderIdForDisplay(_currentRoomId ?? ''),
-                restaurantName: 'Your Restaurant',
-                estimatedDelivery: '30 mins',
-                status: 'Preparing',
-              );
-              
-              emit(ChatLoaded(
-                orderInfo: orderInfo,
-                messages: messages,
-                isConnected: _chatService.isConnected,
-              ));
-            }
-          }
-        });
       }
     }
   }
 
-  String _getCurrentTime() {
-    final now = DateTime.now();
-    final hour = now.hour > 12 ? now.hour - 12 : (now.hour == 0 ? 12 : now.hour);
-    final minute = now.minute.toString().padLeft(2, '0');
-    final period = now.hour >= 12 ? 'PM' : 'AM';
-    return '$hour:$minute $period';
+  // Helper method to format order ID for display (shortened version)
+  String _formatOrderIdForDisplay(String orderId) {
+    if (orderId.length > 8) {
+      return orderId.substring(orderId.length - 8);
+    }
+    return orderId;
   }
 
+  // Helper method to format time
   String _formatTime(DateTime dateTime) {
     final hour = dateTime.hour > 12 ? dateTime.hour - 12 : (dateTime.hour == 0 ? 12 : dateTime.hour);
     final minute = dateTime.minute.toString().padLeft(2, '0');
@@ -668,25 +594,14 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     return '$hour:$minute $period';
   }
 
-  // CRITICAL: This method is ONLY for display purposes - NOT for API calls
-  String _formatOrderIdForDisplay(String orderId) {
-    if (orderId.isEmpty) return '#2504';
-    
-    // If it's already formatted with #, return as is
-    if (orderId.startsWith('#')) return orderId;
-    
-    // For DISPLAY purposes only - show truncated version with ...
-    if (orderId.length > 8) {
-      return '#${orderId.substring(orderId.length - 6)}...';
-    }
-    
-    // Otherwise, just add # prefix
-    return '#$orderId';
+  // Helper method to get current time
+  String _getCurrentTime() {
+    final now = DateTime.now();
+    final hour = now.hour > 12 ? now.hour - 12 : (now.hour == 0 ? 12 : now.hour);
+    final minute = now.minute.toString().padLeft(2, '0');
+    final period = now.hour >= 12 ? 'PM' : 'AM';
+    return '$hour:$minute $period';
   }
-
-  // Helper methods for order functionality - RETURN FULL ORDER ID
-  String? get currentOrderId => _fullOrderId; // Return the FULL order ID
-  String? get currentPartnerId => _currentPartnerId;
 
   // Get detailed polling information for debugging
   Map<String, dynamic> getPollingInfo() {

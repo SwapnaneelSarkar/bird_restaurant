@@ -5,6 +5,8 @@ import '../constants/enums.dart';
 import '../presentation/resources/colors.dart';
 import '../presentation/resources/font.dart';
 import '../presentation/screens/orders/state.dart';
+import '../services/order_service.dart';
+import 'universal_widget/order_widgets.dart';
 
 class OrderCard extends StatelessWidget {
   final String orderId;
@@ -14,7 +16,7 @@ class OrderCard extends StatelessWidget {
   final OrderStatus status;
   final String? customerPhone;
   final String? deliveryAddress;
-  final VoidCallback onTap;
+  final VoidCallback? onTap; // Make optional for bottom sheet handling
 
   const OrderCard({
     Key? key,
@@ -25,13 +27,13 @@ class OrderCard extends StatelessWidget {
     required this.status,
     this.customerPhone,
     this.deliveryAddress,
-    required this.onTap,
+    this.onTap,
   }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: onTap,
+      onTap: () => _handleCardTap(context),
       child: Container(
         margin: const EdgeInsets.only(bottom: 16),
         padding: const EdgeInsets.all(16),
@@ -58,184 +60,141 @@ class OrderCard extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  'Order #${orderId.length > 8 ? orderId.substring(orderId.length - 8) : orderId}',
+                  'Order #${orderId.length > 8 ? orderId.substring(0, 8) + '...' : orderId}',
                   style: TextStyle(
-                    fontSize: FontSize.s14,
-                    fontWeight: FontWeightManager.medium,
-                    color: Colors.grey[700],
+                    fontSize: 16,
+                    fontWeight: FontWeightManager.bold,
+                    color: ColorManager.black,
+                    fontFamily: FontFamily.Montserrat,
                   ),
                 ),
-                _buildStatusBadge(status),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: OrderService.getStatusColor(status.apiValue),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    status.displayName,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
               ],
             ),
+            
             const SizedBox(height: 12),
             
-            // Customer Info Row
+            // Customer Name and Phone
             Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                // Customer Avatar Circle
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: Colors.grey[200],
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.person_outline,
-                    color: Colors.grey,
-                    size: 24,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                
-                // Customer Details
+                const Icon(Icons.person, size: 16, color: Colors.grey),
+                const SizedBox(width: 8),
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        customerName,
-                        style: TextStyle(
-                          fontSize: FontSize.s16,
-                          fontWeight: FontWeightManager.semiBold,
-                          color: ColorManager.black,
-                        ),
-                      ),
-                      if (customerPhone != null) ...[
-                        const SizedBox(height: 2),
-                        Text(
-                          customerPhone!,
-                          style: TextStyle(
-                            fontSize: FontSize.s12,
-                            color: Colors.grey[600],
-                          ),
-                        ),
-                      ],
-                    ],
+                  child: Text(
+                    customerName,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey[800],
+                      fontFamily: FontFamily.Montserrat,
+                    ),
                   ),
                 ),
-                
-                // Amount and Date
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      '₹${amount.toStringAsFixed(0)}',
-                      style: TextStyle(
-                        fontSize: FontSize.s16,
-                        fontWeight: FontWeightManager.bold,
-                        color: ColorManager.primary,
-                      ),
+                if (customerPhone != null) ...[
+                  const Icon(Icons.phone, size: 16, color: Colors.grey),
+                  const SizedBox(width: 4),
+                  Text(
+                    customerPhone!,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey[600],
+                      fontFamily: FontFamily.Montserrat,
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      DateFormat('MMM dd, HH:mm').format(date),
-                      style: TextStyle(
-                        fontSize: FontSize.s12,
-                        color: Colors.grey[600],
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ],
             ),
             
-            // Address (if available)
-            if (deliveryAddress != null && deliveryAddress!.isNotEmpty) ...[
-              const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: Colors.grey[50],
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: Colors.grey.withOpacity(0.2),
-                    width: 1,
+            const SizedBox(height: 8),
+            
+            // Delivery Address (if available)
+            if (deliveryAddress != null) ...[
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(Icons.location_on, size: 16, color: Colors.grey),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      deliveryAddress!,
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey[600],
+                        fontFamily: FontFamily.Montserrat,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+            ],
+            
+            // Bottom Row with Amount and Date
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  '₹${amount.toStringAsFixed(2)}',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeightManager.bold,
+                    color: ColorManager.primary,
+                    fontFamily: FontFamily.Montserrat,
                   ),
                 ),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.location_on_outlined,
-                      size: 16,
-                      color: Colors.grey[600],
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        deliveryAddress!,
-                        style: TextStyle(
-                          fontSize: FontSize.s12,
-                          color: Colors.grey[700],
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
+                Text(
+                  DateFormat('MMM dd, yyyy • HH:mm').format(date),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey[500],
+                    fontFamily: FontFamily.Montserrat,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildStatusBadge(OrderStatus status) {
-    Color badgeColor;
-    String statusText;
-    
-    switch (status) {
-      case OrderStatus.pending:
-        badgeColor = Colors.orange;
-        statusText = 'Pending';
-        break;
-      case OrderStatus.confirmed:
-        badgeColor = Colors.blue;
-        statusText = 'Confirmed';
-        break;
-      case OrderStatus.preparing:
-        badgeColor = Colors.amber;
-        statusText = 'Preparing';
-        break;
-      case OrderStatus.delivery:
-        badgeColor = Colors.indigo;
-        statusText = 'Delivery';
-        break;
-      case OrderStatus.delivered:
-        badgeColor = Colors.green;
-        statusText = 'Delivered';
-        break;
-      case OrderStatus.cancelled:
-        badgeColor = Colors.red;
-        statusText = 'Cancelled';
-        break;
-      default:
-        badgeColor = Colors.grey;
-        statusText = 'Unknown';
-        break;
+  void _handleCardTap(BuildContext context) {
+    // If a custom onTap is provided, use it (for backward compatibility)
+    if (onTap != null) {
+      onTap!();
+      return;
     }
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: badgeColor.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: badgeColor.withOpacity(0.3),
-          width: 1,
-        ),
-      ),
-      child: Text(
-        statusText,
-        style: TextStyle(
-          fontSize: FontSize.s10,
-          fontWeight: FontWeightManager.medium,
-          color: badgeColor,
-        ),
+    // Otherwise, show the order options bottom sheet (new behavior)
+    _showOrderOptionsBottomSheet(context);
+  }
+
+  void _showOrderOptionsBottomSheet(BuildContext context) {
+    // Get partner ID - this should be retrieved from the current user/session
+    const partnerId = 'current_partner_id'; // TODO: Replace with actual partner ID retrieval
+    
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => OrderOptionsBottomSheet(
+        orderId: orderId,
+        partnerId: partnerId,
       ),
     );
   }

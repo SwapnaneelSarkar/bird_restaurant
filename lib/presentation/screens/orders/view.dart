@@ -5,7 +5,9 @@ import '../../../models/order_model.dart';
 import '../../../ui_components/order_card.dart';
 import '../../../ui_components/order_stats_card.dart';
 import '../../../ui_components/universal_widget/topbar.dart';
+import '../../../ui_components/universal_widget/order_widgets.dart';
 import '../../../constants/enums.dart';
+import '../../../services/order_service.dart';
 
 import 'bloc.dart';
 import 'event.dart';
@@ -98,7 +100,7 @@ class OrdersScreen extends StatelessWidget {
                 OrderStatCard(
                   title: 'Confirmed',
                   count: state.stats.confirmed,
-                  iconColor: Colors.green,
+                  iconColor: Colors.blue,
                   icon: Icons.check_circle_outline,
                   onTap: () => bloc.add(const FilterOrdersEvent(OrderStatus.confirmed)),
                 ),
@@ -106,39 +108,9 @@ class OrdersScreen extends StatelessWidget {
             ),
           ),
           
-          // Second Row of Stats
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  OrderStatCard(
-                    title: 'Delivery',
-                    count: state.stats.delivery,
-                    iconColor: Colors.blue,
-                    icon: Icons.delivery_dining,
-                    onTap: () => bloc.add(const FilterOrdersEvent(OrderStatus.delivery)),
-                  ),
-                  OrderStatCard(
-                    title: 'Delivered',
-                    count: state.stats.delivered,
-                    iconColor: Colors.green,
-                    icon: Icons.done_all,
-                    onTap: () => bloc.add(const FilterOrdersEvent(OrderStatus.delivered)),
-                  ),
-                  OrderStatCard(
-                    title: 'Cancelled',
-                    count: state.stats.cancelled,
-                    iconColor: Colors.red,
-                    icon: Icons.cancel_outlined,
-                    onTap: () => bloc.add(const FilterOrdersEvent(OrderStatus.cancelled)),
-                  ),
-                ],
-              ),
-            ),
-          ),
+          const SliverToBoxAdapter(child: SizedBox(height: 16)),
           
+          // Second Row of Stats
           SliverToBoxAdapter(
             child: Row(
               children: [
@@ -148,6 +120,14 @@ class OrdersScreen extends StatelessWidget {
                   iconColor: Colors.amber,
                   icon: Icons.restaurant,
                   onTap: () => bloc.add(const FilterOrdersEvent(OrderStatus.preparing)),
+                ),
+                const Spacer(),
+                OrderStatCard(
+                  title: 'Delivered',
+                  count: state.stats.delivered,
+                  iconColor: Colors.green,
+                  icon: Icons.check_circle,
+                  onTap: () => bloc.add(const FilterOrdersEvent(OrderStatus.delivered)),
                 ),
                 const Spacer(),
               ],
@@ -236,7 +216,7 @@ class OrdersScreen extends StatelessWidget {
                         status: order.orderStatus,
                         customerPhone: order.customerPhone,
                         deliveryAddress: order.deliveryAddress,
-                        onTap: () => _showOrderActionSheet(context, order, bloc),
+                        // Remove the old onTap - the card will handle bottom sheet internally
                       );
                     },
                     childCount: state.filteredOrders.length,
@@ -250,61 +230,6 @@ class OrdersScreen extends StatelessWidget {
   }
 
   String _getStatusDisplayName(OrderStatus status) {
-    switch (status) {
-      case OrderStatus.pending:
-        return 'pending';
-      case OrderStatus.confirmed:
-        return 'confirmed';
-      case OrderStatus.preparing:
-        return 'preparing';
-      case OrderStatus.delivery:
-        return 'delivery';
-      case OrderStatus.delivered:
-        return 'delivered';
-      case OrderStatus.cancelled:
-        return 'cancelled';
-      default:
-        return 'unknown';
-    }
-  }
-
-  void _showOrderActionSheet(BuildContext context, Order order, OrdersBloc bloc) {
-    final actions = [
-      {'status': OrderStatus.confirmed, 'title': 'Mark as Confirmed', 'icon': Icons.check_circle, 'color': Colors.green},
-      {'status': OrderStatus.preparing, 'title': 'Mark as Preparing', 'icon': Icons.restaurant, 'color': Colors.amber},
-      {'status': OrderStatus.delivery, 'title': 'Mark as Out for Delivery', 'icon': Icons.delivery_dining, 'color': Colors.blue},
-      {'status': OrderStatus.delivered, 'title': 'Mark as Delivered', 'icon': Icons.done_all, 'color': Colors.green},
-      {'status': OrderStatus.cancelled, 'title': 'Cancel Order', 'icon': Icons.cancel, 'color': Colors.red},
-    ];
-
-    showModalBottomSheet(
-      context: context,
-      builder: (context) {
-        return Container(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                'Update Order #${order.shortOrderId}',
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 16),
-              ...actions.map((action) => ListTile(
-                leading: Icon(action['icon'] as IconData, color: action['color'] as Color),
-                title: Text(action['title'] as String),
-                onTap: () {
-                  bloc.add(UpdateOrderStatusEvent(
-                    orderId: order.id,
-                    newStatus: action['status'] as OrderStatus,
-                  ));
-                  Navigator.pop(context);
-                },
-              )).toList(),
-            ],
-          ),
-        );
-      },
-    );
+    return status.displayName.toLowerCase();
   }
 }

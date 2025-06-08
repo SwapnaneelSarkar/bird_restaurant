@@ -1,8 +1,10 @@
 // lib/presentation/screens/orders/bloc.dart
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter/foundation.dart';
 import '../../../constants/enums.dart';
 import '../../../models/order_model.dart';
 import '../../../services/orders_api_service.dart';
+import '../../../services/order_service.dart';
 import 'event.dart';
 import 'state.dart';
 
@@ -11,28 +13,81 @@ class OrdersBloc extends Bloc<OrdersEvent, OrdersState> {
     on<LoadOrdersEvent>(_onLoadOrders);
     on<FilterOrdersEvent>(_onFilterOrders);
     on<UpdateOrderStatusEvent>(_onUpdateOrderStatus);
+    on<RefreshOrdersEvent>(_onRefreshOrders);
   }
 
   void _onLoadOrders(LoadOrdersEvent event, Emitter<OrdersState> emit) async {
     emit(OrdersLoading());
     
     try {
-      final historyResponse = await OrdersApiService.getOrderHistory(
-        page: 1,
-        limit: 50,
-      );
+      debugPrint('OrdersBloc: 📋 Loading orders...');
       
+      // Load order history - FIXED: Using correct method name
+      final historyResponse = await OrdersApiService.fetchOrderHistory();
+      
+      debugPrint('OrdersBloc: 📋 Loaded ${historyResponse.data.length} orders');
+      
+      // Try to load order summary stats
       OrderStats stats;
-      
       try {
-        final dateRange = OrdersApiService.getThisMonthDateRange();
-        final summaryResponse = await OrdersApiService.getOrderSummary(
-          startDate: dateRange['startDate'],
-          endDate: dateRange['endDate'],
-        );
-        
+        final summaryResponse = await OrdersApiService.fetchOrderSummary();
         if (summaryResponse.data != null) {
-          stats = OrdersApiService.convertSummaryToStats(summaryResponse.data!);
+          stats = OrderStats(
+            total: summaryResponse.data!.totalOrders,
+            pending: summaryResponse.data!.totalPending,
+            confirmed: summaryResponse.data!.totalConfirmed,
+            preparing: summaryResponse.data!.totalPreparing,
+            readyForDelivery: summaryResponse.data!.totalReadyForDelivery,
+            outForDelivery: summaryResponse.data!.totalOutForDelivery,
+            delivered: summaryResponse.data!.totalDelivered,
+            cancelled: summaryResponse.data!.totalCancelled,
+          );
+          debugPrint('OrdersBloc: 📊 Loaded order stats from API');
+        } else {
+          stats = _calculateStatsFromOrders(historyResponse.data);
+          debugPrint('OrdersBloc: 📊 Calculated order stats from order list');
+        }
+      } catch (e) {
+        debugPrint('OrdersBloc: ⚠️ Failed to load stats from API: $e');
+        stats = _calculateStatsFromOrders(historyResponse.data);
+        debugPrint('OrdersBloc: 📊 Calculated order stats from order list (fallback)');
+      }
+      
+      emit(OrdersLoaded(
+        orders: historyResponse.data,
+        stats: stats,
+      ));
+      
+      debugPrint('OrdersBloc: ✅ Orders loaded successfully');
+    } catch (e) {
+      debugPrint('OrdersBloc: ❌ Error loading orders: $e');
+      emit(OrdersError('Failed to load orders: ${e.toString()}'));
+    }
+  }
+
+  void _onRefreshOrders(RefreshOrdersEvent event, Emitter<OrdersState> emit) async {
+    // For refresh, we don't show loading state, just refresh in background
+    try {
+      debugPrint('OrdersBloc: 🔄 Refreshing orders...');
+      
+      // Load order history
+      final historyResponse = await OrdersApiService.fetchOrderHistory();
+      
+      // Try to load order summary stats
+      OrderStats stats;
+      try {
+        final summaryResponse = await OrdersApiService.fetchOrderSummary();
+        if (summaryResponse.data != null) {
+          stats = OrderStats(
+            total: summaryResponse.data!.totalOrders,
+            pending: summaryResponse.data!.totalPending,
+            confirmed: summaryResponse.data!.totalConfirmed,
+            preparing: summaryResponse.data!.totalPreparing,
+            readyForDelivery: summaryResponse.data!.totalReadyForDelivery,
+            outForDelivery: summaryResponse.data!.totalOutForDelivery,
+            delivered: summaryResponse.data!.totalDelivered,
+            cancelled: summaryResponse.data!.totalCancelled,
+          );
         } else {
           stats = _calculateStatsFromOrders(historyResponse.data);
         }
@@ -40,12 +95,23 @@ class OrdersBloc extends Bloc<OrdersEvent, OrdersState> {
         stats = _calculateStatsFromOrders(historyResponse.data);
       }
       
+      // Preserve the current filter status if orders are loaded
+      OrderStatus currentFilter = OrderStatus.all;
+      if (state is OrdersLoaded) {
+        currentFilter = (state as OrdersLoaded).filterStatus;
+      }
+      
       emit(OrdersLoaded(
         orders: historyResponse.data,
         stats: stats,
+        filterStatus: currentFilter,
       ));
+      
+      debugPrint('OrdersBloc: ✅ Orders refreshed successfully');
     } catch (e) {
-      emit(OrdersError('Failed to load orders: ${e.toString()}'));
+      debugPrint('OrdersBloc: ❌ Error refreshing orders: $e');
+      // Don't emit error state on refresh failure, just log it
+      // This prevents disrupting the user experience
     }
   }
 
@@ -55,7 +121,8 @@ class OrdersBloc extends Bloc<OrdersEvent, OrdersState> {
       pending: orders.where((o) => o.orderStatus == OrderStatus.pending).length,
       confirmed: orders.where((o) => o.orderStatus == OrderStatus.confirmed).length,
       preparing: orders.where((o) => o.orderStatus == OrderStatus.preparing).length,
-      delivery: orders.where((o) => o.orderStatus == OrderStatus.delivery).length,
+      readyForDelivery: orders.where((o) => o.orderStatus == OrderStatus.readyForDelivery).length,
+      outForDelivery: orders.where((o) => o.orderStatus == OrderStatus.outForDelivery).length,
       delivered: orders.where((o) => o.orderStatus == OrderStatus.delivered).length,
       cancelled: orders.where((o) => o.orderStatus == OrderStatus.cancelled).length,
     );
@@ -65,15 +132,21 @@ class OrdersBloc extends Bloc<OrdersEvent, OrdersState> {
     if (state is OrdersLoaded) {
       final currentState = state as OrdersLoaded;
       
+      debugPrint('OrdersBloc: 🔍 Filtering orders by: ${event.status.displayName}');
+      
       emit(currentState.copyWith(
         filterStatus: event.status,
       ));
+      
+      debugPrint('OrdersBloc: ✅ Filter applied - showing ${currentState.filteredOrders.length} orders');
     }
   }
 
   void _onUpdateOrderStatus(UpdateOrderStatusEvent event, Emitter<OrdersState> emit) async {
     if (state is OrdersLoaded) {
       final currentState = state as OrdersLoaded;
+      
+      debugPrint('OrdersBloc: 🔄 Updating order ${event.orderId} status to ${event.newStatus.displayName}');
       
       emit(OrderStatusUpdating(
         orderId: event.orderId,
@@ -87,32 +160,27 @@ class OrdersBloc extends Bloc<OrdersEvent, OrdersState> {
         );
         
         if (success) {
+          debugPrint('OrdersBloc: ✅ Order status updated successfully');
+          // Reload orders to get updated data
           add(LoadOrdersEvent());
         } else {
+          debugPrint('OrdersBloc: ❌ Failed to update order status');
           emit(OrdersError('Failed to update order status'));
         }
       } catch (e) {
+        debugPrint('OrdersBloc: ❌ Error updating order status: $e');
         emit(OrdersError('Failed to update order status: ${e.toString()}'));
       }
     }
   }
 
+  // Updated mapping function to handle new restricted statuses
   String _mapOrderStatusToString(OrderStatus status) {
-    switch (status) {
-      case OrderStatus.pending:
-        return 'PENDING';
-      case OrderStatus.confirmed:
-        return 'CONFIRMED';
-      case OrderStatus.preparing:
-        return 'PREPARING';
-      case OrderStatus.delivery:
-        return 'OUT_FOR_DELIVERY';
-      case OrderStatus.delivered:
-        return 'DELIVERED';
-      case OrderStatus.cancelled:
-        return 'CANCELLED';
-      default:
-        return 'PENDING';
-    }
+    return status.apiValue;
+  }
+
+  // Helper function to map API string to OrderStatus enum
+  OrderStatus _mapStringToOrderStatus(String status) {
+    return OrderStatusExtension.fromApiValue(status);
   }
 }

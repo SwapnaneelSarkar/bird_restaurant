@@ -1,5 +1,4 @@
 // lib/presentation/widgets/order_widgets.dart - COMPLETE FIXED VERSION
-
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -571,20 +570,20 @@ class OrderDetailsWidget extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
-              color: _getStatusColor(orderDetails.orderStatus),
+              color: OrderService.getStatusColor(orderDetails.orderStatus),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Icon(
-                  _getStatusIcon(orderDetails.orderStatus),
+                  OrderService.getStatusIcon(orderDetails.orderStatus),
                   color: Colors.white,
                   size: 20,
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  orderDetails.orderStatus.toUpperCase(),
+                  OrderService.formatOrderStatus(orderDetails.orderStatus),
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 16,
@@ -597,48 +596,6 @@ class OrderDetailsWidget extends StatelessWidget {
         ],
       ),
     );
-  }
-
-  IconData _getStatusIcon(String status) {
-    switch (status.toUpperCase()) {
-      case 'PENDING':
-        return Icons.access_time;
-      case 'CONFIRMED':
-        return Icons.check_circle_outline;
-      case 'PREPARING':
-        return Icons.restaurant;
-      case 'READY':
-        return Icons.done_all;
-      case 'OUT_FOR_DELIVERY':
-        return Icons.delivery_dining;
-      case 'DELIVERED':
-        return Icons.check_circle;
-      case 'CANCELLED':
-        return Icons.cancel;
-      default:
-        return Icons.help_outline;
-    }
-  }
-
-  Color _getStatusColor(String status) {
-    switch (status.toUpperCase()) {
-      case 'PENDING':
-        return Colors.orange;
-      case 'CONFIRMED':
-        return Colors.blue;
-      case 'PREPARING':
-        return const Color(0xFFE17A47);
-      case 'READY':
-        return Colors.green;
-      case 'OUT_FOR_DELIVERY':
-        return Colors.purple;
-      case 'DELIVERED':
-        return Colors.green[700]!;
-      case 'CANCELLED':
-        return Colors.red;
-      default:
-        return Colors.grey;
-    }
   }
 }
 
@@ -688,7 +645,7 @@ class OrderOptionsBottomSheet extends StatelessWidget {
           
           const SizedBox(height: 20),
           
-          // View Order Details Option - FIXED TO NAVIGATE PROPERLY
+          // View Order Details Option
           _buildOptionTile(
             context,
             icon: Icons.receipt_long,
@@ -904,6 +861,17 @@ class StatusChangeBottomSheet extends StatelessWidget {
               status: status,
               onTap: () {
                 Navigator.pop(context);
+                
+                // Show loading snackbar
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Updating order status to ${OrderService.formatOrderStatus(status)}...'),
+                    duration: const Duration(seconds: 2),
+                    backgroundColor: const Color(0xFFE17A47),
+                  ),
+                );
+                
+                // Trigger status update
                 context.read<ChatBloc>().add(UpdateOrderStatus(
                   orderId: orderId,
                   partnerId: partnerId,
@@ -940,12 +908,12 @@ class StatusChangeBottomSheet extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: _getStatusColor(status).withOpacity(0.1),
+                  color: OrderService.getStatusColor(status).withOpacity(0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Icon(
-                  _getStatusIcon(status),
-                  color: _getStatusColor(status),
+                  OrderService.getStatusIcon(status),
+                  color: OrderService.getStatusColor(status),
                   size: 20,
                 ),
               ),
@@ -953,14 +921,28 @@ class StatusChangeBottomSheet extends StatelessWidget {
               const SizedBox(width: 16),
               
               Expanded(
-                child: Text(
-                  OrderService.formatOrderStatus(status),
-                  style: TextStyle(
-                    color: ColorManager.black,
-                    fontSize: 16,
-                    fontWeight: FontWeightManager.medium,
-                    fontFamily: FontFamily.Montserrat,
-                  ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      OrderService.formatOrderStatus(status),
+                      style: TextStyle(
+                        color: ColorManager.black,
+                        fontSize: 16,
+                        fontWeight: FontWeightManager.medium,
+                        fontFamily: FontFamily.Montserrat,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      _getStatusDescription(status),
+                      style: TextStyle(
+                        color: Colors.grey[600],
+                        fontSize: 12,
+                        fontFamily: FontFamily.Montserrat,
+                      ),
+                    ),
+                  ],
                 ),
               ),
               
@@ -976,45 +958,24 @@ class StatusChangeBottomSheet extends StatelessWidget {
     );
   }
 
-  IconData _getStatusIcon(String status) {
+  String _getStatusDescription(String status) {
     switch (status.toUpperCase()) {
       case 'PENDING':
-        return Icons.access_time;
+        return 'Order is waiting for confirmation';
       case 'CONFIRMED':
-        return Icons.check_circle_outline;
+        return 'Order has been confirmed and accepted';
       case 'PREPARING':
-        return Icons.restaurant;
-      case 'READY':
-        return Icons.done_all;
+        return 'Kitchen is preparing the order';
+      case 'READY_FOR_DELIVERY':
+        return 'Order is ready for pickup/delivery';
       case 'OUT_FOR_DELIVERY':
-        return Icons.delivery_dining;
+        return 'Order is on the way to customer';
       case 'DELIVERED':
-        return Icons.check_circle;
+        return 'Order has been delivered successfully';
       case 'CANCELLED':
-        return Icons.cancel;
+        return 'Order has been cancelled';
       default:
-        return Icons.help_outline;
-    }
-  }
-
-  Color _getStatusColor(String status) {
-    switch (status.toUpperCase()) {
-      case 'PENDING':
-        return Colors.orange;
-      case 'CONFIRMED':
-        return Colors.blue;
-      case 'PREPARING':
-        return const Color(0xFFE17A47);
-      case 'READY':
-        return Colors.green;
-      case 'OUT_FOR_DELIVERY':
-        return Colors.purple;
-      case 'DELIVERED':
-        return Colors.green[700]!;
-      case 'CANCELLED':
-        return Colors.red;
-      default:
-        return Colors.grey;
+        return 'Update order status';
     }
   }
 }

@@ -5,7 +5,13 @@ abstract class OrdersEvent {
   const OrdersEvent();
 }
 
-class LoadOrdersEvent extends OrdersEvent {}
+class LoadOrdersEvent extends OrdersEvent {
+  const LoadOrdersEvent();
+}
+
+class RefreshOrdersEvent extends OrdersEvent {
+  const RefreshOrdersEvent();
+}
 
 class FilterOrdersEvent extends OrdersEvent {
   final OrderStatus status;

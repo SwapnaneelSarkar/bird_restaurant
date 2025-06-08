@@ -1,6 +1,6 @@
 // lib/services/order_service.dart
-
 import 'dart:convert';
+import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import '../presentation/screens/chat/state.dart';
 import 'token_service.dart';
@@ -62,6 +62,12 @@ class OrderService {
       final token = await TokenService.getToken();
       if (token == null) {
         throw Exception('No authentication token found');
+      }
+
+      // Validate status before API call
+      if (!isValidStatus(newStatus)) {
+        print('OrderService: Invalid status: $newStatus');
+        return false;
       }
 
       // Use the FULL order ID - do not truncate or format it
@@ -127,8 +133,8 @@ class OrderService {
         return 'Confirmed';
       case 'PREPARING':
         return 'Preparing';
-      case 'READY':
-        return 'Ready for Pickup';
+      case 'READY_FOR_DELIVERY':
+        return 'Ready for Delivery';
       case 'OUT_FOR_DELIVERY':
         return 'Out for Delivery';
       case 'DELIVERED':
@@ -140,7 +146,7 @@ class OrderService {
     }
   }
 
-  // Get available status options based on current status
+  // Updated: Get available status options based on current status - RESTRICTED TO REQUIRED STATUSES ONLY
   static List<String> getAvailableStatusOptions(String currentStatus) {
     switch (currentStatus.toUpperCase()) {
       case 'PENDING':
@@ -148,13 +154,88 @@ class OrderService {
       case 'CONFIRMED':
         return ['PREPARING', 'CANCELLED'];
       case 'PREPARING':
-        return ['READY'];
-      case 'READY':
-        return ['OUT_FOR_DELIVERY'];
+        return ['READY_FOR_DELIVERY', 'CANCELLED'];
+      case 'READY_FOR_DELIVERY':
+        return ['OUT_FOR_DELIVERY', 'CANCELLED'];
       case 'OUT_FOR_DELIVERY':
         return ['DELIVERED'];
+      case 'DELIVERED':
+        return []; // No further status changes allowed
+      case 'CANCELLED':
+        return []; // No further status changes allowed
       default:
-        return [];
+        return ['CONFIRMED', 'CANCELLED']; // Default to pending options
+    }
+  }
+
+  // Validate if the status is one of the allowed statuses
+  static bool isValidStatus(String status) {
+    const allowedStatuses = [
+      'PENDING',
+      'CONFIRMED',
+      'PREPARING',
+      'READY_FOR_DELIVERY',
+      'OUT_FOR_DELIVERY',
+      'DELIVERED',
+      'CANCELLED'
+    ];
+    return allowedStatuses.contains(status.toUpperCase());
+  }
+
+  // Get all valid statuses
+  static List<String> getAllValidStatuses() {
+    return [
+      'PENDING',
+      'CONFIRMED',
+      'PREPARING',
+      'READY_FOR_DELIVERY',
+      'OUT_FOR_DELIVERY',
+      'DELIVERED',
+      'CANCELLED'
+    ];
+  }
+
+  // Get status icon
+  static IconData getStatusIcon(String status) {
+    switch (status.toUpperCase()) {
+      case 'PENDING':
+        return Icons.access_time;
+      case 'CONFIRMED':
+        return Icons.check_circle_outline;
+      case 'PREPARING':
+        return Icons.restaurant;
+      case 'READY_FOR_DELIVERY':
+        return Icons.done_all;
+      case 'OUT_FOR_DELIVERY':
+        return Icons.delivery_dining;
+      case 'DELIVERED':
+        return Icons.check_circle;
+      case 'CANCELLED':
+        return Icons.cancel;
+      default:
+        return Icons.help_outline;
+    }
+  }
+
+  // Get status color
+  static Color getStatusColor(String status) {
+    switch (status.toUpperCase()) {
+      case 'PENDING':
+        return Colors.orange;
+      case 'CONFIRMED':
+        return Colors.blue;
+      case 'PREPARING':
+        return const Color(0xFFE17A47);
+      case 'READY_FOR_DELIVERY':
+        return Colors.green;
+      case 'OUT_FOR_DELIVERY':
+        return Colors.purple;
+      case 'DELIVERED':
+        return Colors.green[700]!;
+      case 'CANCELLED':
+        return Colors.red;
+      default:
+        return Colors.grey;
     }
   }
 }
