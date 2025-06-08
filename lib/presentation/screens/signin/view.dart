@@ -47,7 +47,7 @@ class LoginView extends StatelessWidget {
                   children: [
                     // SizedBox(height: h * 0.02),
                     SvgPicture.asset(
-                      'assets/svg/logo_text.svg',
+                      'assets/svg/logo_text.jpg',
                       height: h * 0.2,
                     ),
                     // SizedBox(height: h * 0.02),

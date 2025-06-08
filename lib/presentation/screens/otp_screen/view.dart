@@ -178,7 +178,7 @@ class _OtpViewContentState extends State<OtpViewContent> {
                           children: [                            
                             // Logo
                             SvgPicture.asset(
-                              'assets/svg/logo_text.svg',
+                              'assets/svg/logo_text.jpg',
                               height: logoHeight,
                             ),
                             

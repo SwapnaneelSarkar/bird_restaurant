@@ -1,4 +1,6 @@
 // lib/presentation/widgets/order_widgets.dart - COMPLETE FIXED VERSION
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -774,8 +776,9 @@ class OrderOptionsBottomSheet extends StatelessWidget {
   }
 }
 
-// Status Change Bottom Sheet Widget
-class StatusChangeBottomSheet extends StatelessWidget {
+// REPLACE the existing StatusChangeBottomSheet class in your order_widgets.dart file with this fixed version:
+
+class StatusChangeBottomSheet extends StatefulWidget {
   final String orderId;
   final String partnerId;
 
@@ -786,6 +789,13 @@ class StatusChangeBottomSheet extends StatelessWidget {
   }) : super(key: key);
 
   @override
+  State<StatusChangeBottomSheet> createState() => _StatusChangeBottomSheetState();
+}
+
+class _StatusChangeBottomSheetState extends State<StatusChangeBottomSheet> {
+  bool _isUpdating = false;
+
+  @override
   Widget build(BuildContext context) {
     // Get current status from bloc state if available
     String currentStatus = 'PENDING';
@@ -794,6 +804,8 @@ class StatusChangeBottomSheet extends StatelessWidget {
       currentStatus = chatBlocState.orderDetails!.orderStatus;
     }
 
+    // SHOW ALL 7 STATUS OPTIONS as requested
+    final allStatuses = OrderService.getAllValidStatuses();
     final availableStatuses = OrderService.getAvailableStatusOptions(currentStatus);
 
     return Container(
@@ -818,7 +830,7 @@ class StatusChangeBottomSheet extends StatelessWidget {
           
           // Title
           Text(
-            'Change Order Status',
+            'Update Order Status',
             style: TextStyle(
               color: ColorManager.black,
               fontSize: 20,
@@ -829,56 +841,75 @@ class StatusChangeBottomSheet extends StatelessWidget {
           
           const SizedBox(height: 8),
           
-          // Current status
-          Text(
-            'Current: ${OrderService.formatOrderStatus(currentStatus)}',
-            style: TextStyle(
-              color: Colors.grey[600],
-              fontSize: 14,
-              fontFamily: FontFamily.Montserrat,
+          // Current status with emoji and enhanced styling
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: OrderService.getStatusColor(currentStatus).withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: OrderService.getStatusColor(currentStatus).withOpacity(0.3),
+                width: 2,
+              ),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  OrderService.getStatusEmoji(currentStatus),
+                  style: const TextStyle(fontSize: 20),
+                ),
+                const SizedBox(width: 12),
+                Icon(
+                  OrderService.getStatusIcon(currentStatus),
+                  color: OrderService.getStatusColor(currentStatus),
+                  size: 20,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'Current: ${OrderService.formatOrderStatus(currentStatus)}',
+                  style: TextStyle(
+                    color: OrderService.getStatusColor(currentStatus),
+                    fontSize: 16,
+                    fontWeight: FontWeightManager.bold,
+                    fontFamily: FontFamily.Montserrat,
+                  ),
+                ),
+              ],
             ),
           ),
           
           const SizedBox(height: 20),
           
-          // Available status options
-          if (availableStatuses.isEmpty)
-            Padding(
-              padding: const EdgeInsets.all(20),
-              child: Text(
-                'No status changes available for current status',
-                style: TextStyle(
-                  color: Colors.grey[600],
-                  fontSize: 16,
-                  fontFamily: FontFamily.Montserrat,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            )
-          else
-            ...availableStatuses.map((status) => _buildStatusOption(
-              context,
-              status: status,
-              onTap: () {
-                Navigator.pop(context);
-                
-                // Show loading snackbar
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Updating order status to ${OrderService.formatOrderStatus(status)}...'),
-                    duration: const Duration(seconds: 2),
-                    backgroundColor: const Color(0xFFE17A47),
-                  ),
-                );
-                
-                // Trigger status update
-                context.read<ChatBloc>().add(UpdateOrderStatus(
-                  orderId: orderId,
-                  partnerId: partnerId,
-                  newStatus: status,
-                ));
-              },
-            )),
+          // Show all 7 status options with visual indicators
+          Text(
+            'Select New Status:',
+            style: TextStyle(
+              color: ColorManager.black,
+              fontSize: 16,
+              fontWeight: FontWeightManager.medium,
+              fontFamily: FontFamily.Montserrat,
+            ),
+          ),
+          
+          const SizedBox(height: 12),
+          
+          // SHOW ALL 7 STATUS OPTIONS
+          ...allStatuses.map((status) => _buildStatusOption(
+            status: status,
+            currentStatus: currentStatus,
+            isAllowed: availableStatuses.contains(status),
+            isCurrent: status.toUpperCase() == currentStatus.toUpperCase(),
+            onTap: () {
+              if (status.toUpperCase() == currentStatus.toUpperCase()) {
+                // Same status - show info message
+                _showInfoSnackBar('Order is already in ${OrderService.formatOrderStatus(status)} status');
+                return;
+              }
+              
+              _updateOrderStatus(status, currentStatus);
+            },
+          )),
           
           const SizedBox(height: 20),
         ],
@@ -886,59 +917,199 @@ class StatusChangeBottomSheet extends StatelessWidget {
     );
   }
 
-  Widget _buildStatusOption(
-    BuildContext context, {
+  Widget _buildStatusOption({
     required String status,
+    required String currentStatus,
+    required bool isAllowed,
+    required bool isCurrent,
     required VoidCallback onTap,
   }) {
+    final isProgressive = _isProgressiveChange(currentStatus, status);
+    final isCancellation = status.toUpperCase() == 'CANCELLED';
+    
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: const EdgeInsets.only(bottom: 8),
       child: InkWell(
-        onTap: onTap,
+        onTap: _isUpdating ? null : onTap,
         borderRadius: BorderRadius.circular(12),
         child: Container(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: Colors.grey[50],
+            color: isCurrent
+                ? OrderService.getStatusColor(status).withOpacity(0.1)
+                : isAllowed
+                    ? (isCancellation
+                        ? Colors.red.withOpacity(0.05)
+                        : isProgressive 
+                            ? OrderService.getStatusColor(status).withOpacity(0.05)
+                            : Colors.blue.withOpacity(0.05))
+                    : Colors.grey.withOpacity(0.05),
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.grey[200]!),
+            border: Border.all(
+              color: isCurrent
+                  ? OrderService.getStatusColor(status)
+                  : isAllowed
+                      ? (isCancellation
+                          ? Colors.red.withOpacity(0.3)
+                          : isProgressive
+                              ? OrderService.getStatusColor(status).withOpacity(0.3)
+                              : Colors.blue.withOpacity(0.3))
+                      : Colors.grey.withOpacity(0.3),
+              width: isCurrent ? 2 : (isAllowed ? 1.5 : 1),
+            ),
           ),
           child: Row(
             children: [
+              // Status emoji and icon
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: OrderService.getStatusColor(status).withOpacity(0.1),
+                  color: OrderService.getStatusColor(status).withOpacity(
+                    isCurrent ? 0.2 : (isAllowed ? 0.1 : 0.05)
+                  ),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: Icon(
-                  OrderService.getStatusIcon(status),
-                  color: OrderService.getStatusColor(status),
-                  size: 20,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      OrderService.getStatusEmoji(status),
+                      style: TextStyle(
+                        fontSize: 16,
+                        // opacity: isAllowed ? 1.0 : 0.5,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Icon(
+                      OrderService.getStatusIcon(status),
+                      color: OrderService.getStatusColor(status).withOpacity(
+                        isAllowed ? 1.0 : 0.5
+                      ),
+                      size: 18,
+                    ),
+                  ],
                 ),
               ),
               
-              const SizedBox(width: 16),
+              const SizedBox(width: 12),
               
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      OrderService.formatOrderStatus(status),
-                      style: TextStyle(
-                        color: ColorManager.black,
-                        fontSize: 16,
-                        fontWeight: FontWeightManager.medium,
-                        fontFamily: FontFamily.Montserrat,
-                      ),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            OrderService.formatOrderStatus(status),
+                            style: TextStyle(
+                              color: isAllowed ? ColorManager.black : Colors.grey[500],
+                              fontSize: 14,
+                              fontWeight: isCurrent 
+                                  ? FontWeightManager.bold 
+                                  : FontWeightManager.medium,
+                              fontFamily: FontFamily.Montserrat,
+                            ),
+                          ),
+                        ),
+                        
+                        // Status indicators
+                        if (isCurrent) ...[
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: OrderService.getStatusColor(status),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              'CURRENT',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 8,
+                                fontWeight: FontWeightManager.bold,
+                                fontFamily: FontFamily.Montserrat,
+                              ),
+                            ),
+                          ),
+                        ] else if (isAllowed) ...[
+                          if (isProgressive && !isCancellation) ...[
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: Colors.green.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                'NEXT',
+                                style: TextStyle(
+                                  color: Colors.green[700],
+                                  fontSize: 8,
+                                  fontWeight: FontWeightManager.bold,
+                                  fontFamily: FontFamily.Montserrat,
+                                ),
+                              ),
+                            ),
+                          ] else if (isCancellation) ...[
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: Colors.red.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                'CANCEL',
+                                style: TextStyle(
+                                  color: Colors.red[700],
+                                  fontSize: 8,
+                                  fontWeight: FontWeightManager.bold,
+                                  fontFamily: FontFamily.Montserrat,
+                                ),
+                              ),
+                            ),
+                          ] else ...[
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: Colors.blue.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                'ALLOWED',
+                                style: TextStyle(
+                                  color: Colors.blue[700],
+                                  fontSize: 8,
+                                  fontWeight: FontWeightManager.bold,
+                                  fontFamily: FontFamily.Montserrat,
+                                ),
+                              ),
+                            ),
+                          ]
+                        ] else ...[
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Colors.grey.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              'NOT ALLOWED',
+                              style: TextStyle(
+                                color: Colors.grey[600],
+                                fontSize: 8,
+                                fontWeight: FontWeightManager.bold,
+                                fontFamily: FontFamily.Montserrat,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      _getStatusDescription(status),
+                      OrderService.getStatusDescription(status),
                       style: TextStyle(
-                        color: Colors.grey[600],
-                        fontSize: 12,
+                        color: isAllowed ? Colors.grey[600] : Colors.grey[400],
+                        fontSize: 11,
                         fontFamily: FontFamily.Montserrat,
                       ),
                     ),
@@ -946,11 +1117,28 @@ class StatusChangeBottomSheet extends StatelessWidget {
                 ),
               ),
               
-              Icon(
-                Icons.arrow_forward_ios,
-                color: Colors.grey[400],
-                size: 16,
-              ),
+              const SizedBox(width: 8),
+              
+              if (_isUpdating) ...[
+                const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Color(0xFFE17A47),
+                  ),
+                ),
+              ] else ...[
+                Icon(
+                  isAllowed ? Icons.arrow_forward_ios : Icons.block,
+                  color: isAllowed 
+                      ? (isProgressive || isCancellation 
+                          ? OrderService.getStatusColor(status) 
+                          : Colors.blue[400])
+                      : Colors.grey[400],
+                  size: 14,
+                ),
+              ],
             ],
           ),
         ),
@@ -958,24 +1146,219 @@ class StatusChangeBottomSheet extends StatelessWidget {
     );
   }
 
-  String _getStatusDescription(String status) {
-    switch (status.toUpperCase()) {
-      case 'PENDING':
-        return 'Order is waiting for confirmation';
-      case 'CONFIRMED':
-        return 'Order has been confirmed and accepted';
-      case 'PREPARING':
-        return 'Kitchen is preparing the order';
-      case 'READY_FOR_DELIVERY':
-        return 'Order is ready for pickup/delivery';
-      case 'OUT_FOR_DELIVERY':
-        return 'Order is on the way to customer';
-      case 'DELIVERED':
-        return 'Order has been delivered successfully';
-      case 'CANCELLED':
-        return 'Order has been cancelled';
-      default:
-        return 'Update order status';
+  // Helper to determine if status change is progressive (forward in workflow)
+  bool _isProgressiveChange(String currentStatus, String newStatus) {
+    final statusOrder = [
+      'PENDING',
+      'CONFIRMED',
+      'PREPARING',
+      'READY_FOR_DELIVERY',
+      'OUT_FOR_DELIVERY',
+      'DELIVERED'
+    ];
+    
+    final currentIndex = statusOrder.indexOf(currentStatus.toUpperCase());
+    final newIndex = statusOrder.indexOf(newStatus.toUpperCase());
+    
+    return currentIndex != -1 && newIndex != -1 && newIndex > currentIndex;
+  }
+
+  // FIXED: Handle API call and response with proper context management
+  Future<void> _updateOrderStatus(String newStatus, String currentStatus) async {
+    setState(() {
+      _isUpdating = true;
+    });
+
+    try {
+      // Call the API directly and get the response
+      final success = await OrderService.updateOrderStatus(
+        partnerId: widget.partnerId,
+        orderId: widget.orderId,
+        newStatus: newStatus,
+      );
+
+      if (mounted) {
+        setState(() {
+          _isUpdating = false;
+        });
+
+        // Close the bottom sheet first
+        Navigator.of(context).pop();
+
+        // Wait a frame to ensure the bottom sheet is closed before showing snackbar
+        await Future.delayed(const Duration(milliseconds: 100));
+
+        if (mounted) {
+          if (success) {
+            // Success - show success message
+            _showSuccessSnackBarInParent(
+              'Order status updated to ${OrderService.formatOrderStatus(newStatus)} successfully!',
+              newStatus,
+            );
+            
+            // Trigger bloc update
+            context.read<ChatBloc>().add(UpdateOrderStatus(
+              orderId: widget.orderId,
+              partnerId: widget.partnerId,
+              newStatus: newStatus,
+            ));
+          } else {
+            // This shouldn't happen with our updated service, but handle it
+            _showErrorSnackBarInParent('Failed to update order status. Please try again.');
+          }
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isUpdating = false;
+        });
+
+        // Close the bottom sheet first
+        Navigator.of(context).pop();
+
+        // Wait a frame to ensure the bottom sheet is closed
+        await Future.delayed(const Duration(milliseconds: 100));
+
+        if (mounted) {
+          // Extract the API error message from the exception
+          String errorMessage = 'Failed to update order status. Please try again.';
+          
+          try {
+            // Parse the JSON error from the exception
+            final errorString = e.toString();
+            if (errorString.contains('Exception: {')) {
+              final jsonStart = errorString.indexOf('{');
+              if (jsonStart != -1) {
+                final jsonStr = errorString.substring(jsonStart);
+                final errorData = json.decode(jsonStr);
+                
+                if (errorData['message'] != null) {
+                  errorMessage = errorData['message'];
+                  
+                  // Show allowed next statuses if available
+                  if (errorData['allowedNextStatuses'] != null) {
+                    final allowedStatuses = List<String>.from(errorData['allowedNextStatuses']);
+                    final formattedStatuses = allowedStatuses
+                        .map((s) => OrderService.formatOrderStatus(s))
+                        .join(', ');
+                    errorMessage += '\n\nAllowed statuses: $formattedStatuses';
+                  }
+                }
+              }
+            }
+          } catch (parseError) {
+            // If parsing fails, check for specific error patterns
+            final errorString = e.toString();
+            if (errorString.contains('Cannot change status')) {
+              errorMessage = 'Cannot change status from ${OrderService.formatOrderStatus(currentStatus)} to ${OrderService.formatOrderStatus(newStatus)}';
+            }
+          }
+          
+          _showErrorSnackBarInParent(errorMessage);
+        }
+      }
     }
+  }
+
+  void _showSuccessSnackBarInParent(String message, String status) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            Text(
+              OrderService.getStatusEmoji(status),
+              style: const TextStyle(fontSize: 18),
+            ),
+            const SizedBox(width: 12),
+            const Icon(
+              Icons.check_circle,
+              color: Colors.white,
+              size: 20,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                message,
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                ),
+              ),
+            ),
+          ],
+        ),
+        duration: const Duration(seconds: 4),
+        backgroundColor: Colors.green,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+        ),
+      ),
+    );
+  }
+
+  void _showErrorSnackBarInParent(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(
+              Icons.error_outline,
+              color: Colors.white,
+              size: 20,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                message,
+                style: const TextStyle(
+                  fontWeight: FontWeightManager.medium,
+                  fontSize: 14,
+                ),
+              ),
+            ),
+          ],
+        ),
+        duration: const Duration(seconds: 6),
+        backgroundColor: Colors.red,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+        ),
+      ),
+    );
+  }
+
+  void _showInfoSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(
+              Icons.info_outline,
+              color: Colors.white,
+              size: 20,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                message,
+                style: const TextStyle(
+                  fontWeight: FontWeightManager.medium,
+                  fontSize: 14,
+                ),
+              ),
+            ),
+          ],
+        ),
+        duration: const Duration(seconds: 2),
+        backgroundColor: Colors.blue,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+        ),
+      ),
+    );
   }
 }
