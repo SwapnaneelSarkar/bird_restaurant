@@ -1,4 +1,4 @@
-// lib/presentation/screens/orders/state.dart
+// lib/presentation/screens/orders/state.dart - UPDATED TO MATCH API RESPONSE
 import '../../../constants/enums.dart';
 import '../../../models/order_model.dart';
 
@@ -52,7 +52,7 @@ class OrderStatusUpdating extends OrdersState {
   });
 }
 
-// Updated OrderStats class to match new restricted statuses
+// Updated OrderStats class to match API response exactly
 class OrderStats {
   final int total;
   final int pending;
@@ -73,6 +73,20 @@ class OrderStats {
     required this.delivered,
     required this.cancelled,
   });
+
+  // Factory constructor to create from API response
+  factory OrderStats.fromApiResponse(Map<String, dynamic> data) {
+    return OrderStats(
+      total: data['total_orders'] ?? 0,
+      pending: data['total_pending'] ?? 0,
+      confirmed: data['total_confirmed'] ?? 0,
+      preparing: data['total_preparing'] ?? 0,
+      readyForDelivery: data['total_ready_for_delivery'] ?? 0,
+      outForDelivery: data['total_out_for_delivery'] ?? 0,
+      delivered: data['total_delivered'] ?? 0,
+      cancelled: data['total_cancelled'] ?? 0,
+    );
+  }
 
   // Helper method to get count by status
   int getCountByStatus(OrderStatus status) {
@@ -117,5 +131,12 @@ class OrderStats {
       delivered: delivered ?? this.delivered,
       cancelled: cancelled ?? this.cancelled,
     );
+  }
+
+  @override
+  String toString() {
+    return 'OrderStats(total: $total, pending: $pending, confirmed: $confirmed, '
+           'preparing: $preparing, readyForDelivery: $readyForDelivery, '
+           'outForDelivery: $outForDelivery, delivered: $delivered, cancelled: $cancelled)';
   }
 }

@@ -1,4 +1,4 @@
-// lib/presentation/screens/orders/bloc.dart
+// lib/presentation/screens/orders/bloc.dart - UPDATED FOR COMPLETE API INTEGRATION
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter/foundation.dart';
 import '../../../constants/enums.dart';
@@ -22,27 +22,30 @@ class OrdersBloc extends Bloc<OrdersEvent, OrdersState> {
     try {
       debugPrint('OrdersBloc: 📋 Loading orders...');
       
-      // Load order history - FIXED: Using correct method name
+      // Load order history
       final historyResponse = await OrdersApiService.fetchOrderHistory();
       
       debugPrint('OrdersBloc: 📋 Loaded ${historyResponse.data.length} orders');
       
-      // Try to load order summary stats
+      // Try to load order summary stats from API
       OrderStats stats;
       try {
         final summaryResponse = await OrdersApiService.fetchOrderSummary();
         if (summaryResponse.data != null) {
-          stats = OrderStats(
-            total: summaryResponse.data!.totalOrders,
-            pending: summaryResponse.data!.totalPending,
-            confirmed: summaryResponse.data!.totalConfirmed,
-            preparing: summaryResponse.data!.totalPreparing,
-            readyForDelivery: summaryResponse.data!.totalReadyForDelivery,
-            outForDelivery: summaryResponse.data!.totalOutForDelivery,
-            delivered: summaryResponse.data!.totalDelivered,
-            cancelled: summaryResponse.data!.totalCancelled,
-          );
-          debugPrint('OrdersBloc: 📊 Loaded order stats from API');
+          // Use the new factory constructor to create stats from API response
+          final Map<String, dynamic> apiData = {
+            'total_orders': summaryResponse.data!.totalOrders,
+            'total_pending': summaryResponse.data!.totalPending,
+            'total_confirmed': summaryResponse.data!.totalConfirmed,
+            'total_preparing': summaryResponse.data!.totalPreparing,
+            'total_ready_for_delivery': summaryResponse.data!.totalReadyForDelivery,
+            'total_out_for_delivery': summaryResponse.data!.totalOutForDelivery,
+            'total_delivered': summaryResponse.data!.totalDelivered,
+            'total_cancelled': summaryResponse.data!.totalCancelled,
+          };
+          
+          stats = OrderStats.fromApiResponse(apiData);
+          debugPrint('OrdersBloc: 📊 Loaded order stats from API: $stats');
         } else {
           stats = _calculateStatsFromOrders(historyResponse.data);
           debugPrint('OrdersBloc: 📊 Calculated order stats from order list');
@@ -78,16 +81,19 @@ class OrdersBloc extends Bloc<OrdersEvent, OrdersState> {
       try {
         final summaryResponse = await OrdersApiService.fetchOrderSummary();
         if (summaryResponse.data != null) {
-          stats = OrderStats(
-            total: summaryResponse.data!.totalOrders,
-            pending: summaryResponse.data!.totalPending,
-            confirmed: summaryResponse.data!.totalConfirmed,
-            preparing: summaryResponse.data!.totalPreparing,
-            readyForDelivery: summaryResponse.data!.totalReadyForDelivery,
-            outForDelivery: summaryResponse.data!.totalOutForDelivery,
-            delivered: summaryResponse.data!.totalDelivered,
-            cancelled: summaryResponse.data!.totalCancelled,
-          );
+          // Use the new factory constructor to create stats from API response
+          final Map<String, dynamic> apiData = {
+            'total_orders': summaryResponse.data!.totalOrders,
+            'total_pending': summaryResponse.data!.totalPending,
+            'total_confirmed': summaryResponse.data!.totalConfirmed,
+            'total_preparing': summaryResponse.data!.totalPreparing,
+            'total_ready_for_delivery': summaryResponse.data!.totalReadyForDelivery,
+            'total_out_for_delivery': summaryResponse.data!.totalOutForDelivery,
+            'total_delivered': summaryResponse.data!.totalDelivered,
+            'total_cancelled': summaryResponse.data!.totalCancelled,
+          };
+          
+          stats = OrderStats.fromApiResponse(apiData);
         } else {
           stats = _calculateStatsFromOrders(historyResponse.data);
         }
@@ -131,18 +137,12 @@ class OrdersBloc extends Bloc<OrdersEvent, OrdersState> {
   void _onFilterOrders(FilterOrdersEvent event, Emitter<OrdersState> emit) {
     if (state is OrdersLoaded) {
       final currentState = state as OrdersLoaded;
-      
-      debugPrint('OrdersBloc: 🔍 Filtering orders by: ${event.status.displayName}');
-      
-      emit(currentState.copyWith(
-        filterStatus: event.status,
-      ));
-      
-      debugPrint('OrdersBloc: ✅ Filter applied - showing ${currentState.filteredOrders.length} orders');
+      emit(currentState.copyWith(filterStatus: event.status));
+      debugPrint('OrdersBloc: 🔍 Filtered orders by ${event.status}');
     }
   }
 
-  void _onUpdateOrderStatus(UpdateOrderStatusEvent event, Emitter<OrdersState> emit) async {
+    void _onUpdateOrderStatus(UpdateOrderStatusEvent event, Emitter<OrdersState> emit) async {
     if (state is OrdersLoaded) {
       final currentState = state as OrdersLoaded;
       

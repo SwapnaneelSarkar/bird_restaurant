@@ -1,4 +1,4 @@
-// lib/ui_components/order_stats_card.dart - UPDATED VERSION
+// lib/ui_components/order_stats_card.dart - UPDATED FOR BETTER LAYOUT
 import 'package:flutter/material.dart';
 import '../presentation/resources/colors.dart';
 import '../presentation/resources/font.dart';
@@ -25,10 +25,11 @@ class OrderStatCard extends StatelessWidget {
       onTap: onTap,
       child: Container(
         width: MediaQuery.of(context).size.width * 0.28,
-        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+        height: 100, // Fixed height for consistent alignment
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(15),
+          borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: Colors.grey.withOpacity(0.2),
             width: 1,
@@ -46,8 +47,9 @@ class OrderStatCard extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
+            // Icon container
             Container(
-              padding: const EdgeInsets.all(8),
+              padding: const EdgeInsets.all(6),
               decoration: BoxDecoration(
                 color: iconColor.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(8),
@@ -55,28 +57,35 @@ class OrderStatCard extends StatelessWidget {
               child: Icon(
                 icon,
                 color: iconColor,
-                size: 24,
+                size: 20,
               ),
             ),
-            const SizedBox(height: 12),
+            
+            const SizedBox(height: 8),
+            
+            // Count
             Text(
               count.toString(),
               style: TextStyle(
-                fontSize: FontSize.s20,
+                fontSize: FontSize.s18,
                 fontWeight: FontWeightManager.bold,
                 color: ColorManager.black,
               ),
             ),
-            const SizedBox(height: 4),
+            
+            const SizedBox(height: 2),
+            
+            // Title - with better handling for long text
             Text(
               title,
               style: TextStyle(
-                fontSize: FontSize.s12,
+                fontSize: FontSize.s10,
                 fontWeight: FontWeightManager.medium,
                 color: Colors.grey[600],
+                height: 1.1,
               ),
               textAlign: TextAlign.center,
-              maxLines: 1,
+              maxLines: 2,
               overflow: TextOverflow.ellipsis,
             ),
           ],

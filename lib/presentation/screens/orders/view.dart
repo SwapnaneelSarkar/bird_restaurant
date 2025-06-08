@@ -1,4 +1,4 @@
-// lib/presentation/screens/orders/view.dart
+// lib/presentation/screens/orders/view.dart - UPDATED WITH ALL STATS
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../models/order_model.dart';
@@ -78,13 +78,13 @@ class OrdersScreen extends StatelessWidget {
         slivers: [
           const SliverToBoxAdapter(child: SizedBox(height: 16)),
           
-          // First Row of Stats
+          // First Row of Stats - Total, Pending, Confirmed
           SliverToBoxAdapter(
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 OrderStatCard(
-                  title: 'Orders',
+                  title: 'Total Orders',
                   count: state.stats.total,
                   iconColor: Colors.indigo,
                   icon: Icons.shopping_bag_outlined,
@@ -108,11 +108,12 @@ class OrdersScreen extends StatelessWidget {
             ),
           ),
           
-          const SliverToBoxAdapter(child: SizedBox(height: 16)),
+          const SliverToBoxAdapter(child: SizedBox(height: 12)),
           
-          // Second Row of Stats
+          // Second Row of Stats - Preparing, Ready for Delivery
           SliverToBoxAdapter(
             child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 OrderStatCard(
                   title: 'Preparing',
@@ -121,7 +122,35 @@ class OrdersScreen extends StatelessWidget {
                   icon: Icons.restaurant,
                   onTap: () => bloc.add(const FilterOrdersEvent(OrderStatus.preparing)),
                 ),
-                const Spacer(),
+                OrderStatCard(
+                  title: 'Ready for Delivery',
+                  count: state.stats.readyForDelivery,
+                  iconColor: Colors.purple,
+                  icon: Icons.inventory_2_outlined,
+                  onTap: () => bloc.add(const FilterOrdersEvent(OrderStatus.readyForDelivery)),
+                ),
+                // Empty placeholder to maintain 3-column layout
+                Container(
+                  width: MediaQuery.of(context).size.width * 0.28,
+                ),
+              ],
+            ),
+          ),
+          
+          const SliverToBoxAdapter(child: SizedBox(height: 12)),
+          
+          // Third Row of Stats - Out for Delivery, Delivered, Cancelled
+          SliverToBoxAdapter(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                OrderStatCard(
+                  title: 'Out for Delivery',
+                  count: state.stats.outForDelivery,
+                  iconColor: Colors.cyan,
+                  icon: Icons.local_shipping_outlined,
+                  onTap: () => bloc.add(const FilterOrdersEvent(OrderStatus.outForDelivery)),
+                ),
                 OrderStatCard(
                   title: 'Delivered',
                   count: state.stats.delivered,
@@ -129,7 +158,13 @@ class OrdersScreen extends StatelessWidget {
                   icon: Icons.check_circle,
                   onTap: () => bloc.add(const FilterOrdersEvent(OrderStatus.delivered)),
                 ),
-                const Spacer(),
+                OrderStatCard(
+                  title: 'Cancelled',
+                  count: state.stats.cancelled,
+                  iconColor: Colors.red,
+                  icon: Icons.cancel_outlined,
+                  onTap: () => bloc.add(const FilterOrdersEvent(OrderStatus.cancelled)),
+                ),
               ],
             ),
           ),
@@ -192,13 +227,13 @@ class OrdersScreen extends StatelessWidget {
                         const SizedBox(height: 8),
                         Text(
                           state.filterStatus == OrderStatus.all
-                              ? 'Orders will appear here once customers start placing orders.'
-                              : 'Try filtering by a different status to see more orders.',
-                          textAlign: TextAlign.center,
+                              ? 'Orders will appear here when customers place them'
+                              : 'No orders with this status at the moment',
                           style: TextStyle(
                             fontSize: 14,
                             color: Colors.grey[500],
                           ),
+                          textAlign: TextAlign.center,
                         ),
                       ],
                     ),
@@ -223,6 +258,7 @@ class OrdersScreen extends StatelessWidget {
                   ),
                 ),
           
+          // Bottom padding
           const SliverToBoxAdapter(child: SizedBox(height: 16)),
         ],
       ),
@@ -230,6 +266,23 @@ class OrdersScreen extends StatelessWidget {
   }
 
   String _getStatusDisplayName(OrderStatus status) {
-    return status.displayName.toLowerCase();
+    switch (status) {
+      case OrderStatus.pending:
+        return 'pending';
+      case OrderStatus.confirmed:
+        return 'confirmed';
+      case OrderStatus.preparing:
+        return 'preparing';
+      case OrderStatus.readyForDelivery:
+        return 'ready for delivery';
+      case OrderStatus.outForDelivery:
+        return 'out for delivery';
+      case OrderStatus.delivered:
+        return 'delivered';
+      case OrderStatus.cancelled:
+        return 'cancelled';
+      case OrderStatus.all:
+        return 'all';
+    }
   }
 }
