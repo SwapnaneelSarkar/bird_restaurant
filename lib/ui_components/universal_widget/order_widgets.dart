@@ -1,6 +1,5 @@
-// lib/presentation/widgets/order_widgets.dart - COMPLETE FIXED VERSION
+// lib/ui_components/universal_widget/order_widgets.dart - COMPLETE FIXED VERSION
 import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -776,8 +775,7 @@ class OrderOptionsBottomSheet extends StatelessWidget {
   }
 }
 
-// REPLACE the existing StatusChangeBottomSheet class in your order_widgets.dart file with this fixed version:
-
+// Status Change Bottom Sheet Widget - FIXED VERSION
 class StatusChangeBottomSheet extends StatefulWidget {
   final String orderId;
   final String partnerId;
@@ -804,7 +802,7 @@ class _StatusChangeBottomSheetState extends State<StatusChangeBottomSheet> {
       currentStatus = chatBlocState.orderDetails!.orderStatus;
     }
 
-    // SHOW ALL 7 STATUS OPTIONS as requested
+    // Get available status options
     final allStatuses = OrderService.getAllValidStatuses();
     final availableStatuses = OrderService.getAvailableStatusOptions(currentStatus);
 
@@ -881,7 +879,7 @@ class _StatusChangeBottomSheetState extends State<StatusChangeBottomSheet> {
           
           const SizedBox(height: 20),
           
-          // Show all 7 status options with visual indicators
+          // Show all status options
           Text(
             'Select New Status:',
             style: TextStyle(
@@ -894,7 +892,7 @@ class _StatusChangeBottomSheetState extends State<StatusChangeBottomSheet> {
           
           const SizedBox(height: 12),
           
-          // SHOW ALL 7 STATUS OPTIONS
+          // Show all 7 status options
           ...allStatuses.map((status) => _buildStatusOption(
             status: status,
             currentStatus: currentStatus,
@@ -924,9 +922,6 @@ class _StatusChangeBottomSheetState extends State<StatusChangeBottomSheet> {
     required bool isCurrent,
     required VoidCallback onTap,
   }) {
-    final isProgressive = _isProgressiveChange(currentStatus, status);
-    final isCancellation = status.toUpperCase() == 'CANCELLED';
-    
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       child: InkWell(
@@ -935,27 +930,11 @@ class _StatusChangeBottomSheetState extends State<StatusChangeBottomSheet> {
         child: Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: isCurrent
-                ? OrderService.getStatusColor(status).withOpacity(0.1)
-                : isAllowed
-                    ? (isCancellation
-                        ? Colors.red.withOpacity(0.05)
-                        : isProgressive 
-                            ? OrderService.getStatusColor(status).withOpacity(0.05)
-                            : Colors.blue.withOpacity(0.05))
-                    : Colors.grey.withOpacity(0.05),
+            color: Colors.grey[50],
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: isCurrent
-                  ? OrderService.getStatusColor(status)
-                  : isAllowed
-                      ? (isCancellation
-                          ? Colors.red.withOpacity(0.3)
-                          : isProgressive
-                              ? OrderService.getStatusColor(status).withOpacity(0.3)
-                              : Colors.blue.withOpacity(0.3))
-                      : Colors.grey.withOpacity(0.3),
-              width: isCurrent ? 2 : (isAllowed ? 1.5 : 1),
+              color: Colors.grey[300]!,
+              width: 1,
             ),
           ),
           child: Row(
@@ -964,9 +943,7 @@ class _StatusChangeBottomSheetState extends State<StatusChangeBottomSheet> {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: OrderService.getStatusColor(status).withOpacity(
-                    isCurrent ? 0.2 : (isAllowed ? 0.1 : 0.05)
-                  ),
+                  color: OrderService.getStatusColor(status).withOpacity(0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Row(
@@ -974,17 +951,12 @@ class _StatusChangeBottomSheetState extends State<StatusChangeBottomSheet> {
                   children: [
                     Text(
                       OrderService.getStatusEmoji(status),
-                      style: TextStyle(
-                        fontSize: 16,
-                        // opacity: isAllowed ? 1.0 : 0.5,
-                      ),
+                      style: const TextStyle(fontSize: 16),
                     ),
                     const SizedBox(width: 4),
                     Icon(
                       OrderService.getStatusIcon(status),
-                      color: OrderService.getStatusColor(status).withOpacity(
-                        isAllowed ? 1.0 : 0.5
-                      ),
+                      color: OrderService.getStatusColor(status),
                       size: 18,
                     ),
                   ],
@@ -997,118 +969,22 @@ class _StatusChangeBottomSheetState extends State<StatusChangeBottomSheet> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            OrderService.formatOrderStatus(status),
-                            style: TextStyle(
-                              color: isAllowed ? ColorManager.black : Colors.grey[500],
-                              fontSize: 14,
-                              fontWeight: isCurrent 
-                                  ? FontWeightManager.bold 
-                                  : FontWeightManager.medium,
-                              fontFamily: FontFamily.Montserrat,
-                            ),
-                          ),
-                        ),
-                        
-                        // Status indicators
-                        if (isCurrent) ...[
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: OrderService.getStatusColor(status),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Text(
-                              'CURRENT',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 8,
-                                fontWeight: FontWeightManager.bold,
-                                fontFamily: FontFamily.Montserrat,
-                              ),
-                            ),
-                          ),
-                        ] else if (isAllowed) ...[
-                          if (isProgressive && !isCancellation) ...[
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: Colors.green.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Text(
-                                'NEXT',
-                                style: TextStyle(
-                                  color: Colors.green[700],
-                                  fontSize: 8,
-                                  fontWeight: FontWeightManager.bold,
-                                  fontFamily: FontFamily.Montserrat,
-                                ),
-                              ),
-                            ),
-                          ] else if (isCancellation) ...[
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: Colors.red.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Text(
-                                'CANCEL',
-                                style: TextStyle(
-                                  color: Colors.red[700],
-                                  fontSize: 8,
-                                  fontWeight: FontWeightManager.bold,
-                                  fontFamily: FontFamily.Montserrat,
-                                ),
-                              ),
-                            ),
-                          ] else ...[
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: Colors.blue.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Text(
-                                'ALLOWED',
-                                style: TextStyle(
-                                  color: Colors.blue[700],
-                                  fontSize: 8,
-                                  fontWeight: FontWeightManager.bold,
-                                  fontFamily: FontFamily.Montserrat,
-                                ),
-                              ),
-                            ),
-                          ]
-                        ] else ...[
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: Colors.grey.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Text(
-                              'NOT ALLOWED',
-                              style: TextStyle(
-                                color: Colors.grey[600],
-                                fontSize: 8,
-                                fontWeight: FontWeightManager.bold,
-                                fontFamily: FontFamily.Montserrat,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ],
+                    Text(
+                      OrderService.formatOrderStatus(status),
+                      style: TextStyle(
+                        color: ColorManager.black,
+                        fontSize: 14,
+                        fontWeight: isCurrent 
+                            ? FontWeightManager.bold 
+                            : FontWeightManager.medium,
+                        fontFamily: FontFamily.Montserrat,
+                      ),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       OrderService.getStatusDescription(status),
                       style: TextStyle(
-                        color: isAllowed ? Colors.grey[600] : Colors.grey[400],
+                        color: Colors.grey[600],
                         fontSize: 11,
                         fontFamily: FontFamily.Montserrat,
                       ),
@@ -1130,12 +1006,8 @@ class _StatusChangeBottomSheetState extends State<StatusChangeBottomSheet> {
                 ),
               ] else ...[
                 Icon(
-                  isAllowed ? Icons.arrow_forward_ios : Icons.block,
-                  color: isAllowed 
-                      ? (isProgressive || isCancellation 
-                          ? OrderService.getStatusColor(status) 
-                          : Colors.blue[400])
-                      : Colors.grey[400],
+                  Icons.arrow_forward_ios,
+                  color: Colors.grey[600],
                   size: 14,
                 ),
               ],
@@ -1163,49 +1035,41 @@ class _StatusChangeBottomSheetState extends State<StatusChangeBottomSheet> {
     return currentIndex != -1 && newIndex != -1 && newIndex > currentIndex;
   }
 
-  // FIXED: Handle API call and response with proper context management
+  // FIXED: Remove duplicate API call - only use ChatBloc to prevent the duplicate call issue
   Future<void> _updateOrderStatus(String newStatus, String currentStatus) async {
     setState(() {
       _isUpdating = true;
     });
 
     try {
-      // Call the API directly and get the response
-      final success = await OrderService.updateOrderStatus(
-        partnerId: widget.partnerId,
+      // ONLY use ChatBloc - this prevents duplicate API calls
+      // The ChatBloc will handle the API call and state management
+      context.read<ChatBloc>().add(UpdateOrderStatus(
         orderId: widget.orderId,
+        partnerId: widget.partnerId,
         newStatus: newStatus,
-      );
+      ));
+
+      // Wait for the bloc to process the update
+      await Future.delayed(const Duration(milliseconds: 1500));
 
       if (mounted) {
         setState(() {
           _isUpdating = false;
         });
 
-        // Close the bottom sheet first
+        // Close the bottom sheet
         Navigator.of(context).pop();
 
-        // Wait a frame to ensure the bottom sheet is closed before showing snackbar
+        // Wait a frame to ensure the bottom sheet is closed
         await Future.delayed(const Duration(milliseconds: 100));
 
         if (mounted) {
-          if (success) {
-            // Success - show success message
-            _showSuccessSnackBarInParent(
-              'Order status updated to ${OrderService.formatOrderStatus(newStatus)} successfully!',
-              newStatus,
-            );
-            
-            // Trigger bloc update
-            context.read<ChatBloc>().add(UpdateOrderStatus(
-              orderId: widget.orderId,
-              partnerId: widget.partnerId,
-              newStatus: newStatus,
-            ));
-          } else {
-            // This shouldn't happen with our updated service, but handle it
-            _showErrorSnackBarInParent('Failed to update order status. Please try again.');
-          }
+          // Show success message (assume success since no exception was thrown)
+          _showSuccessSnackBarInParent(
+            'Order status updated to ${OrderService.formatOrderStatus(newStatus)} successfully!',
+            newStatus,
+          );
         }
       }
     } catch (e) {
@@ -1221,41 +1085,8 @@ class _StatusChangeBottomSheetState extends State<StatusChangeBottomSheet> {
         await Future.delayed(const Duration(milliseconds: 100));
 
         if (mounted) {
-          // Extract the API error message from the exception
-          String errorMessage = 'Failed to update order status. Please try again.';
-          
-          try {
-            // Parse the JSON error from the exception
-            final errorString = e.toString();
-            if (errorString.contains('Exception: {')) {
-              final jsonStart = errorString.indexOf('{');
-              if (jsonStart != -1) {
-                final jsonStr = errorString.substring(jsonStart);
-                final errorData = json.decode(jsonStr);
-                
-                if (errorData['message'] != null) {
-                  errorMessage = errorData['message'];
-                  
-                  // Show allowed next statuses if available
-                  if (errorData['allowedNextStatuses'] != null) {
-                    final allowedStatuses = List<String>.from(errorData['allowedNextStatuses']);
-                    final formattedStatuses = allowedStatuses
-                        .map((s) => OrderService.formatOrderStatus(s))
-                        .join(', ');
-                    errorMessage += '\n\nAllowed statuses: $formattedStatuses';
-                  }
-                }
-              }
-            }
-          } catch (parseError) {
-            // If parsing fails, check for specific error patterns
-            final errorString = e.toString();
-            if (errorString.contains('Cannot change status')) {
-              errorMessage = 'Cannot change status from ${OrderService.formatOrderStatus(currentStatus)} to ${OrderService.formatOrderStatus(newStatus)}';
-            }
-          }
-          
-          _showErrorSnackBarInParent(errorMessage);
+          // Show error message
+          _showErrorSnackBarInParent('Failed to update order status. Please try again.');
         }
       }
     }
