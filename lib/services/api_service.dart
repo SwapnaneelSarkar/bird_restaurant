@@ -10,6 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:mime/mime.dart';
 import 'package:path/path.dart' as path;
 import '../constants/api_constants.dart';
+import '../models/partner_summary_model.dart';
 import 'api_responses.dart';
 import 'api_exception.dart';
 import 'token_service.dart';
@@ -35,6 +36,94 @@ class ApiServices {
     
     return IOClient(httpClient);
   }
+Future<PartnerSummaryResponse> getPartnerSummary() async {
+  try {
+    final token = await TokenService.getToken();
+    
+    if (token == null) {
+      throw UnauthorizedException('No token found. Please login again.');
+    }
+
+    final partnerId = await TokenService.getUserId();
+    if (partnerId == null) {
+      throw UnauthorizedException('Partner ID not found. Please login again.');
+    }
+
+    final url = Uri.parse('${ApiConstants.baseUrl}/partner/summary/$partnerId');
+    debugPrint('Calling Partner Summary API: $url');
+    
+    final response = await _client.get(
+      url,
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+    );
+    
+    debugPrint('Partner Summary Response Status: ${response.statusCode}');
+    debugPrint('Partner Summary Response Body: ${response.body}');
+    
+    if (response.statusCode == 200) {
+      final responseBody = jsonDecode(response.body);
+      final summaryResponse = PartnerSummaryResponse.fromJson(responseBody);
+      
+      if (summaryResponse.data != null) {
+        debugPrint('Partner Summary Data:');
+        debugPrint('- Orders Count: ${summaryResponse.data!.ordersCount}');
+        debugPrint('- Products Count: ${summaryResponse.data!.productsCount}');
+        debugPrint('- Tags Count: ${summaryResponse.data!.tagsCount}');
+        debugPrint('- Rating: ${summaryResponse.data!.rating}');
+        debugPrint('- Accepting Orders: ${summaryResponse.data!.acceptingOrders}');
+        debugPrint('- Sales Data Points: ${summaryResponse.data!.salesData.length}');
+        
+        // Log sales data for debugging
+        for (final salesPoint in summaryResponse.data!.salesData) {
+          debugPrint('  - ${salesPoint.date}: ${salesPoint.sales} sales');
+        }
+      }
+      
+      return summaryResponse;
+    } else if (response.statusCode == 401) {
+      throw UnauthorizedException('Unauthorized access. Please login again.');
+    } else {
+      final responseBody = jsonDecode(response.body);
+      return PartnerSummaryResponse(
+        status: responseBody['status'] ?? 'ERROR',
+        message: responseBody['message'] ?? 'Failed to get partner summary',
+        data: null,
+      );
+    }
+  } on UnauthorizedException {
+    rethrow;
+  } catch (e) {
+    debugPrint('Error getting partner summary: $e');
+    
+    // Return error response instead of throwing exception
+    return const PartnerSummaryResponse(
+      status: 'ERROR',
+      message: 'Failed to fetch partner summary. Please check your connection.',
+      data: null,
+    );
+  }
+}
+
+// Also add this helper method for backward compatibility with existing ApiResponse pattern:
+
+Future<ApiResponse> getPartnerSummaryLegacy() async {
+  try {
+    final summaryResponse = await getPartnerSummary();
+    
+    return ApiResponse(
+      success: summaryResponse.success,
+      data: summaryResponse.data?.toJson(),
+      message: summaryResponse.message,
+      status: summaryResponse.status,
+    );
+  } catch (e) {
+    debugPrint('Error in getPartnerSummaryLegacy: $e');
+    throw ApiException('Failed to get partner summary: $e');
+  }
+}
 
   Future<ApiResponse> updatePartner({
     required String restaurantName,
