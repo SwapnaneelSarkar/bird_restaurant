@@ -7,6 +7,7 @@ import '../../../services/chat_services.dart';
 import '../../../services/menu_item_service.dart';
 import '../../../services/token_service.dart';
 import '../../../services/order_service.dart';
+import '../../../utils/time_utils.dart';
 import 'event.dart';
 import 'state.dart';
 
@@ -588,20 +589,31 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
 
   // Helper method to format time
   String _formatTime(DateTime dateTime) {
-    final hour = dateTime.hour > 12 ? dateTime.hour - 12 : (dateTime.hour == 0 ? 12 : dateTime.hour);
-    final minute = dateTime.minute.toString().padLeft(2, '0');
-    final period = dateTime.hour >= 12 ? 'PM' : 'AM';
-    return '$hour:$minute $period';
+  final istTime = TimeUtils.toIST(dateTime);
+  final istNow = TimeUtils.getCurrentIST();
+  
+  // Check if it's today
+  if (TimeUtils.isToday(dateTime)) {
+    // Today: show 12-hour IST time (e.g., "2:30 PM")
+    return TimeUtils.formatChatMessageTime(dateTime);
+  } else if (TimeUtils.isYesterday(dateTime)) {
+    // Yesterday: show "Yesterday 2:30 PM"
+    final timeStr = TimeUtils.formatChatMessageTime(dateTime);
+    return 'Yesterday $timeStr';
+  } else {
+    // Older: show date with time (e.g., "12/25/2024 2:30 PM")
+    final dateStr = '${istTime.month.toString().padLeft(2, '0')}/${istTime.day.toString().padLeft(2, '0')}/${istTime.year}';
+    final timeStr = TimeUtils.formatChatMessageTime(dateTime);
+    return '$dateStr $timeStr';
   }
+}
 
   // Helper method to get current time
   String _getCurrentTime() {
-    final now = DateTime.now();
-    final hour = now.hour > 12 ? now.hour - 12 : (now.hour == 0 ? 12 : now.hour);
-    final minute = now.minute.toString().padLeft(2, '0');
-    final period = now.hour >= 12 ? 'PM' : 'AM';
-    return '$hour:$minute $period';
-  }
+  final istNow = TimeUtils.getCurrentIST();
+  return TimeUtils.formatChatMessageTime(istNow);
+}
+
 
   // Get detailed polling information for debugging
   Map<String, dynamic> getPollingInfo() {
