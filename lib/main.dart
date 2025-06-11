@@ -5,6 +5,7 @@ import 'package:flutter_svg/svg.dart';
 import 'package:firebase_core/firebase_core.dart';
 
 import 'presentation/resources/router/router.dart';
+import 'presentation/screens/reviewPage/bloc.dart';
 import 'presentation/screens/signin/bloc.dart';
 import 'presentation/screens/chat/bloc.dart'; // Add this import
 
@@ -30,7 +31,10 @@ class MyApp extends StatelessWidget {
         BlocProvider<ChatBloc>(
           create: (_) => ChatBloc(),
         ),
-        // Add other global BLoCs here if needed
+        BlocProvider<ReviewBloc>(  // Add this provider
+          create: (_) => ReviewBloc(),
+        ),
+
       ],
       child: MaterialApp(
         debugShowCheckedModeBanner: false,

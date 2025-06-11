@@ -305,16 +305,16 @@ class AnimatedSidebarContent extends StatelessWidget {
                         onClose();
                       },
                     ),
-                    _buildAnimatedMenuItem(
-                      animations[7],
-                      icon: Icons.language_outlined,
-                      title: 'Change Language',
-                      isActive: activePage == 'language',
-                      onTap: () {
-                        Navigator.of(context).pushNamed('/language');
-                        onClose();
-                      },
-                    ),
+                    // _buildAnimatedMenuItem(
+                    //   animations[7],
+                    //   icon: Icons.language_outlined,
+                    //   title: 'Change Language',
+                    //   isActive: activePage == 'language',
+                    //   onTap: () {
+                    //     Navigator.of(context).pushNamed('/language');
+                    //     onClose();
+                    //   },
+                    // ),
                     _buildAnimatedMenuItem(
                       animations[8],
                       icon: Icons.description_outlined,

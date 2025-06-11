@@ -1,13 +1,14 @@
-// lib/presentation/screens/login/view.dart
+// lib/presentation/screens/signin/view.dart
 
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../ui_components/custom_button.dart';
+import '../../../ui_components/country_picker.dart';
+import '../../../models/country.dart';
 import '../../resources/colors.dart';
 import '../../resources/font.dart';
 import '../../resources/router/router.dart';
@@ -27,30 +28,31 @@ class LoginView extends StatelessWidget {
       create: (_) => LoginBloc(),
       child: Scaffold(
         body: Stack(
-          fit: StackFit.expand,                    
+          fit: StackFit.expand,
           children: [
-            // full-screen background
+            // Background image
             Image.asset(
               'assets/images/login.jpg',
               fit: BoxFit.cover,
             ),
 
-            // full-screen dark overlay
+            // Dark overlay
             Container(color: Colors.black.withOpacity(0.7)),
 
-            // your content
+            // Content
             SafeArea(
               child: SingleChildScrollView(
                 padding: EdgeInsets.symmetric(horizontal: w * 0.06),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    // SizedBox(height: h * 0.02),
+                    // Logo
                     Image.asset(
                       'assets/svg/logo_text.png',
                       height: h * 0.2,
                     ),
-                    // SizedBox(height: h * 0.02),
+                    
+                    // Welcome text
                     Text(
                       'Welcome to BIRD Partner',
                       textAlign: TextAlign.center,
@@ -61,6 +63,8 @@ class LoginView extends StatelessWidget {
                       ),
                     ),
                     SizedBox(height: h * 0.015),
+                    
+                    // Subtitle
                     Text(
                       'Sign in with your mobile number',
                       style: GoogleFonts.poppins(
@@ -69,8 +73,12 @@ class LoginView extends StatelessWidget {
                       ),
                     ),
                     SizedBox(height: h * 0.05),
-                    _MobileInputField(),
+                    
+                    // Mobile input field with country picker
+                    const MobileInputField(),
                     SizedBox(height: h * 0.03),
+                    
+                    // Send OTP button
                     SizedBox(
                       width: double.infinity,
                       height: h * 0.07,
@@ -79,16 +87,15 @@ class LoginView extends StatelessWidget {
                           return CustomButton(
                             label: 'Send OTP',
                             onPressed: state.mobileNumber.isNotEmpty ? () {
-                              // Format the phone number
-                              final formattedNumber = '+91${state.mobileNumber}';
+                              // Format the phone number using selected country
+                              final formattedNumber = '${state.selectedCountry.dialCode}${state.mobileNumber}';
                               
-                              // Debug print
                               debugPrint('Navigating with phone number: $formattedNumber');
                               
                               // Fire bloc event
                               context.read<LoginBloc>().add(SendOtpPressed());
                               
-                              // Navigate to OTP screen with formatted number
+                              // Navigate to OTP screen
                               Navigator.pushNamed(
                                 context,
                                 Routes.otp,
@@ -100,6 +107,8 @@ class LoginView extends StatelessWidget {
                       ),
                     ),
                     SizedBox(height: h * 0.02),
+                    
+                    // Terms and privacy policy
                     Padding(
                       padding: EdgeInsets.only(bottom: h * 0.02),
                       child: RichText(
@@ -144,8 +153,8 @@ class LoginView extends StatelessWidget {
   }
 }
 
-class _MobileInputField extends StatelessWidget {
-  const _MobileInputField({Key? key}) : super(key: key);
+class MobileInputField extends StatelessWidget {
+  const MobileInputField({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -162,7 +171,7 @@ class _MobileInputField extends StatelessWidget {
               height: h * 0.07,
               padding: EdgeInsets.symmetric(horizontal: w * 0.03),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.15), // translucent white
+                color: Colors.white.withOpacity(0.15),
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(
                   color: Colors.white.withOpacity(0.2),
@@ -170,16 +179,64 @@ class _MobileInputField extends StatelessWidget {
               ),
               child: Row(
                 children: [
-                  Icon(Icons.phone, color: Colors.white, size: h * 0.035),
-                  SizedBox(width: w * 0.02),
-                  Text(
-                    '+91',
-                    style: GoogleFonts.poppins(
-                      color: ColorManager.textWhite,
-                      fontSize: FontSize.s16,
-                    ),
+                  // Phone icon
+                  Icon(
+                    Icons.phone,
+                    color: Colors.white,
+                    size: h * 0.035,
                   ),
                   SizedBox(width: w * 0.02),
+                  
+                  // Country picker
+                  GestureDetector(
+                    onTap: () => _showCountryPicker(context),
+                    child: Container(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: w * 0.025,
+                        vertical: h * 0.008,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(
+                          color: Colors.white.withOpacity(0.2),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // Flag
+                          Text(
+                            state.selectedCountry.flag,
+                            style: const TextStyle(fontSize: 16),
+                          ),
+                          SizedBox(width: w * 0.015),
+                          
+                          // Dial code
+                          Text(
+                            state.selectedCountry.dialCode,
+                            style: GoogleFonts.poppins(
+                              color: ColorManager.textWhite,
+                              fontSize: FontSize.s14,
+                              fontWeight: FontWeightManager.medium,
+                            ),
+                          ),
+                          SizedBox(width: w * 0.01),
+                          
+                          // Dropdown arrow
+                          Icon(
+                            Icons.keyboard_arrow_down,
+                            color: Colors.white.withOpacity(0.7),
+                            size: h * 0.022,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  
+                  SizedBox(width: w * 0.025),
+                  
+                  // Phone number input
                   Expanded(
                     child: TextField(
                       keyboardType: TextInputType.phone,
@@ -189,17 +246,19 @@ class _MobileInputField extends StatelessWidget {
                       ],
                       style: GoogleFonts.poppins(
                         color: ColorManager.textWhite,
+                        fontSize: FontSize.s16,
                       ),
                       decoration: InputDecoration(
                         border: InputBorder.none,
                         hintText: 'Enter mobile number',
                         hintStyle: GoogleFonts.poppins(
                           color: ColorManager.textWhite.withOpacity(0.6),
+                          fontSize: FontSize.s16,
                         ),
                       ),
-                      onChanged: (val) => context
-                          .read<LoginBloc>()
-                          .add(MobileNumberChanged(val)),
+                      onChanged: (value) {
+                        context.read<LoginBloc>().add(MobileNumberChanged(value));
+                      },
                     ),
                   ),
                 ],
@@ -208,6 +267,22 @@ class _MobileInputField extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+
+  void _showCountryPicker(BuildContext context) {
+    final loginBloc = context.read<LoginBloc>();
+    
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (modalContext) => CountryPickerBottomSheet(
+        selectedCountry: loginBloc.state.selectedCountry,
+        onCountrySelected: (country) {
+          loginBloc.add(CountryChanged(country));
+        },
+      ),
     );
   }
 }

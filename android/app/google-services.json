@@ -14,6 +14,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "230772297916-5km5le4aodjpmh81u3qdksa4q4lb3b9e.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.birdpartner.app",
+            "certificate_hash": "fc014aa3ef928ef31264171abe08071766428648"
+          }
+        },
+        {
           "client_id": "230772297916-l3i6iga4uft3u4s0gt58m6ndtgdk8ka1.apps.googleusercontent.com",
           "client_type": 3
         }

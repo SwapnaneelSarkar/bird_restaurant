@@ -1,5 +1,3 @@
-// android/app/build.gradle.kts (App level)
-
 import java.util.Properties
 import java.io.FileInputStream
 
@@ -19,8 +17,8 @@ plugins {
 
 android {
     namespace = "com.birdpartner.app"
-    compileSdk = flutter.compileSdkVersion
-    ndkVersion = "27.0.12077973"
+    compileSdk = 35
+    ndkVersion = "26.1.10909125"
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
@@ -28,16 +26,16 @@ android {
     }
 
     kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_11.toString()
+        jvmTarget = "11"
     }
 
     defaultConfig {
         applicationId = "com.birdpartner.app"
         minSdk = 23
-        targetSdk = flutter.targetSdkVersion
-        versionCode = flutter.versionCode
-        versionName = flutter.versionName
-        manifestPlaceholders.put("playIntegrityFallback", "true")
+        targetSdk = 34
+        versionCode = 1
+        versionName = "1.0.0"
+
         multiDexEnabled = true
     }
 
@@ -53,10 +51,13 @@ android {
     buildTypes {
         debug {
             signingConfig = signingConfigs.getByName("debug")
+            isMinifyEnabled = false
+            isShrinkResources = false
         }
         release {
             signingConfig = signingConfigs.getByName("release")
             isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -70,17 +71,9 @@ flutter {
 }
 
 dependencies {
-    // Firebase BOM - manages all Firebase library versions
     implementation(platform("com.google.firebase:firebase-bom:32.7.4"))
-    
-    // Firebase libraries (versions managed by BOM)
     implementation("com.google.firebase:firebase-auth-ktx")
     implementation("com.google.firebase:firebase-analytics-ktx")
-    
-    // Google Play Services
     implementation("com.google.android.gms:play-services-auth:20.7.0")
-    implementation("com.google.android.gms:play-services-safetynet:18.0.1")
-    
-    // Multidex support
     implementation("androidx.multidex:multidex:2.0.1")
 }

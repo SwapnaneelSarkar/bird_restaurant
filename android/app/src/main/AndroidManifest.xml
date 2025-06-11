@@ -11,6 +11,12 @@
         android:label="bird_restaurant"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
+        
+        <!-- Disable Play Integrity API to bypass project number mismatch -->
+        <meta-data
+            android:name="com.google.android.gms.security.core.PlayIntegrityApi"
+            android:value="false" />
+            
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -42,7 +48,6 @@
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and
          https://developer.android.com/reference/android/content/Intent#ACTION_PROCESS_TEXT.
-
          In particular, this is used by the Flutter engine in io.flutter.plugin.text.ProcessTextPlugin. -->
     <queries>
         <intent>

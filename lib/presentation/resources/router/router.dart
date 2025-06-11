@@ -8,6 +8,7 @@ import 'package:bird_restaurant/presentation/screens/chat_list/view.dart';
 import 'package:bird_restaurant/presentation/screens/item_list/view.dart';
 import 'package:bird_restaurant/presentation/screens/orders/view.dart';
 import 'package:bird_restaurant/presentation/screens/plans/view.dart';
+import 'package:bird_restaurant/presentation/screens/reviewPage/view.dart';
 import 'package:bird_restaurant/presentation/screens/signin/view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -39,6 +40,8 @@ class Routes {
   static const String plan = '/plan';
   static const String chat = '/chat';
   static const String chatList = '/chatList';
+  static const String reviews = '/reviews';
+
   static const String blank = '/blank';
 }
 
@@ -101,6 +104,9 @@ class RouteGenerator {
 
         case Routes.plan:
           return MaterialPageRoute(builder: (_) => const PlanSelectionView());
+        
+        case Routes.reviews:
+          return MaterialPageRoute(builder: (_) => const ReviewsView(partnerId: '',));
 
         case Routes.chat:
           final String? orderId = routeSettings.arguments as String?;

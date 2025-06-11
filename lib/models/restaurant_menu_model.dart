@@ -83,11 +83,33 @@ class MenuItem {
       menuId: json['menu_id'] ?? '',
       name: json['name'] ?? '',
       price: json['price'] ?? '0.00',
-      available: json['available'] ?? false,
+      
+      // FIXED: Safe conversion from int/dynamic to bool
+      available: _convertToBool(json['available']),
+      
       imageUrl: json['image_url'],
       description: json['description'] ?? '',
       category: json['category'] ?? '',
-      isVeg: json['isVeg'] ?? false,
+      
+      // FIXED: Safe conversion from int/dynamic to bool
+      isVeg: _convertToBool(json['isVeg']),
     );
+  }
+
+  // Helper method to safely convert various types to bool
+  static bool _convertToBool(dynamic value) {
+    if (value == null) return false;
+    if (value is bool) return value;
+    if (value is int) return value != 0; // 0 = false, any other int = true
+    if (value is String) {
+      // Try parsing as int first
+      final intValue = int.tryParse(value);
+      if (intValue != null) return intValue != 0;
+      
+      // Try parsing as bool string
+      final lowerValue = value.toLowerCase().trim();
+      return lowerValue == 'true' || lowerValue == '1';
+    }
+    return false; // Default to false for unexpected types
   }
 }

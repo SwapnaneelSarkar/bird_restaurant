@@ -8,7 +8,9 @@ import 'package:fl_chart/fl_chart.dart';
 import '../../../constants/api_constants.dart';
 import '../../../ui_components/universal_widget/nav_bar.dart';
 import '../../resources/colors.dart';
+import '../../resources/router/router.dart';
 import '../chat/view.dart';
+import '../reviewPage/view.dart';
 
 import '../chat_list/view.dart';
 import 'bloc.dart';
@@ -80,6 +82,55 @@ class _HomeViewState extends State<HomeView> with TickerProviderStateMixin {
     }
   }
 
+  // Navigation methods for stat cards
+  void _navigateToOrders(BuildContext context) {
+    try {
+      Navigator.pushNamed(context, Routes.orders);
+    } catch (e) {
+      // If route doesn't exist, show coming soon message
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Orders page - Coming soon!'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+    }
+  }
+
+  void _navigateToProducts(BuildContext context) {
+    try {
+      Navigator.pushNamed(context, Routes.editMenu);
+    } catch (e) {
+      // If route doesn't exist, show coming soon message
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Products page - Coming soon!'),
+          backgroundColor: Colors.amber,
+        ),
+      );
+    }
+  }
+
+  void _navigateToReviews(BuildContext context, String? partnerId, String? restaurantName) {
+    if (partnerId != null && partnerId.isNotEmpty) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => ReviewsView(
+            partnerId: partnerId,
+            partnerName: restaurantName,
+          ),
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Partner ID not found. Please try again.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -212,6 +263,10 @@ class _HomeViewState extends State<HomeView> with TickerProviderStateMixin {
   }
 
   Widget _buildHomeContent(BuildContext context, HomeLoaded state) {
+    // Get partner ID and restaurant name for navigation
+    final String? partnerId = state.restaurantData?['partner_id'] as String?;
+    final String? restaurantName = state.restaurantData?['restaurant_name'] as String?;
+
     return SingleChildScrollView(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16.0),
@@ -275,22 +330,24 @@ class _HomeViewState extends State<HomeView> with TickerProviderStateMixin {
             Row(
               children: [
                 Expanded(
-                  child: _buildStatCard(
+                  child: _buildClickableStatCard(
                     'Orders',
                     state.ordersCount.toString(),
                     Colors.orange[50]!,
                     Icons.shopping_bag_outlined,
                     Colors.orange[300]!,
+                    () => _navigateToOrders(context),
                   ),
                 ),
                 const SizedBox(width: 16),
                 Expanded(
-                  child: _buildStatCard(
+                  child: _buildClickableStatCard(
                     'Products',
                     state.productsCount.toString(),
                     Colors.amber[50]!,
                     Icons.restaurant_menu,
                     Colors.amber[300]!,
+                    () => _navigateToProducts(context),
                   ),
                 ),
               ],
@@ -298,28 +355,22 @@ class _HomeViewState extends State<HomeView> with TickerProviderStateMixin {
             
             const SizedBox(height: 16),
             
-            // Stats Row 2
+            // Stats Row 2 - Only Rating (maintaining original layout)
             Row(
               children: [
                 Expanded(
-                  child: _buildStatCard(
-                    'Tags',
-                    state.tagsCount.toString(),
-                    Colors.green[50]!,
-                    Icons.local_offer_outlined,
-                    Colors.green[300]!,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: _buildStatCard(
+                  child: _buildClickableStatCard(
                     'Rating',
                     state.rating.toString(),
                     Colors.yellow[50]!,
                     Icons.star_border,
                     Colors.yellow[600]!,
+                    () => _navigateToReviews(context, partnerId, restaurantName),
                   ),
                 ),
+                const SizedBox(width: 16),
+                // Empty space to maintain layout
+                const Expanded(child: SizedBox()),
               ],
             ),
             
@@ -473,6 +524,81 @@ class _HomeViewState extends State<HomeView> with TickerProviderStateMixin {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  // Clickable stat card widget
+  Widget _buildClickableStatCard(
+    String title, 
+    String value, 
+    Color bgColor, 
+    IconData icon, 
+    Color iconColor,
+    VoidCallback onTap,
+  ) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 10,
+              spreadRadius: 0,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: bgColor,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                icon,
+                color: iconColor,
+                size: 24,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              title,
+              style: GoogleFonts.poppins(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                color: Colors.black54,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  value,
+                  style: GoogleFonts.poppins(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black87,
+                  ),
+                ),
+                Icon(
+                  Icons.arrow_forward_ios,
+                  size: 16,
+                  color: Colors.grey[400],
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
