@@ -86,7 +86,7 @@ class LoginView extends StatelessWidget {
                         builder: (context, state) {
                           return CustomButton(
                             label: 'Send OTP',
-                            onPressed: state.mobileNumber.isNotEmpty ? () {
+                            onPressed: state.mobileNumber.length >= 5 ? () {
                               // Format the phone number using selected country
                               final formattedNumber = '${state.selectedCountry.dialCode}${state.mobileNumber}';
                               

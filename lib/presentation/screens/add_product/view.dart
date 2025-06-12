@@ -7,6 +7,8 @@ import '../../../ui_components/image_picker.dart';
 import '../../../ui_components/universal_widget/topbar.dart';
 import '../../../presentation/resources/colors.dart';
 import '../../../presentation/resources/font.dart';
+// Remove this import
+import '../homePage/sidebar/sidebar_drawer.dart';
 import 'bloc.dart';
 import 'event.dart';
 import 'state.dart';
@@ -45,6 +47,18 @@ class _AddProductScreenState extends State<AddProductScreen> {
     super.dispose();
   }
 
+  void _openSidebar() {
+    Navigator.of(context).push(
+      PageRouteBuilder(
+        pageBuilder: (context, animation, secondaryAnimation) => const SidebarDrawer(
+          activePage: 'addProduct',
+        ),
+        transitionDuration: Duration.zero,
+        reverseTransitionDuration: Duration.zero,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
@@ -66,7 +80,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
               // Navigate to HomePage after showing success message
               Future.delayed(const Duration(seconds: 1), () {
                 // Navigate to HomePage
-                Navigator.of(context).pushReplacementNamed('/home'); // Or use your app's route name for HomePage
+                Navigator.of(context).pushReplacementNamed('/home');
               });
             }
           }
@@ -78,7 +92,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
               body: SafeArea(
                 child: Column(
                   children: [
-                    const AppBackHeader(title: 'Add New Product'),
+                    _buildHeader(context),
                     Expanded(
                       child: _buildForm(context, state),
                     ),
@@ -92,6 +106,39 @@ class _AddProductScreenState extends State<AddProductScreen> {
             body: Center(child: CircularProgressIndicator()),
           );
         },
+      ),
+    );
+  }
+
+  Widget _buildHeader(BuildContext context) {
+    return Container(
+      height: 60,
+      color: Colors.white,
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Row(
+        children: [
+          InkWell(
+            borderRadius: BorderRadius.circular(40),
+            onTap: _openSidebar,
+            child: const Padding(
+              padding: EdgeInsets.all(8.0),
+              child: Icon(
+                Icons.menu_rounded,
+                color: Colors.black87,
+                size: 24.0,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          const Text(
+            'Add New Product',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Colors.black87,
+            ),
+          ),
+        ],
       ),
     );
   }

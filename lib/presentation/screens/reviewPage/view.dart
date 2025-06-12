@@ -2,6 +2,8 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../resources/colors.dart';
+import '../../resources/font.dart';
 import 'bloc.dart';
 import 'event.dart';
 import 'state.dart';
@@ -67,28 +69,33 @@ class _ReviewsViewState extends State<ReviewsView> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: ColorManager.background,
       appBar: AppBar(
-        backgroundColor: Colors.black,
+        backgroundColor: ColorManager.background,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          icon: Icon(Icons.arrow_back, color: ColorManager.black),
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
           widget.partnerName != null 
               ? '${widget.partnerName} Reviews' 
               : 'Reviews & Ratings',
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
+          style: TextStyle(
+            color: ColorManager.black,
+            fontSize: FontSize.s18,
+            fontWeight: FontWeightManager.semiBold,
+            fontFamily: FontConstants.fontFamily,
           ),
         ),
         actions: [
           PopupMenuButton<String>(
-            icon: const Icon(Icons.sort, color: Colors.white),
-            color: const Color(0xFF1A1A1A),
+            icon: Icon(Icons.sort, color: ColorManager.black),
+            color: Colors.white,
+            elevation: 8,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
             onSelected: _onSortChanged,
             itemBuilder: (context) => [
               PopupMenuItem(
@@ -97,15 +104,17 @@ class _ReviewsViewState extends State<ReviewsView> {
                   children: [
                     Icon(
                       Icons.schedule,
-                      color: _currentSort == 'newest' ? Colors.green : Colors.white70,
+                      color: _currentSort == 'newest' ? ColorManager.primary : ColorManager.textGrey,
                       size: 18,
                     ),
                     const SizedBox(width: 12),
                     Text(
                       'Newest First',
                       style: TextStyle(
-                        color: _currentSort == 'newest' ? Colors.green : Colors.white70,
-                        fontWeight: _currentSort == 'newest' ? FontWeight.w600 : FontWeight.normal,
+                        color: _currentSort == 'newest' ? ColorManager.primary : ColorManager.black,
+                        fontWeight: _currentSort == 'newest' ? FontWeightManager.semiBold : FontWeightManager.medium,
+                        fontSize: FontSize.s14,
+                        fontFamily: FontFamily.Montserrat,
                       ),
                     ),
                   ],
@@ -117,15 +126,17 @@ class _ReviewsViewState extends State<ReviewsView> {
                   children: [
                     Icon(
                       Icons.history,
-                      color: _currentSort == 'oldest' ? Colors.green : Colors.white70,
+                      color: _currentSort == 'oldest' ? ColorManager.primary : ColorManager.textGrey,
                       size: 18,
                     ),
                     const SizedBox(width: 12),
                     Text(
                       'Oldest First',
                       style: TextStyle(
-                        color: _currentSort == 'oldest' ? Colors.green : Colors.white70,
-                        fontWeight: _currentSort == 'oldest' ? FontWeight.w600 : FontWeight.normal,
+                        color: _currentSort == 'oldest' ? ColorManager.primary : ColorManager.black,
+                        fontWeight: _currentSort == 'oldest' ? FontWeightManager.semiBold : FontWeightManager.medium,
+                        fontSize: FontSize.s14,
+                        fontFamily: FontFamily.Montserrat,
                       ),
                     ),
                   ],
@@ -137,15 +148,17 @@ class _ReviewsViewState extends State<ReviewsView> {
                   children: [
                     Icon(
                       Icons.star,
-                      color: _currentSort == 'highest' ? Colors.green : Colors.white70,
+                      color: _currentSort == 'highest' ? ColorManager.primary : ColorManager.textGrey,
                       size: 18,
                     ),
                     const SizedBox(width: 12),
                     Text(
                       'Highest Rated',
                       style: TextStyle(
-                        color: _currentSort == 'highest' ? Colors.green : Colors.white70,
-                        fontWeight: _currentSort == 'highest' ? FontWeight.w600 : FontWeight.normal,
+                        color: _currentSort == 'highest' ? ColorManager.primary : ColorManager.black,
+                        fontWeight: _currentSort == 'highest' ? FontWeightManager.semiBold : FontWeightManager.medium,
+                        fontSize: FontSize.s14,
+                        fontFamily: FontFamily.Montserrat,
                       ),
                     ),
                   ],
@@ -157,15 +170,17 @@ class _ReviewsViewState extends State<ReviewsView> {
                   children: [
                     Icon(
                       Icons.star_border,
-                      color: _currentSort == 'lowest' ? Colors.green : Colors.white70,
+                      color: _currentSort == 'lowest' ? ColorManager.primary : ColorManager.textGrey,
                       size: 18,
                     ),
                     const SizedBox(width: 12),
                     Text(
                       'Lowest Rated',
                       style: TextStyle(
-                        color: _currentSort == 'lowest' ? Colors.green : Colors.white70,
-                        fontWeight: _currentSort == 'lowest' ? FontWeight.w600 : FontWeight.normal,
+                        color: _currentSort == 'lowest' ? ColorManager.primary : ColorManager.black,
+                        fontWeight: _currentSort == 'lowest' ? FontWeightManager.semiBold : FontWeightManager.medium,
+                        fontSize: FontSize.s14,
+                        fontFamily: FontFamily.Montserrat,
                       ),
                     ),
                   ],
@@ -178,10 +193,10 @@ class _ReviewsViewState extends State<ReviewsView> {
       body: BlocBuilder<ReviewBloc, ReviewState>(
         builder: (context, state) {
           if (state is ReviewLoading) {
-            return const Center(
+            return Center(
               child: CircularProgressIndicator(
-                color: Colors.green,
-                strokeWidth: 2,
+                color: ColorManager.primary,
+                strokeWidth: 2.5,
               ),
             );
           } else if (state is ReviewError) {
@@ -189,19 +204,23 @@ class _ReviewsViewState extends State<ReviewsView> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(
+                  Icon(
                     Icons.error_outline,
-                    color: Colors.red,
+                    color: ColorManager.signUpRed,
                     size: 64,
                   ),
                   const SizedBox(height: 16),
-                  Text(
-                    state.message,
-                    style: const TextStyle(
-                      color: Colors.white70,
-                      fontSize: 16,
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 32),
+                    child: Text(
+                      state.message,
+                      style: TextStyle(
+                        color: ColorManager.textgrey2,
+                        fontSize: FontSize.s16,
+                        fontFamily: FontFamily.Montserrat,
+                      ),
+                      textAlign: TextAlign.center,
                     ),
-                    textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 24),
                   ElevatedButton(
@@ -212,13 +231,22 @@ class _ReviewsViewState extends State<ReviewsView> {
                       ));
                     },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green,
+                      backgroundColor: ColorManager.primary,
                       foregroundColor: Colors.white,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                      elevation: 2,
                     ),
-                    child: const Text('Retry'),
+                    child: Text(
+                      'Retry',
+                      style: TextStyle(
+                        fontSize: FontSize.s14,
+                        fontWeight: FontWeightManager.semiBold,
+                        fontFamily: FontFamily.Montserrat,
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -226,8 +254,8 @@ class _ReviewsViewState extends State<ReviewsView> {
           } else if (state is ReviewLoaded) {
             return RefreshIndicator(
               onRefresh: () async => _onRefresh(),
-              backgroundColor: const Color(0xFF1A1A1A),
-              color: Colors.green,
+              backgroundColor: Colors.white,
+              color: ColorManager.primary,
               child: Column(
                 children: [
                   // Rating Summary Header
@@ -265,9 +293,16 @@ class _ReviewsViewState extends State<ReviewsView> {
       margin: const EdgeInsets.all(16),
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: const Color(0xFF1A1A1A),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withOpacity(0.1)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+            spreadRadius: 0,
+          ),
+        ],
       ),
       child: Column(
         children: [
@@ -275,26 +310,31 @@ class _ReviewsViewState extends State<ReviewsView> {
             children: [
               // Average Rating
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 decoration: BoxDecoration(
-                  color: Colors.green.withOpacity(0.1),
+                  color: ColorManager.primary.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: ColorManager.primary.withOpacity(0.2),
+                    width: 1,
+                  ),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(
+                    Icon(
                       Icons.star,
-                      color: Colors.green,
+                      color: ColorManager.primary,
                       size: 20,
                     ),
                     const SizedBox(width: 6),
                     Text(
                       state.averageRating.toStringAsFixed(1),
-                      style: const TextStyle(
-                        color: Colors.green,
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
+                      style: TextStyle(
+                        color: ColorManager.primary,
+                        fontSize: FontSize.s18,
+                        fontWeight: FontWeightManager.bold,
+                        fontFamily: FontConstants.fontFamily,
                       ),
                     ),
                   ],
@@ -310,18 +350,20 @@ class _ReviewsViewState extends State<ReviewsView> {
                   children: [
                     Text(
                       '${state.totalReviews} ${state.totalReviews == 1 ? 'Review' : 'Reviews'}',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
+                      style: TextStyle(
+                        color: ColorManager.black,
+                        fontSize: FontSize.s16,
+                        fontWeight: FontWeightManager.semiBold,
+                        fontFamily: FontConstants.fontFamily,
                       ),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       'Based on customer feedback',
                       style: TextStyle(
-                        color: Colors.white.withOpacity(0.6),
-                        fontSize: 13,
+                        color: ColorManager.textGrey,
+                        fontSize: FontSize.s12,
+                        fontFamily: FontFamily.Montserrat,
                       ),
                     ),
                   ],
@@ -348,8 +390,10 @@ class _ReviewsViewState extends State<ReviewsView> {
         
         return Icon(
           isHalfFilled ? Icons.star_half : Icons.star,
-          color: isFilled || isHalfFilled ? Colors.amber : Colors.white.withOpacity(0.3),
-          size: 16,
+          color: isFilled || isHalfFilled 
+              ? const Color(0xFFFFC107) 
+              : ColorManager.grey,
+          size: 18,
         );
       }),
     );
@@ -362,24 +406,26 @@ class _ReviewsViewState extends State<ReviewsView> {
         children: [
           Icon(
             Icons.rate_review_outlined,
-            color: Colors.white.withOpacity(0.3),
+            color: ColorManager.textGrey,
             size: 80,
           ),
           const SizedBox(height: 24),
           Text(
             'No Reviews Yet',
             style: TextStyle(
-              color: Colors.white.withOpacity(0.7),
-              fontSize: 20,
-              fontWeight: FontWeight.w600,
+              color: ColorManager.black,
+              fontSize: FontSize.s20,
+              fontWeight: FontWeightManager.semiBold,
+              fontFamily: FontConstants.fontFamily,
             ),
           ),
           const SizedBox(height: 8),
           Text(
             'Be the first to leave a review for this partner',
             style: TextStyle(
-              color: Colors.white.withOpacity(0.5),
-              fontSize: 14,
+              color: ColorManager.textGrey,
+              fontSize: FontSize.s14,
+              fontFamily: FontFamily.Montserrat,
             ),
             textAlign: TextAlign.center,
           ),
@@ -393,9 +439,16 @@ class _ReviewsViewState extends State<ReviewsView> {
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF1A1A1A),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white.withOpacity(0.1)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+            spreadRadius: 0,
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -405,21 +458,26 @@ class _ReviewsViewState extends State<ReviewsView> {
             children: [
               // User avatar
               Container(
-                width: 40,
-                height: 40,
+                width: 44,
+                height: 44,
                 decoration: BoxDecoration(
-                  color: Colors.green.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(20),
+                  color: ColorManager.primary.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(22),
+                  border: Border.all(
+                    color: ColorManager.primary.withOpacity(0.2),
+                    width: 1,
+                  ),
                 ),
                 child: Center(
                   child: Text(
                     review.userName.isNotEmpty 
                         ? review.userName[0].toUpperCase()
                         : 'A',
-                    style: const TextStyle(
-                      color: Colors.green,
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
+                    style: TextStyle(
+                      color: ColorManager.primary,
+                      fontSize: FontSize.s16,
+                      fontWeight: FontWeightManager.bold,
+                      fontFamily: FontConstants.fontFamily,
                     ),
                   ),
                 ),
@@ -434,10 +492,11 @@ class _ReviewsViewState extends State<ReviewsView> {
                   children: [
                     Text(
                       review.userName,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
+                      style: TextStyle(
+                        color: ColorManager.black,
+                        fontSize: FontSize.s16,
+                        fontWeight: FontWeightManager.semiBold,
+                        fontFamily: FontConstants.fontFamily,
                       ),
                     ),
                     const SizedBox(height: 4),
@@ -449,9 +508,9 @@ class _ReviewsViewState extends State<ReviewsView> {
                             return Icon(
                               Icons.star,
                               color: index < review.rating 
-                                  ? Colors.amber 
-                                  : Colors.white.withOpacity(0.3),
-                              size: 14,
+                                  ? const Color(0xFFFFC107)
+                                  : ColorManager.grey,
+                              size: 16,
                             );
                           }),
                         ),
@@ -459,9 +518,10 @@ class _ReviewsViewState extends State<ReviewsView> {
                         Text(
                           '${review.rating}/5',
                           style: TextStyle(
-                            color: Colors.white.withOpacity(0.7),
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
+                            color: ColorManager.textGrey,
+                            fontSize: FontSize.s12,
+                            fontWeight: FontWeightManager.medium,
+                            fontFamily: FontFamily.Montserrat,
                           ),
                         ),
                       ],
@@ -474,8 +534,9 @@ class _ReviewsViewState extends State<ReviewsView> {
               Text(
                 review.timeAgo,
                 style: TextStyle(
-                  color: Colors.white.withOpacity(0.5),
-                  fontSize: 12,
+                  color: ColorManager.textGrey,
+                  fontSize: FontSize.s12,
+                  fontFamily: FontFamily.Montserrat,
                 ),
               ),
             ],
@@ -488,9 +549,10 @@ class _ReviewsViewState extends State<ReviewsView> {
             Text(
               review.reviewText,
               style: TextStyle(
-                color: Colors.white.withOpacity(0.9),
-                fontSize: 14,
+                color: ColorManager.textgrey2,
+                fontSize: FontSize.s14,
                 height: 1.5,
+                fontFamily: FontFamily.Montserrat,
               ),
             ),
             const SizedBox(height: 12),
@@ -499,17 +561,22 @@ class _ReviewsViewState extends State<ReviewsView> {
           // Order ID (if available)
           if (review.orderId.isNotEmpty) ...[
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(6),
+                color: ColorManager.cardGrey,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: ColorManager.grey,
+                  width: 1,
+                ),
               ),
               child: Text(
                 'Order #${review.orderId.length > 8 ? review.orderId.substring(review.orderId.length - 8) : review.orderId}',
                 style: TextStyle(
-                  color: Colors.white.withOpacity(0.6),
-                  fontSize: 11,
-                  fontWeight: FontWeight.w500,
+                  color: ColorManager.textgrey2,
+                  fontSize: FontSize.s12,
+                  fontWeight: FontWeightManager.medium,
+                  fontFamily: FontFamily.Montserrat,
                 ),
               ),
             ),
@@ -524,10 +591,10 @@ class _ReviewsViewState extends State<ReviewsView> {
     
     return Container(
       padding: const EdgeInsets.all(16),
-      child: const Center(
+      child: Center(
         child: CircularProgressIndicator(
-          color: Colors.green,
-          strokeWidth: 2,
+          color: ColorManager.primary,
+          strokeWidth: 2.5,
         ),
       ),
     );

@@ -1,3 +1,6 @@
+// Updated Sidebar Drawer with proper navigation
+// lib/presentation/screens/homePage/sidebar/sidebar_drawer.dart
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -21,7 +24,6 @@ class SidebarDrawer extends StatefulWidget {
   @override
   State<SidebarDrawer> createState() => _SidebarDrawerState();
 }
-
 
 class _SidebarDrawerState extends State<SidebarDrawer> with SingleTickerProviderStateMixin {
   late AnimationController _animationController;
@@ -80,11 +82,10 @@ class _SidebarDrawerState extends State<SidebarDrawer> with SingleTickerProvider
       curve: const Interval(0.1, 0.8, curve: Curves.easeOut),
     ));
     
-    // Create staggered animations for menu items - with safety checks to ensure intervals don't exceed 1.0
+    // Create staggered animations for menu items
     _menuItemAnimations = List.generate(
       _menuItemCount,
       (index) {
-        // Calculate start and end times, capping at 1.0
         final startTime = min(0.2 + (index * 0.05), 0.9);
         final endTime = min(0.6 + (index * 0.05), 1.0);
         
@@ -117,6 +118,38 @@ class _SidebarDrawerState extends State<SidebarDrawer> with SingleTickerProvider
     _animationController.reverse().then((_) {
       if (mounted) {
         Navigator.of(context).pop();
+      }
+    });
+  }
+
+  // Updated navigation method with proper stack management
+  void _navigateToPage(String routeName) {
+    _closeDrawer();
+    
+    // Small delay to let drawer close animation complete
+    Future.delayed(const Duration(milliseconds: 100), () {
+      if (mounted) {
+        if (routeName == '/home') {
+          // If navigating to home, clear all routes and go to home
+          Navigator.of(context).pushNamedAndRemoveUntil(
+            '/home',
+            (route) => false,
+          );
+        } else {
+          // For other pages, ensure home is always in the stack as the base
+          // First navigate to home (if not already there), then to the target page
+          Navigator.of(context).pushNamedAndRemoveUntil(
+            '/home',
+            (route) => false,
+          );
+          
+          // Then navigate to the target page
+          Future.delayed(const Duration(milliseconds: 50), () {
+            if (mounted) {
+              Navigator.of(context).pushNamed(routeName);
+            }
+          });
+        }
       }
     });
   }
@@ -181,22 +214,23 @@ class _SidebarDrawerState extends State<SidebarDrawer> with SingleTickerProvider
   }
   
   Widget _buildAnimatedSidebar() {
-  return AnimatedSidebarContent(
-    animations: _menuItemAnimations,
-    onClose: _closeDrawer,
-    activePage: widget.activePage,
-    restaurantName: widget.restaurantName ?? 'Spice Garden',
-    restaurantSlogan: widget.restaurantSlogan ?? 'Fine Dining Restaurant',
-    restaurantImageUrl: widget.restaurantImageUrl,
-  );
-}
-
+    return AnimatedSidebarContent(
+      animations: _menuItemAnimations,
+      onClose: _closeDrawer,
+      onNavigate: _navigateToPage,
+      activePage: widget.activePage,
+      restaurantName: widget.restaurantName ?? 'Spice Garden',
+      restaurantSlogan: widget.restaurantSlogan ?? 'Fine Dining Restaurant',
+      restaurantImageUrl: widget.restaurantImageUrl,
+    );
+  }
 }
 
 // Separate widget for the animated sidebar content
 class AnimatedSidebarContent extends StatelessWidget {
   final List<Animation<double>> animations;
   final VoidCallback onClose;
+  final Function(String) onNavigate;
   final String? activePage;
   final String restaurantName;
   final String restaurantSlogan;
@@ -206,12 +240,12 @@ class AnimatedSidebarContent extends StatelessWidget {
     Key? key,
     required this.animations,
     required this.onClose,
+    required this.onNavigate,
     required this.activePage,
     required this.restaurantName,
     required this.restaurantSlogan,
     this.restaurantImageUrl,
   }) : super(key: key);
-
 
   @override
   Widget build(BuildContext context) {
@@ -235,7 +269,7 @@ class AnimatedSidebarContent extends StatelessWidget {
             // Animated header
             _buildAnimatedHeader(context, animations[0]),
             
-            _buildDivider(),
+            const Divider(height: 1, thickness: 1, color: Color(0xFFEEEEEE)),
             
             // Animated menu items
             Expanded(
@@ -248,109 +282,70 @@ class AnimatedSidebarContent extends StatelessWidget {
                       icon: Icons.home_outlined,
                       title: 'Home',
                       isActive: activePage == 'home',
-                      onTap: () {
-                        Navigator.of(context).pushNamedAndRemoveUntil(
-                          '/home',
-                          (route) => false,
-                        );
-                      },
+                      onTap: () => onNavigate('/home'),
                     ),
                     _buildAnimatedMenuItem(
                       animations[2],
                       icon: Icons.shopping_bag_outlined,
                       title: 'Orders',
                       isActive: activePage == 'orders',
-                      onTap: () {
-                        Navigator.of(context).pushNamed('/orders');
-                        onClose();
-                      },
+                      onTap: () => onNavigate('/orders'),
                     ),
                     _buildAnimatedMenuItem(
                       animations[3],
                       icon: Icons.inventory_2_outlined,
                       title: 'Products',
                       isActive: activePage == 'products',
-                      onTap: () {
-                        Navigator.of(context).pushNamed('/editMenu');
-                        onClose();
-                      },
+                      onTap: () => onNavigate('/editMenu'),
                     ),
                     _buildAnimatedMenuItem(
                       animations[4],
                       icon: Icons.add_circle_outline,
                       title: 'Add Product',
                       isActive: activePage == 'addProduct',
-                      onTap: () {
-                        Navigator.of(context).pushNamed('/addProduct');
-                        onClose();
-                      },
+                      onTap: () => onNavigate('/addProduct'),
                     ),
                     _buildAnimatedMenuItem(
                       animations[5],
                       icon: Icons.view_list_outlined,
                       title: 'Add Attributes',
                       isActive: activePage == 'add_attributes',
-                      onTap: () {
-                        Navigator.of(context).pushNamed('/attributes');
-                        onClose();
-                      },
+                      onTap: () => onNavigate('/attributes'),
                     ),
                     _buildAnimatedMenuItem(
                       animations[6],
                       icon: Icons.label_outline,
-                      title: 'Restuarant Profile',
+                      title: 'Restaurant Profile',
                       isActive: activePage == 'profile',
-                      onTap: () {
-                        Navigator.of(context).pushNamed('/profile');
-                        onClose();
-                      },
+                      onTap: () => onNavigate('/profile'),
                     ),
-                    // _buildAnimatedMenuItem(
-                    //   animations[7],
-                    //   icon: Icons.language_outlined,
-                    //   title: 'Change Language',
-                    //   isActive: activePage == 'language',
-                    //   onTap: () {
-                    //     Navigator.of(context).pushNamed('/language');
-                    //     onClose();
-                    //   },
-                    // ),
                     _buildAnimatedMenuItem(
                       animations[8],
                       icon: Icons.description_outlined,
                       title: 'Terms & Conditions',
                       isActive: activePage == 'terms',
-                      onTap: () {
-                        Navigator.of(context).pushNamed('/terms');
-                        onClose();
-                      },
+                      onTap: () => onNavigate('/terms'),
                     ),
                     _buildAnimatedMenuItem(
                       animations[9],
                       icon: Icons.privacy_tip_outlined,
                       title: 'Privacy Policy',
                       isActive: activePage == 'privacy',
-                      onTap: () {
-                        Navigator.of(context).pushNamed('/privacy');
-                        onClose();
-                      },
+                      onTap: () => onNavigate('/privacy'),
                     ),
                     _buildAnimatedMenuItem(
                       animations[10],
                       icon: Icons.headset_mic_outlined,
                       title: 'Contact Us',
                       isActive: activePage == 'contact',
-                      onTap: () {
-                        Navigator.of(context).pushNamed('/contact');
-                        onClose();
-                      },
+                      onTap: () => onNavigate('/contact'),
                     ),
                   ],
                 ),
               ),
             ),
             
-            _buildDivider(),
+            const Divider(height: 1, thickness: 1, color: Color(0xFFEEEEEE)),
             
             // Animated logout button
             _buildAnimatedLogoutButton(context, animations[animations.length - 1]),
@@ -363,113 +358,109 @@ class AnimatedSidebarContent extends StatelessWidget {
   }
 
   Widget _buildAnimatedHeader(BuildContext context, Animation<double> animation) {
-  return AnimatedBuilder(
-    animation: animation,
-    builder: (context, child) {
-      return Transform.translate(
-        offset: Offset(0, 20 * (1 - animation.value)),
-        child: Opacity(
-          opacity: animation.value,
-          child: Container(
-            padding: const EdgeInsets.fromLTRB(20, 24, 20, 16),
-            child: Column(
-              children: [
-                // Make the logo clickable with GestureDetector
-                GestureDetector(
-                  onTap: () {
-                    Navigator.of(context).pushNamed('/profile');
-                    onClose();
-                  },
-                  child: Transform.rotate(
-                    angle: (1 - animation.value) * 0.1, // Subtle rotation
-                    child: _buildRestaurantImage(),
+    return AnimatedBuilder(
+      animation: animation,
+      builder: (context, child) {
+        return Transform.translate(
+          offset: Offset(0, 20 * (1 - animation.value)),
+          child: Opacity(
+            opacity: animation.value,
+            child: Container(
+              padding: const EdgeInsets.fromLTRB(20, 24, 20, 16),
+              child: Column(
+                children: [
+                  // Make the logo clickable with GestureDetector
+                  GestureDetector(
+                    onTap: () => onNavigate('/profile'),
+                    child: Transform.rotate(
+                      angle: (1 - animation.value) * 0.1, // Subtle rotation
+                      child: _buildRestaurantImage(),
+                    ),
                   ),
-                ),
-                const SizedBox(height: 16),
-                // Make restaurant name clickable with GestureDetector
-                GestureDetector(
-                  onTap: () {
-                    Navigator.of(context).pushNamed('/profile');
-                    onClose();
-                  },
-                  child: Text(
-                    restaurantName,
+                  const SizedBox(height: 16),
+                  // Make restaurant name clickable with GestureDetector
+                  GestureDetector(
+                    onTap: () => onNavigate('/profile'),
+                    child: Text(
+                      restaurantName,
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.black87,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  // Restaurant Slogan
+                  Text(
+                    restaurantSlogan,
                     style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.black87,
+                      fontSize: 14,
+                      fontWeight: FontWeight.normal,
+                      color: Colors.black54,
                     ),
                     textAlign: TextAlign.center,
                   ),
-                ),
-                const SizedBox(height: 4),
-                // Restaurant Slogan
-                Text(
-                  restaurantSlogan,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.normal,
-                    color: Colors.black54,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
-    },
-  );
-}
-// New method to handle restaurant image loading
-Widget _buildRestaurantImage() {
-  final String? imageUrl = restaurantImageUrl;
-  
-  if (imageUrl != null && imageUrl.isNotEmpty) {
-    // If we have a valid restaurant image URL, load it
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(32),
-      child: Image.network(
-        imageUrl,
-        height: 64,
-        width: 64,
-        fit: BoxFit.cover,
-        // Add error handling to fall back to the local asset if network image fails
-        errorBuilder: (context, error, stackTrace) {
-          debugPrint('Error loading restaurant image: $error');
-          return Image.asset(
-            'assets/images/logo.png',
-            height: 64,
-            width: 64,
-          );
-        },
-        loadingBuilder: (context, child, loadingProgress) {
-          if (loadingProgress == null) return child;
-          return SizedBox(
-            height: 64,
-            width: 64,
-            child: Center(
-              child: CircularProgressIndicator(
-                value: loadingProgress.expectedTotalBytes != null
-                    ? loadingProgress.cumulativeBytesLoaded / 
-                      loadingProgress.expectedTotalBytes!
-                    : null,
-                strokeWidth: 2,
+                ],
               ),
             ),
-          );
-        },
-      ),
-    );
-  } else {
-    // Fallback to default image
-    return Image.asset(
-      'assets/images/logo.png',
-      height: 64,
-      width: 64,
+          ),
+        );
+      },
     );
   }
-}
+
+  // New method to handle restaurant image loading
+  Widget _buildRestaurantImage() {
+    final String? imageUrl = restaurantImageUrl;
+    
+    if (imageUrl != null && imageUrl.isNotEmpty) {
+      // If we have a valid restaurant image URL, load it
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(32),
+        child: Image.network(
+          imageUrl,
+          height: 64,
+          width: 64,
+          fit: BoxFit.cover,
+          // Add error handling to fall back to the local asset if network image fails
+          errorBuilder: (context, error, stackTrace) {
+            debugPrint('Error loading restaurant image: $error');
+            return Image.asset(
+              'assets/images/logo.png',
+              height: 64,
+              width: 64,
+            );
+          },
+          loadingBuilder: (context, child, loadingProgress) {
+            if (loadingProgress == null) return child;
+            return SizedBox(
+              height: 64,
+              width: 64,
+              child: Center(
+                child: CircularProgressIndicator(
+                  value: loadingProgress.expectedTotalBytes != null
+                      ? loadingProgress.cumulativeBytesLoaded / 
+                        loadingProgress.expectedTotalBytes!
+                      : null,
+                  strokeWidth: 2,
+                ),
+              ),
+            );
+          },
+        ),
+      );
+    } else {
+      // Fallback to default image
+      return Image.asset(
+        'assets/images/logo.png',
+        height: 64,
+        width: 64,
+      );
+    }
+  }
+
   Widget _buildAnimatedMenuItem(
     Animation<double> animation, {
     required IconData icon,
@@ -533,14 +524,6 @@ Widget _buildRestaurantImage() {
     );
   }
 
-  Widget _buildDivider() {
-    return const Divider(
-      height: 1,
-      thickness: 1,
-      color: Color(0xFFEEEEEE),
-    );
-  }
-
   Widget _buildAnimatedLogoutButton(BuildContext context, Animation<double> animation) {
     return AnimatedBuilder(
       animation: animation,
@@ -590,128 +573,81 @@ Widget _buildRestaurantImage() {
     );
   }
 
-  // Updated logout function in lib/presentation/screens/homePage/sidebar/sidebar_drawer.dart
-
-Future<void> _handleLogout(BuildContext context) async {
-  try {
-    // Show confirmation dialog
-    bool confirm = await showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text(
-          'Logout',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        content: const Text(
-          'Are you sure you want to logout?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: Text(
-              'Logout',
-              style: TextStyle(
-                color: Colors.red[700],
-              ),
+  // Updated logout function
+  Future<void> _handleLogout(BuildContext context) async {
+    try {
+      // Show confirmation dialog
+      bool confirm = await showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text(
+            'Logout',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
             ),
           ),
-        ],
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
+          content: const Text(
+            'Are you sure you want to logout?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: Text(
+                'Logout',
+                style: TextStyle(
+                  color: Colors.red[700],
+                ),
+              ),
+            ),
+          ],
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
         ),
-      ),
-    ) ?? false;
-    
-    if (!confirm) return;
-    
-    debugPrint('Logout: Starting logout process...');
-    
-    // CRITICAL: Clear ALL authentication data completely
-    final prefs = await SharedPreferences.getInstance();
-    
-    // Get all keys and remove them one by one to ensure complete cleanup
-    final allKeys = prefs.getKeys().toList();
-    debugPrint('Logout: Found ${allKeys.length} keys to clear: $allKeys');
-    
-    for (String key in allKeys) {
-      await prefs.remove(key);
-      debugPrint('Logout: Removed key: $key');
-    }
-    
-    // Double-check by calling clear() as well
-    await prefs.clear();
-    
-    // Verify that critical auth keys are actually removed
-    final tokenAfter = prefs.getString('token');
-    final userIdAfter = prefs.getString('user_id');
-    final mobileAfter = prefs.getString('mobile');
-    
-    debugPrint('Logout: Verification after clear:');
-    debugPrint('  - token: ${tokenAfter ?? 'null'}');
-    debugPrint('  - user_id: ${userIdAfter ?? 'null'}');
-    debugPrint('  - mobile: ${mobileAfter ?? 'null'}');
-    
-    if (tokenAfter != null || userIdAfter != null || mobileAfter != null) {
-      debugPrint('WARNING: Some auth data still exists after logout!');
+      ) ?? false;
       
-      // Force remove the specific auth keys
-      await prefs.remove('token');
-      await prefs.remove('user_id');
-      await prefs.remove('mobile');
-      await prefs.remove('user_id_int');
+      if (!confirm) return;
       
-      // Verify again
-      final finalToken = prefs.getString('token');
-      final finalUserId = prefs.getString('user_id');
-      final finalMobile = prefs.getString('mobile');
+      debugPrint('Logout: Starting logout process...');
       
-      debugPrint('Logout: Final verification:');
-      debugPrint('  - token: ${finalToken ?? 'null'}');
-      debugPrint('  - user_id: ${finalUserId ?? 'null'}');
-      debugPrint('  - mobile: ${finalMobile ?? 'null'}');
-    }
-    
-    debugPrint('Logout: Auth data cleared successfully');
-    
-    // Navigate to login and remove all previous routes
-    if (context.mounted) {
-      Navigator.of(context).pushNamedAndRemoveUntil(
-        '/signin',
-        (route) => false,
-      );
-      debugPrint('Logout: Navigated to sign in screen');
-    }
-    
-  } catch (e) {
-    debugPrint('Logout: Error during logout: $e');
-    
-    // Even if there's an error, try to force clear auth data and navigate
-    try {
+      // Clear authentication data
       final prefs = await SharedPreferences.getInstance();
-      await prefs.remove('token');
-      await prefs.remove('user_id');
-      await prefs.remove('mobile');
-      await prefs.remove('user_id_int');
-      await prefs.clear(); // Nuclear option
+      await prefs.clear();
       
-      debugPrint('Logout: Force cleared auth data after error');
-    } catch (clearError) {
-      debugPrint('Logout: Error even in force clear: $clearError');
-    }
-    
-    // Still attempt to navigate
-    if (context.mounted) {
-      Navigator.of(context).pushNamedAndRemoveUntil(
-        '/signin',
-        (route) => false,
-      );
+      debugPrint('Logout: Auth data cleared successfully');
+      
+      // Navigate to login and remove all previous routes
+      if (context.mounted) {
+        Navigator.of(context).pushNamedAndRemoveUntil(
+          '/signin',
+          (route) => false,
+        );
+        debugPrint('Logout: Navigated to sign in screen');
+      }
+      
+    } catch (e) {
+      debugPrint('Logout: Error during logout: $e');
+      
+      // Even if there's an error, try to force clear auth data and navigate
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.clear();
+        debugPrint('Logout: Force cleared auth data after error');
+      } catch (clearError) {
+        debugPrint('Logout: Error even in force clear: $clearError');
+      }
+      
+      // Still attempt to navigate
+      if (context.mounted) {
+        Navigator.of(context).pushNamedAndRemoveUntil(
+          '/signin',
+          (route) => false,
+        );
+      }
     }
   }
-}
 }

@@ -6,6 +6,8 @@ import '../../../presentation/resources/colors.dart';
 import '../../../presentation/resources/font.dart';
 import '../../../ui_components/order_card.dart';
 import '../../../ui_components/order_stats_card.dart';
+// Remove this import
+import '../homePage/sidebar/sidebar_drawer.dart';
 import 'bloc.dart';
 import 'event.dart';
 import 'state.dart';
@@ -40,6 +42,18 @@ class _OrdersViewState extends State<OrdersView> {
     });
   }
 
+  void _openSidebar() {
+    Navigator.of(context).push(
+      PageRouteBuilder(
+        pageBuilder: (context, animation, secondaryAnimation) => const SidebarDrawer(
+          activePage: 'orders',
+        ),
+        transitionDuration: Duration.zero,
+        reverseTransitionDuration: Duration.zero,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -49,14 +63,31 @@ class _OrdersViewState extends State<OrdersView> {
         backgroundColor: Colors.white,
         toolbarHeight: 60,
         automaticallyImplyLeading: false,
-        title: Text(
-          'Orders Management',
-          style: TextStyle(
-            fontFamily: FontFamily.Montserrat,
-            fontSize: FontSize.s18,
-            color: ColorManager.black,
-            fontWeight: FontWeightManager.bold,
-          ),
+        title: Row(
+          children: [
+            InkWell(
+              borderRadius: BorderRadius.circular(40),
+              onTap: _openSidebar,
+              child: const Padding(
+                padding: EdgeInsets.all(8.0),
+                child: Icon(
+                  Icons.menu_rounded,
+                  color: Colors.black87,
+                  size: 24.0,
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Text(
+              'Orders Management',
+              style: TextStyle(
+                fontFamily: FontFamily.Montserrat,
+                fontSize: FontSize.s18,
+                color: ColorManager.black,
+                fontWeight: FontWeightManager.bold,
+              ),
+            ),
+          ],
         ),
         actions: [
           IconButton(

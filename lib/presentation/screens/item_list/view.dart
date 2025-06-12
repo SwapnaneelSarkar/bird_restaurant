@@ -6,6 +6,8 @@ import '../../../ui_components/edit_item_card.dart';
 import '../../../ui_components/universal_widget/topbar.dart';
 import '../add_product/view.dart';
 import '../edit_item/view.dart';
+// Remove this import
+import '../homePage/sidebar/sidebar_drawer.dart';
 import 'bloc.dart';
 import 'event.dart';
 import 'state.dart';
@@ -53,6 +55,18 @@ class _EditMenuViewState extends State<EditMenuView> {
     _menuItemsBloc.add(const RefreshMenuItemsEvent());
     // Wait for the refresh to complete
     return Future.delayed(const Duration(seconds: 1));
+  }
+
+  void _openSidebar() {
+    Navigator.of(context).push(
+      PageRouteBuilder(
+        pageBuilder: (context, animation, secondaryAnimation) => const SidebarDrawer(
+          activePage: 'products',
+        ),
+        transitionDuration: Duration.zero,
+        reverseTransitionDuration: Duration.zero,
+      ),
+    );
   }
 
   @override
@@ -119,7 +133,37 @@ class _EditMenuViewState extends State<EditMenuView> {
   Widget _buildHeader(BuildContext context) {
     return Column(
       children: [
-        const AppBackHeader(title: 'Menu Items'),
+        // Custom header with sidebar opener
+        Container(
+          height: 60,
+          color: Colors.white,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Row(
+            children: [
+              InkWell(
+                borderRadius: BorderRadius.circular(40),
+                onTap: _openSidebar,
+                child: const Padding(
+                  padding: EdgeInsets.all(8.0),
+                  child: Icon(
+                    Icons.menu_rounded,
+                    color: Colors.black87,
+                    size: 24.0,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              const Text(
+                'Menu Items',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
+              ),
+            ],
+          ),
+        ),
         Container(
           height: 64,
           color: Colors.white,

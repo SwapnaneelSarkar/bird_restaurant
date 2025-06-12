@@ -11,6 +11,8 @@ import '../../../ui_components/profile_button.dart';
 import '../address bottomSheet/view.dart';
 import '../../resources/colors.dart';
 import '../../resources/font.dart';
+// Remove this import
+import '../homePage/sidebar/sidebar_drawer.dart';
 
 import 'bloc.dart';
 import 'event.dart';
@@ -19,17 +21,31 @@ import 'state.dart';
 class RestaurantProfileView extends StatelessWidget {
   const RestaurantProfileView({Key? key}) : super(key: key);
 
+  void _openSidebar(BuildContext context) {
+    Navigator.of(context).push(
+      PageRouteBuilder(
+        pageBuilder: (context, animation, secondaryAnimation) => const SidebarDrawer(
+          activePage: 'profile',
+        ),
+        transitionDuration: Duration.zero,
+        reverseTransitionDuration: Duration.zero,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
       create: (_) => RestaurantProfileBloc(),
-      child: const _Body(),
+      child: _Body(openSidebar: () => _openSidebar(context)),
     );
   }
 }
 
 class _Body extends StatefulWidget {
-  const _Body();
+  final VoidCallback openSidebar;
+  
+  const _Body({required this.openSidebar});
 
   @override
   State<_Body> createState() => _BodyState();
@@ -171,17 +187,35 @@ class _BodyState extends State<_Body> {
     return Scaffold(
       backgroundColor: ColorManager.background,
       appBar: AppBar(
-        leading: const BackButton(color: Colors.black),
+        leading: null,
+        automaticallyImplyLeading: false,
         elevation: 0,
         backgroundColor: Colors.white,
-        title: Text(
-          'Restaurant Profile',
-          style: TextStyle(
-            fontFamily: FontConstants.fontFamily,
-            fontSize: FontSize.s18,
-            fontWeight: FontWeightManager.semiBold,
-            color: ColorManager.black,
-          ),
+        title: Row(
+          children: [
+            InkWell(
+              borderRadius: BorderRadius.circular(40),
+              onTap: widget.openSidebar,
+              child: const Padding(
+                padding: EdgeInsets.all(8.0),
+                child: Icon(
+                  Icons.menu_rounded,
+                  color: Colors.black87,
+                  size: 24.0,
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Text(
+              'Restaurant Profile',
+              style: TextStyle(
+                fontFamily: FontConstants.fontFamily,
+                fontSize: FontSize.s18,
+                fontWeight: FontWeightManager.semiBold,
+                color: ColorManager.black,
+              ),
+            ),
+          ],
         ),
       ),
       body: BlocConsumer<RestaurantProfileBloc, RestaurantProfileState>(
