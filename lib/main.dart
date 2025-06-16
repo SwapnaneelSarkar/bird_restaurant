@@ -1,4 +1,6 @@
 // lib/main.dart
+import 'package:bird_restaurant/firebase_options.dart';
+import 'package:bird_restaurant/services/notification_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/svg.dart';
@@ -11,7 +13,19 @@ import 'presentation/screens/chat/bloc.dart'; // Add this import
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp();
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+
+  );
+    try {
+    final notificationService = NotificationService();
+    await notificationService.initialize();
+    debugPrint('✅ NotificationService initialized in main');
+  } catch (e) {
+    debugPrint('❌ Error initializing NotificationService in main: $e');
+    // Don't crash the app if notification service fails to initialize
+  }
+  
   
   // allow SVGs to use their own color filters instead of Flutter's default
   svg.cacheColorFilterOverride = false;

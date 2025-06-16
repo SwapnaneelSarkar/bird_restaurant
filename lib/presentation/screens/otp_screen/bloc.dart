@@ -13,6 +13,7 @@ import '../../../constants/enums.dart';
 
 import '../../../services/api_service.dart' show ApiServices, UnauthorizedException;
 import '../../../services/token_service.dart';
+import '../../../services/notification_service.dart'; // Add this import
 import 'event.dart';
 import 'state.dart';
 
@@ -20,6 +21,7 @@ class OtpBloc extends Bloc<OtpEvent, OtpState> {
   Timer? _timer;
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final ApiServices _apiServices = ApiServices();
+  final NotificationService _notificationService = NotificationService(); // Add this
 
   OtpBloc() : super(const OtpState()) {
     on<StartTimerEvent>(_onStartTimer);
@@ -364,258 +366,299 @@ class OtpBloc extends Bloc<OtpEvent, OtpState> {
   }
 
   Future<void> _handleSuccessfulSignIn(String mobileNumber, Emitter<OtpState> emit) async {
-  try {
-    // Extract just the phone number without country code for API
-    String phoneForApi = mobileNumber;
-    debugPrint('Original mobile number: $phoneForApi');
-    
-    if (phoneForApi.startsWith('+91')) {
-      phoneForApi = phoneForApi.substring(3); // Remove +91
-    }
-    debugPrint('Phone number for API: $phoneForApi');
-    
-    // Call the API to register the partner
-    final response = await _apiServices.registerPartner(phoneForApi);
-    debugPrint('API Response: ${response.status}, ${response.message}');
-    
-    // Debug print the response data structure
-    debugPrint('Response data type: ${response.data?.runtimeType}');
-    debugPrint('Response data: $response');
-    
-    // Extract and directly save authentication data
-    if (response.status == 'SUCCESS' || response.status == 'EXISTS') {
-      try {
-        // Check if response body contains data
-        final responseBody = response.data;
-        
-        if (responseBody != null) {
-          // Try to extract token and userId/partnerId
-          String? token;
-          dynamic userId;
+    try {
+      // Extract just the phone number without country code for API
+      String phoneForApi = mobileNumber;
+      debugPrint('Original mobile number: $phoneForApi');
+      
+      if (phoneForApi.startsWith('+91')) {
+        phoneForApi = phoneForApi.substring(3); // Remove +91
+      }
+      debugPrint('Phone number for API: $phoneForApi');
+      
+      // Call the API to register the partner
+      final response = await _apiServices.registerPartner(phoneForApi);
+      debugPrint('API Response: ${response.status}, ${response.message}');
+      
+      // Debug print the response data structure
+      debugPrint('Response data type: ${response.data?.runtimeType}');
+      debugPrint('Response data: $response');
+      
+      // Extract and directly save authentication data
+      if (response.status == 'SUCCESS' || response.status == 'EXISTS') {
+        try {
+          // Check if response body contains data
+          final responseBody = response.data;
           
-          // Extract from regular Map<String, dynamic>
-          if (responseBody is Map<String, dynamic>) {
-            if (responseBody.containsKey('token')) {
-              token = responseBody['token'] as String;
-            }
+          if (responseBody != null) {
+            // Try to extract token and userId/partnerId
+            String? token;
+            dynamic userId;
             
-            // Check for partner_id first, then fall back to id
-            if (responseBody.containsKey('partner_id')) {
-              userId = responseBody['partner_id'];
-              debugPrint('Found partner_id in response: $userId');
-            } else if (responseBody.containsKey('id')) {
-              userId = responseBody['id'];
-              debugPrint('Found id in response: $userId');
-            }
-          }
-          
-          // Save token if available
-          if (token != null && token.isNotEmpty) {
-            // Save to both TokenService and SharedPreferences
-            await TokenService.saveToken(token);
-            
-            final prefs = await SharedPreferences.getInstance();
-            await prefs.setString('token', token);
-            
-            debugPrint('Token saved for new user: ${token.substring(0, min(20, token.length))}...');
-            
-            // Verify token was saved
-            final savedToken = await TokenService.getToken();
-            final prefToken = prefs.getString('token');
-            
-            debugPrint('TokenService token saved: ${savedToken != null}');
-            debugPrint('SharedPreferences token saved: ${prefToken != null}');
-          } else {
-            debugPrint('WARNING: Could not find token in response');
-            
-            // Try direct extraction from response string if all else fails
-            try {
-              final responseStr = response.toString();
-              if (responseStr.contains('token')) {
-                final tokenStartIndex = responseStr.indexOf('token') + 8; // "token":"
-                final tokenEndIndex = responseStr.indexOf('"', tokenStartIndex);
-                if (tokenStartIndex > 0 && tokenEndIndex > tokenStartIndex) {
-                  final extractedToken = responseStr.substring(tokenStartIndex, tokenEndIndex);
-                  if (extractedToken.isNotEmpty) {
-                    await TokenService.saveToken(extractedToken);
-                    
-                    final prefs = await SharedPreferences.getInstance();
-                    await prefs.setString('token', extractedToken);
-                    
-                    debugPrint('Token extracted and saved as fallback: ${extractedToken.substring(0, min(20, extractedToken.length))}...');
-                  }
-                }
+            // Extract from regular Map<String, dynamic>
+            if (responseBody is Map<String, dynamic>) {
+              if (responseBody.containsKey('token')) {
+                token = responseBody['token'] as String;
               }
-            } catch (e) {
-              debugPrint('Error trying to extract token as fallback: $e');
-            }
-          }
-          
-          // Save user ID if available
-          if (userId != null) {
-            // Save to both TokenService and SharedPreferences
-            await TokenService.saveUserId(userId);
-            
-            final prefs = await SharedPreferences.getInstance();
-            await prefs.setString('user_id', userId.toString());
-            
-            debugPrint('User ID saved for new user: $userId');
-            
-            // Verify user ID was saved
-            final savedUserId = await TokenService.getUserId();
-            final prefUserId = prefs.getString('user_id');
-            
-            debugPrint('TokenService user ID saved: ${savedUserId != null}');
-            debugPrint('SharedPreferences user ID saved: ${prefUserId != null}');
-          } else {
-            debugPrint('WARNING: Could not find user ID in response');
-            
-            // Try direct extraction from partner_id or id using regex
-            try {
-              final responseStr = response.toString();
-              if (responseStr.contains('"partner_id"')) {
-                final idPattern = RegExp(r'"partner_id":"([^"]+)"');
-                final match = idPattern.firstMatch(responseStr);
-                if (match != null && match.groupCount >= 1) {
-                  final extractedId = match.group(1);
-                  if (extractedId != null && extractedId.isNotEmpty) {
-                    await TokenService.saveUserId(extractedId);
-                    
-                    final prefs = await SharedPreferences.getInstance();
-                    await prefs.setString('user_id', extractedId);
-                    
-                    debugPrint('Partner ID extracted and saved as fallback: $extractedId');
-                  }
-                }
-              } else if (responseStr.contains('"id":')) {
-                final idPattern = RegExp(r'"id":(\d+)');
-                final match = idPattern.firstMatch(responseStr);
-                if (match != null && match.groupCount >= 1) {
-                  final extractedId = match.group(1);
-                  if (extractedId != null && extractedId.isNotEmpty) {
-                    await TokenService.saveUserId(extractedId);
-                    
-                    final prefs = await SharedPreferences.getInstance();
-                    await prefs.setString('user_id', extractedId);
-                    
-                    debugPrint('User ID extracted and saved as fallback: $extractedId');
-                  }
-                }
-              }
-            } catch (e) {
-              debugPrint('Error trying to extract user ID as fallback: $e');
-            }
-          }
-        } else {
-          debugPrint('WARNING: Response body is null');
-          
-          // Try direct extraction from raw response
-          try {
-            final responseStr = response.toString();
-            debugPrint('Raw response: $responseStr');
-            
-            // Extract token using regex
-            final tokenPattern = RegExp(r'"token":"([^"]+)"');
-            final tokenMatch = tokenPattern.firstMatch(responseStr);
-            if (tokenMatch != null && tokenMatch.groupCount >= 1) {
-              final extractedToken = tokenMatch.group(1);
-              if (extractedToken != null && extractedToken.isNotEmpty) {
-                await TokenService.saveToken(extractedToken);
-                
-                final prefs = await SharedPreferences.getInstance();
-                await prefs.setString('token', extractedToken);
-                
-                debugPrint('Token extracted and saved using regex: ${extractedToken.substring(0, min(20, extractedToken.length))}...');
+              
+              // Check for partner_id first, then fall back to id
+              if (responseBody.containsKey('partner_id')) {
+                userId = responseBody['partner_id'];
+                debugPrint('Found partner_id in response: $userId');
+              } else if (responseBody.containsKey('id')) {
+                userId = responseBody['id'];
+                debugPrint('Found id in response: $userId');
               }
             }
             
-            // Extract ID using regex - check for partner_id first
-            final partnerIdPattern = RegExp(r'"partner_id":"([^"]+)"');
-            final partnerIdMatch = partnerIdPattern.firstMatch(responseStr);
-            if (partnerIdMatch != null && partnerIdMatch.groupCount >= 1) {
-              final extractedId = partnerIdMatch.group(1);
-              if (extractedId != null && extractedId.isNotEmpty) {
-                await TokenService.saveUserId(extractedId);
-                
-                final prefs = await SharedPreferences.getInstance();
-                await prefs.setString('user_id', extractedId);
-                
-                debugPrint('Partner ID extracted and saved using regex: $extractedId');
-              }
+            // Save token if available
+            if (token != null && token.isNotEmpty) {
+              // Save to both TokenService and SharedPreferences
+              await TokenService.saveToken(token);
+              
+              final prefs = await SharedPreferences.getInstance();
+              await prefs.setString('token', token);
+              
+              debugPrint('Token saved for new user: ${token.substring(0, min(20, token.length))}...');
+              
+              // Verify token was saved
+              final savedToken = await TokenService.getToken();
+              final prefToken = prefs.getString('token');
+              
+              debugPrint('TokenService token saved: ${savedToken != null}');
+              debugPrint('SharedPreferences token saved: ${prefToken != null}');
             } else {
-              // Fall back to id if partner_id not found
-              final idPattern = RegExp(r'"id":(\d+)');
-              final idMatch = idPattern.firstMatch(responseStr);
-              if (idMatch != null && idMatch.groupCount >= 1) {
-                final extractedId = idMatch.group(1);
+              debugPrint('WARNING: Could not find token in response');
+              
+              // Try direct extraction from response string if all else fails
+              try {
+                final responseStr = response.toString();
+                if (responseStr.contains('token')) {
+                  final tokenStartIndex = responseStr.indexOf('token') + 8; // "token":"
+                  final tokenEndIndex = responseStr.indexOf('"', tokenStartIndex);
+                  if (tokenStartIndex > 0 && tokenEndIndex > tokenStartIndex) {
+                    final extractedToken = responseStr.substring(tokenStartIndex, tokenEndIndex);
+                    if (extractedToken.isNotEmpty) {
+                      await TokenService.saveToken(extractedToken);
+                      
+                      final prefs = await SharedPreferences.getInstance();
+                      await prefs.setString('token', extractedToken);
+                      
+                      debugPrint('Token extracted and saved as fallback: ${extractedToken.substring(0, min(20, extractedToken.length))}...');
+                    }
+                  }
+                }
+              } catch (e) {
+                debugPrint('Error trying to extract token as fallback: $e');
+              }
+            }
+            
+            // Save user ID if available
+            if (userId != null) {
+              // Save to both TokenService and SharedPreferences
+              await TokenService.saveUserId(userId);
+              
+              final prefs = await SharedPreferences.getInstance();
+              await prefs.setString('user_id', userId.toString());
+              
+              debugPrint('User ID saved for new user: $userId');
+              
+              // Verify user ID was saved
+              final savedUserId = await TokenService.getUserId();
+              final prefUserId = prefs.getString('user_id');
+              
+              debugPrint('TokenService user ID saved: ${savedUserId != null}');
+              debugPrint('SharedPreferences user ID saved: ${prefUserId != null}');
+            } else {
+              debugPrint('WARNING: Could not find user ID in response');
+              
+              // Try direct extraction from partner_id or id using regex
+              try {
+                final responseStr = response.toString();
+                if (responseStr.contains('"partner_id"')) {
+                  final idPattern = RegExp(r'"partner_id":"([^"]+)"');
+                  final match = idPattern.firstMatch(responseStr);
+                  if (match != null && match.groupCount >= 1) {
+                    final extractedId = match.group(1);
+                    if (extractedId != null && extractedId.isNotEmpty) {
+                      await TokenService.saveUserId(extractedId);
+                      
+                      final prefs = await SharedPreferences.getInstance();
+                      await prefs.setString('user_id', extractedId);
+                      
+                      debugPrint('Partner ID extracted and saved as fallback: $extractedId');
+                    }
+                  }
+                } else if (responseStr.contains('"id":')) {
+                  final idPattern = RegExp(r'"id":(\d+)');
+                  final match = idPattern.firstMatch(responseStr);
+                  if (match != null && match.groupCount >= 1) {
+                    final extractedId = match.group(1);
+                    if (extractedId != null && extractedId.isNotEmpty) {
+                      await TokenService.saveUserId(extractedId);
+                      
+                      final prefs = await SharedPreferences.getInstance();
+                      await prefs.setString('user_id', extractedId);
+                      
+                      debugPrint('User ID extracted and saved as fallback: $extractedId');
+                    }
+                  }
+                }
+              } catch (e) {
+                debugPrint('Error trying to extract user ID as fallback: $e');
+              }
+            }
+          } else {
+            debugPrint('WARNING: Response body is null');
+            
+            // Try direct extraction from raw response
+            try {
+              final responseStr = response.toString();
+              debugPrint('Raw response: $responseStr');
+              
+              // Extract token using regex
+              final tokenPattern = RegExp(r'"token":"([^"]+)"');
+              final tokenMatch = tokenPattern.firstMatch(responseStr);
+              if (tokenMatch != null && tokenMatch.groupCount >= 1) {
+                final extractedToken = tokenMatch.group(1);
+                if (extractedToken != null && extractedToken.isNotEmpty) {
+                  await TokenService.saveToken(extractedToken);
+                  
+                  final prefs = await SharedPreferences.getInstance();
+                  await prefs.setString('token', extractedToken);
+                  
+                  debugPrint('Token extracted and saved using regex: ${extractedToken.substring(0, min(20, extractedToken.length))}...');
+                }
+              }
+              
+              // Extract ID using regex - check for partner_id first
+              final partnerIdPattern = RegExp(r'"partner_id":"([^"]+)"');
+              final partnerIdMatch = partnerIdPattern.firstMatch(responseStr);
+              if (partnerIdMatch != null && partnerIdMatch.groupCount >= 1) {
+                final extractedId = partnerIdMatch.group(1);
                 if (extractedId != null && extractedId.isNotEmpty) {
                   await TokenService.saveUserId(extractedId);
                   
                   final prefs = await SharedPreferences.getInstance();
                   await prefs.setString('user_id', extractedId);
                   
-                  debugPrint('User ID extracted and saved using regex: $extractedId');
+                  debugPrint('Partner ID extracted and saved using regex: $extractedId');
+                }
+              } else {
+                // Fall back to id if partner_id not found
+                final idPattern = RegExp(r'"id":(\d+)');
+                final idMatch = idPattern.firstMatch(responseStr);
+                if (idMatch != null && idMatch.groupCount >= 1) {
+                  final extractedId = idMatch.group(1);
+                  if (extractedId != null && extractedId.isNotEmpty) {
+                    await TokenService.saveUserId(extractedId);
+                    
+                    final prefs = await SharedPreferences.getInstance();
+                    await prefs.setString('user_id', extractedId);
+                    
+                    debugPrint('User ID extracted and saved using regex: $extractedId');
+                  }
                 }
               }
+            } catch (e) {
+              debugPrint('Error trying to extract using regex: $e');
             }
-          } catch (e) {
-            debugPrint('Error trying to extract using regex: $e');
           }
+          
+          // Always save mobile number
+          await TokenService.saveMobile(phoneForApi);
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setString('mobile', phoneForApi);
+          
+          debugPrint('Mobile saved: $phoneForApi');
+
+          // ✅ FCM TOKEN REGISTRATION - INITIALIZE AND REGISTER AFTER SUCCESSFUL LOGIN
+          try {
+            debugPrint('🔔 Starting FCM token registration after successful login...');
+            
+            // Initialize notification service if not already initialized
+            if (!_notificationService.isInitialized) {
+              debugPrint('🔔 Initializing notification service...');
+              await _notificationService.initialize();
+            }
+            
+            // Register FCM token with server
+            debugPrint('🔔 Registering FCM token with server...');
+            final fcmRegistrationSuccess = await _notificationService.registerTokenWithServer();
+            
+            if (fcmRegistrationSuccess) {
+              debugPrint('✅ FCM token registered successfully with server');
+            } else {
+              debugPrint('❌ Failed to register FCM token with server (but continuing with login)');
+              // Don't fail the login process if FCM registration fails
+            }
+            
+            // Subscribe to relevant topics (optional)
+            try {
+              final savedUserId = await TokenService.getUserId();
+              if (savedUserId != null) {
+                await _notificationService.subscribeToTopic('partner_$savedUserId');
+                await _notificationService.subscribeToTopic('all_partners');
+                debugPrint('✅ Subscribed to FCM topics');
+              }
+            } catch (topicError) {
+              debugPrint('❌ Error subscribing to FCM topics: $topicError');
+              // Don't fail login if topic subscription fails
+            }
+            
+          } catch (fcmError) {
+            debugPrint('❌ Error during FCM setup: $fcmError');
+            // Don't fail the login process if FCM setup fails
+            // The user can still use the app without notifications
+          }
+          
+        } catch (e) {
+          debugPrint('Error processing authentication data: $e');
         }
         
-        // Always save mobile number
-        await TokenService.saveMobile(phoneForApi);
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setString('mobile', phoneForApi);
-        
-        debugPrint('Mobile saved: $phoneForApi');
-      } catch (e) {
-        debugPrint('Error processing authentication data: $e');
-      }
-      
-      // Let's also try to access the response raw data as a manual last resort
-      try {
-        // Try parsing from the raw message JSON
-        final rawResponse = response.message;
-        if (rawResponse != null && rawResponse.contains('token')) {
-          debugPrint('Attempting to parse from message: $rawResponse');
+        // Let's also try to access the response raw data as a manual last resort
+        try {
+          // Try parsing from the raw message JSON
+          final rawResponse = response.message;
+          if (rawResponse != null && rawResponse.contains('token')) {
+            debugPrint('Attempting to parse from message: $rawResponse');
+          }
+        } catch (e) {
+          debugPrint('Error parsing raw message: $e');
         }
-      } catch (e) {
-        debugPrint('Error parsing raw message: $e');
-      }
-      
-      // Check the status to determine where to navigate
-      final status = response.status;
-      debugPrint('Setting navigation with API status: $status');
-      
-      if (status == 'SUCCESS') {
-        // New user registered successfully - route to details add view
+        
+        // Check the status to determine where to navigate
+        final status = response.status;
+        debugPrint('Setting navigation with API status: $status');
+        
+        if (status == 'SUCCESS') {
+          // New user registered successfully - route to details add view
+          emit(state.copyWith(
+            status: OtpStatus.success,
+            apiStatus: 'SUCCESS',
+          ));
+        } else if (status == 'EXISTS') {
+          // User already exists - route to home page instead of details page
+          emit(state.copyWith(
+            status: OtpStatus.success,
+            apiStatus: 'EXISTS',
+          ));
+        }
+      } else {
+        // API call was not successful
         emit(state.copyWith(
-          status: OtpStatus.success,
-          apiStatus: 'SUCCESS',
-        ));
-      } else if (status == 'EXISTS') {
-        // User already exists - route to home page instead of details page
-        emit(state.copyWith(
-          status: OtpStatus.success,
-          apiStatus: 'EXISTS',
+          status: OtpStatus.failure,
+          errorMessage: response.message ?? 'Registration failed',
         ));
       }
-    } else {
-      // API call was not successful
+    } catch (e) {
+      debugPrint('Error in _handleSuccessfulSignIn: $e');
       emit(state.copyWith(
         status: OtpStatus.failure,
-        errorMessage: response.message ?? 'Registration failed',
+        errorMessage: 'Error during registration: $e',
       ));
     }
-  } catch (e) {
-    debugPrint('Error in _handleSuccessfulSignIn: $e');
-    emit(state.copyWith(
-      status: OtpStatus.failure,
-      errorMessage: 'Error during registration: $e',
-    ));
   }
-}
 
   @override
   Future<void> close() {
