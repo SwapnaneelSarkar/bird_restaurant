@@ -1,4 +1,4 @@
-// lib/presentation/resources/router/router.dart - UPDATED FOR POLLING CHAT
+// lib/presentation/resources/router/router.dart - UPDATED WITH LEGAL PAGES
 
 import 'package:bird_restaurant/presentation/screens/add_product/view.dart';
 import 'package:bird_restaurant/presentation/screens/add_resturant_info/view.dart';
@@ -10,6 +10,9 @@ import 'package:bird_restaurant/presentation/screens/orders/view.dart';
 import 'package:bird_restaurant/presentation/screens/plans/view.dart';
 import 'package:bird_restaurant/presentation/screens/reviewPage/view.dart';
 import 'package:bird_restaurant/presentation/screens/signin/view.dart';
+import 'package:bird_restaurant/presentation/screens/privacy_policy/view.dart'; // Add this import
+import 'package:bird_restaurant/presentation/screens/terms_conditions/view.dart'; // Add this import
+import 'package:bird_restaurant/presentation/screens/contact_us/view.dart'; // Add this import
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -41,7 +44,9 @@ class Routes {
   static const String chat = '/chat';
   static const String chatList = '/chatList';
   static const String reviews = '/reviews';
-
+  static const String privacy = '/privacy'; // Add privacy route
+  static const String terms = '/terms'; // Add terms route
+  static const String contact = '/contact'; // Add contact route
   static const String blank = '/blank';
 }
 
@@ -113,56 +118,78 @@ class RouteGenerator {
           return MaterialPageRoute(
             builder: (_) => BlocProvider<ChatBloc>(
               create: (context) => ChatBloc(chatService: PollingChatService()), // Use polling service
-              child: ChatView(orderId: orderId ?? ""),
+              child: ChatView(orderId: orderId ?? ''),
             ),
+            settings: routeSettings,
           );
 
         case Routes.chatList:
           return MaterialPageRoute(builder: (_) => const ChatListView());
-        
+
+        // Add new legal pages routes
+        case Routes.privacy:
+          return MaterialPageRoute(
+            builder: (_) => const PrivacyPolicyView(),
+            settings: routeSettings,
+          );
+
+        case Routes.terms:
+          return MaterialPageRoute(
+            builder: (_) => const TermsConditionsView(),
+            settings: routeSettings,
+          );
+
+        case Routes.contact:
+          return MaterialPageRoute(
+            builder: (_) => const ContactUsView(),
+            settings: routeSettings,
+          );
+
         default:
           return unDefinedRoute();
       }
     } catch (e) {
-      debugPrint('Error in RouteGenerator: $e');
+      debugPrint('❌ Route generation error for route $name: $e');
       return unDefinedRoute();
     }
   }
 
   static Route<dynamic> unDefinedRoute() {
     return MaterialPageRoute(
-      builder: (context) => Scaffold(
+      builder: (_) => Scaffold(
         backgroundColor: Colors.white,
-        body: SafeArea(
-          child: Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(
-                  Icons.error_outline,
+        appBar: AppBar(
+          title: const Text('Route Not Found'),
+          backgroundColor: Colors.red,
+          foregroundColor: Colors.white,
+        ),
+        body: const Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.error_outline,
+                size: 80,
+                color: Colors.red,
+              ),
+              SizedBox(height: 16),
+              Text(
+                'Page Not Found',
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
                   color: Colors.red,
-                  size: 48,
                 ),
-                const SizedBox(height: 16),
-                const Text(
-                  "Page Not Found",
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
+              ),
+              SizedBox(height: 8),
+              Text(
+                'The requested page could not be found.',
+                style: TextStyle(
+                  fontSize: 16,
+                  color: Colors.grey,
                 ),
-                const SizedBox(height: 8),
-                ElevatedButton(
-                  onPressed: () {
-                    Navigator.pushReplacement(
-                      context,
-                      MaterialPageRoute(builder: (context) => const LoginView()),
-                    );
-                  },
-                  child: const Text('Go to Sign In'),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),

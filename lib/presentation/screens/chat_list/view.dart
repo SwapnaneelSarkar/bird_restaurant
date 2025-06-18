@@ -15,6 +15,7 @@ import '../homePage/sidebar/sidebar_drawer.dart';
 import 'bloc.dart';
 import 'event.dart';
 import 'state.dart';
+import '../../../services/restaurant_info_service.dart';
 
 class ChatListView extends StatefulWidget {
   const ChatListView({Key? key}) : super(key: key);
@@ -167,11 +168,17 @@ class _ChatListViewState extends State<ChatListView> with TickerProviderStateMix
                 ),
               ),
             ),
-            drawer: SidebarDrawer(
-              activePage: 'chats',
-              restaurantName: null,
-              restaurantSlogan: null,
-              restaurantImageUrl: null,
+            drawer: FutureBuilder<Map<String, String>>(
+              future: RestaurantInfoService.getRestaurantInfo(),
+              builder: (context, snapshot) {
+                final info = snapshot.data ?? {};
+                return SidebarDrawer(
+                  activePage: 'chats',
+                  restaurantName: info['name'],
+                  restaurantSlogan: info['slogan'],
+                  restaurantImageUrl: info['imageUrl'],
+                );
+              },
             ),
             body: Stack(
               children: [

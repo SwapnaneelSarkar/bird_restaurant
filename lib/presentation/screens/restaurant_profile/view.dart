@@ -17,6 +17,7 @@ import '../homePage/sidebar/sidebar_drawer.dart';
 import 'bloc.dart';
 import 'event.dart';
 import 'state.dart';
+import '../../../services/restaurant_info_service.dart';
 
 class RestaurantProfileView extends StatelessWidget {
   const RestaurantProfileView({Key? key}) : super(key: key);
@@ -24,8 +25,17 @@ class RestaurantProfileView extends StatelessWidget {
   void _openSidebar(BuildContext context) {
     Navigator.of(context).push(
       PageRouteBuilder(
-        pageBuilder: (context, animation, secondaryAnimation) => const SidebarDrawer(
-          activePage: 'profile',
+        pageBuilder: (context, animation, secondaryAnimation) => FutureBuilder<Map<String, String>>(
+          future: RestaurantInfoService.getRestaurantInfo(),
+          builder: (context, snapshot) {
+            final info = snapshot.data ?? {};
+            return SidebarDrawer(
+              activePage: 'profile',
+              restaurantName: info['name'],
+              restaurantSlogan: info['slogan'],
+              restaurantImageUrl: info['imageUrl'],
+            );
+          },
         ),
         transitionDuration: Duration.zero,
         reverseTransitionDuration: Duration.zero,

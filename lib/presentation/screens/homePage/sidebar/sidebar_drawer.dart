@@ -382,11 +382,13 @@ class AnimatedSidebarContent extends StatelessWidget {
                   GestureDetector(
                     onTap: () => onNavigate('/profile'),
                     child: Text(
-                      restaurantName,
-                      style: const TextStyle(
+                      restaurantName ?? '',
+                      style: TextStyle(
+                        fontFamily: 'Montserrat',
                         fontSize: 20,
                         fontWeight: FontWeight.w600,
                         color: Colors.black87,
+                        letterSpacing: 0.2,
                       ),
                       textAlign: TextAlign.center,
                     ),
@@ -394,11 +396,13 @@ class AnimatedSidebarContent extends StatelessWidget {
                   const SizedBox(height: 4),
                   // Restaurant Slogan
                   Text(
-                    restaurantSlogan,
-                    style: const TextStyle(
+                    restaurantSlogan ?? '',
+                    style: TextStyle(
+                      fontFamily: 'Montserrat',
                       fontSize: 14,
-                      fontWeight: FontWeight.normal,
+                      fontWeight: FontWeight.w400,
                       color: Colors.black54,
+                      letterSpacing: 0.1,
                     ),
                     textAlign: TextAlign.center,
                   ),

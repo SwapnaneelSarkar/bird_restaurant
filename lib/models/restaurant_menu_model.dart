@@ -40,7 +40,14 @@ class RestaurantData {
 
   factory RestaurantData.fromJson(Map<String, dynamic> json) {
     List<MenuItem> menuItems = [];
-    if (json['menu_items'] != null) {
+    
+    // ✅ FIXED: Changed from 'menu_items' to 'menu' to match your API response
+    if (json['menu'] != null) {
+      menuItems = List<MenuItem>.from(
+          json['menu'].map((item) => MenuItem.fromJson(item)));
+    }
+    // Fallback for old API responses that might still use 'menu_items'
+    else if (json['menu_items'] != null) {
       menuItems = List<MenuItem>.from(
           json['menu_items'].map((item) => MenuItem.fromJson(item)));
     }
@@ -51,7 +58,8 @@ class RestaurantData {
       address: json['address'] ?? '',
       description: json['description'],
       ownerName: json['owner_name'] ?? '',
-      openTimings: json['open_timings'] ?? '{}',
+      // ✅ FIXED: Handle both 'operational_hours' and 'open_timings'
+      openTimings: json['operational_hours']?.toString() ?? json['open_timings'] ?? '{}',
       menuItems: menuItems,
     );
   }
@@ -66,6 +74,9 @@ class MenuItem {
   final String description;
   final String category;
   final bool isVeg;
+  final bool isTaxIncluded;
+  final bool isCancellable;
+  final String? tags;
 
   MenuItem({
     required this.menuId,
@@ -76,6 +87,9 @@ class MenuItem {
     required this.description,
     required this.category,
     required this.isVeg,
+    required this.isTaxIncluded,
+    required this.isCancellable,
+    this.tags,
   });
 
   factory MenuItem.fromJson(Map<String, dynamic> json) {
@@ -84,15 +98,20 @@ class MenuItem {
       name: json['name'] ?? '',
       price: json['price'] ?? '0.00',
       
-      // FIXED: Safe conversion from int/dynamic to bool
+      // ✅ FIXED: Safe conversion from int/dynamic to bool
       available: _convertToBool(json['available']),
       
       imageUrl: json['image_url'],
       description: json['description'] ?? '',
       category: json['category'] ?? '',
       
-      // FIXED: Safe conversion from int/dynamic to bool
+      // ✅ FIXED: Safe conversion from int/dynamic to bool
       isVeg: _convertToBool(json['isVeg']),
+      
+      // ✅ NEW: Handle additional fields from API response
+      isTaxIncluded: _convertToBool(json['isTaxIncluded']),
+      isCancellable: _convertToBool(json['isCancellable']),
+      tags: json['tags']?.toString(),
     );
   }
 
@@ -112,4 +131,9 @@ class MenuItem {
     }
     return false; // Default to false for unexpected types
   }
+
+  // ✅ Helper getters for display purposes
+  String get displayPrice => '₹$price';
+  String get displayImageUrl => imageUrl ?? '';
+  bool get hasImage => imageUrl != null && imageUrl!.isNotEmpty;
 }

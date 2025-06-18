@@ -11,6 +11,7 @@ import '../homePage/sidebar/sidebar_drawer.dart';
 import 'bloc.dart';
 import 'event.dart';
 import 'state.dart';
+import '../../../services/restaurant_info_service.dart';
 
 // Wrapper widget that provides OrdersBloc
 class OrdersScreen extends StatelessWidget {
@@ -44,8 +45,17 @@ class _OrdersViewState extends State<OrdersView> {
   void _openSidebar() {
     Navigator.of(context).push(
       PageRouteBuilder(
-        pageBuilder: (context, animation, secondaryAnimation) => const SidebarDrawer(
-          activePage: 'orders',
+        pageBuilder: (context, animation, secondaryAnimation) => FutureBuilder<Map<String, String>>(
+          future: RestaurantInfoService.getRestaurantInfo(),
+          builder: (context, snapshot) {
+            final info = snapshot.data ?? {};
+            return SidebarDrawer(
+              activePage: 'orders',
+              restaurantName: info['name'],
+              restaurantSlogan: info['slogan'],
+              restaurantImageUrl: info['imageUrl'],
+            );
+          },
         ),
         transitionDuration: Duration.zero,
         reverseTransitionDuration: Duration.zero,

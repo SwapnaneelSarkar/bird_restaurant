@@ -125,127 +125,138 @@ class MenuItemsBloc extends Bloc<MenuItemsEvent, MenuItemsState> {
   }
 
   Future<void> _onToggleItemAvailability(
-    ToggleItemAvailabilityEvent event,
-    Emitter<MenuItemsState> emit,
-  ) async {
-    if (state is MenuItemsLoaded) {
-      final currentState = state as MenuItemsLoaded;
-      
-      // Emit a state indicating that availability is being updated
-      emit(ItemAvailabilityUpdating(event.menuItem));
-      
-      try {
-        // Call the API to update availability - pass the complete menu item
-        final response = await _updateMenuItemAvailability(
-          event.menuItem,
-          event.isAvailable
-        );
-        
-        if (response.status == 'SUCCESS') {
-          // Update the local state with the new availability
-          final updatedItems = currentState.menuItems.map((item) {
-            if (item.menuId == event.menuItem.menuId) {
-              return MenuItem(
-                menuId: item.menuId,
-                name: item.name,
-                price: item.price,
-                available: event.isAvailable,
-                imageUrl: item.imageUrl,
-                description: item.description,
-                category: item.category,
-                isVeg: item.isVeg,
-              );
-            }
-            return item;
-          }).toList();
-          
-          // Update cached data
-          if (_cachedRestaurantData != null) {
-            // Instead of trying to create a new RestaurantData object,
-            // we'll invalidate the cache to force a refresh on next load
-            _cachedRestaurantData = null;
-          }
-          
-          emit(MenuItemsLoaded(
-            menuItems: updatedItems,
-            restaurantData: currentState.restaurantData,
-            isFiltered: currentState.isFiltered,
-            filterType: currentState.filterType,
-            searchQuery: currentState.searchQuery,
-          ));
-        } else {
-          // Show error but don't change the UI state
-          emit(MenuItemsError(response.message));
-          emit(currentState); // Revert to previous state
-        }
-      } catch (e) {
-        emit(MenuItemsError('Failed to update item availability: ${e.toString()}'));
-        // Revert back to the previous state after the error
-        emit(currentState);
-      }
-    }
-  }
-
-  Future<UpdateMenuItemResponse> _updateMenuItemAvailability(MenuItem menuItem, bool isAvailable) async {
+  ToggleItemAvailabilityEvent event,
+  Emitter<MenuItemsState> emit,
+) async {
+  if (state is MenuItemsLoaded) {
+    final currentState = state as MenuItemsLoaded;
+    
+    // Emit a state indicating that availability is being updated
+    emit(ItemAvailabilityUpdating(event.menuItem));
+    
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('token');
-      
-      if (token == null) {
-        throw Exception('Authentication information not found. Please login again.');
-      }
-      
-      final url = Uri.parse('${ApiConstants.baseUrl}/partner/menu_item/${menuItem.menuId}');
-      
-      debugPrint('Updating menu item availability: $url');
-      
-      // Include all required fields from the menu item
-      final requestBody = jsonEncode({
-        'name': menuItem.name,
-        'price': menuItem.price,
-        'available': isAvailable.toString(),
-        'description': menuItem.description,
-        'category': menuItem.category,
-        'isVeg': menuItem.isVeg.toString(),
-      });
-      
-      final response = await http.put(
-        url,
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-        },
-        body: requestBody,
+      // Call the API to update availability - pass the complete menu item
+      final response = await _updateMenuItemAvailability(
+        event.menuItem,
+        event.isAvailable
       );
       
-      debugPrint('Response status: ${response.statusCode}');
-      debugPrint('Response body: ${response.body}');
-      
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        return UpdateMenuItemResponse.fromJson(data);
-      } else {
-        try {
-          final errorData = json.decode(response.body);
-          return UpdateMenuItemResponse(
-            status: 'ERROR',
-            message: errorData['message'] ?? 'Failed to update menu item',
-          );
-        } catch (e) {
-          return UpdateMenuItemResponse(
-            status: 'ERROR',
-            message: 'Failed to update menu item. Status: ${response.statusCode}',
-          );
+      if (response.status == 'SUCCESS') {
+        // Update the local state with the new availability
+        final updatedItems = currentState.menuItems.map((item) {
+          if (item.menuId == event.menuItem.menuId) {
+            // ✅ FIXED: Include all required fields including new ones
+            return MenuItem(
+              menuId: item.menuId,
+              name: item.name,
+              price: item.price,
+              available: event.isAvailable,
+              imageUrl: item.imageUrl,
+              description: item.description,
+              category: item.category,
+              isVeg: item.isVeg,
+              // ✅ NEW: Include the new required fields
+              isTaxIncluded: item.isTaxIncluded,
+              isCancellable: item.isCancellable,
+              tags: item.tags,
+            );
+          }
+          return item;
+        }).toList();
+        
+        // Update cached data
+        if (_cachedRestaurantData != null) {
+          // Instead of trying to create a new RestaurantData object,
+          // we'll invalidate the cache to force a refresh on next load
+          _cachedRestaurantData = null;
         }
+        
+        emit(MenuItemsLoaded(
+          menuItems: updatedItems,
+          restaurantData: currentState.restaurantData,
+          isFiltered: currentState.isFiltered,
+          filterType: currentState.filterType,
+          searchQuery: currentState.searchQuery,
+        ));
+      } else {
+        // Show error but don't change the UI state
+        emit(MenuItemsError(response.message));
+        emit(currentState); // Revert to previous state
       }
     } catch (e) {
-      debugPrint('Error updating menu item: $e');
-      return UpdateMenuItemResponse(
-        status: 'ERROR',
-        message: 'Error: ${e.toString()}',
-      );
+      emit(MenuItemsError('Failed to update item availability: ${e.toString()}'));
+      // Revert back to the previous state after the error
+      emit(currentState);
     }
   }
+}
+
+
+  Future<UpdateMenuItemResponse> _updateMenuItemAvailability(MenuItem menuItem, bool isAvailable) async {
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('token');
+    
+    if (token == null) {
+      throw Exception('Authentication information not found. Please login again.');
+    }
+    
+    final url = Uri.parse('${ApiConstants.baseUrl}/partner/menu_item/${menuItem.menuId}');
+    
+    debugPrint('Updating menu item availability: $url');
+    
+    // ✅ FIXED: Include all required fields from the menu item including new ones
+    final requestBody = jsonEncode({
+      'name': menuItem.name,
+      'price': menuItem.price,
+      'available': isAvailable.toString(),
+      'description': menuItem.description,
+      'category': menuItem.category,
+      'isVeg': menuItem.isVeg.toString(),
+      // ✅ NEW: Include the new fields in the API request
+      'isTaxIncluded': menuItem.isTaxIncluded.toString(),
+      'isCancellable': menuItem.isCancellable.toString(),
+      if (menuItem.tags != null) 'tags': menuItem.tags,
+    });
+    
+    final response = await http.put(
+      url,
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+      body: requestBody,
+    );
+    
+    debugPrint('Response status: ${response.statusCode}');
+    debugPrint('Response body: ${response.body}');
+    
+    if (response.statusCode == 200) {
+      final data = json.decode(response.body);
+      return UpdateMenuItemResponse.fromJson(data);
+    } else {
+      try {
+        final errorData = json.decode(response.body);
+        return UpdateMenuItemResponse(
+          status: 'ERROR',
+          message: errorData['message'] ?? 'Failed to update menu item',
+        );
+      } catch (e) {
+        return UpdateMenuItemResponse(
+          status: 'ERROR',
+          message: 'Failed to update menu item. Status: ${response.statusCode}',
+        );
+      }
+    }
+  } catch (e) {
+    debugPrint('Error updating menu item: $e');
+    return UpdateMenuItemResponse(
+      status: 'ERROR',
+      message: 'Error: ${e.toString()}',
+    );
+  }
+}
+
   
   Future<void> _onDeleteMenuItem(
     DeleteMenuItemEvent event,

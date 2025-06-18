@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import '../../../services/api_service.dart';
 import '../../../services/token_service.dart';
 import '../../../models/partner_summary_model.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'event.dart';
 import 'state.dart';
@@ -39,6 +40,40 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
             debugPrint('Restaurant name: ${restaurantData?['restaurant_name']}');
             if (restaurantData?['restaurant_photos'] != null) {
               debugPrint('Restaurant photos available: ${restaurantData?['restaurant_photos']}');
+              // Save restaurant image URL to SharedPreferences
+              var photos = restaurantData?['restaurant_photos'];
+              String? imageUrl;
+              if (photos is List && photos.isNotEmpty) {
+                var photoUrl = photos[0];
+                if (photoUrl is String) {
+                  imageUrl = photoUrl;
+                }
+              } else if (photos is String && photos.isNotEmpty) {
+                try {
+                  // Try to parse as JSON array
+                  final parsed = (photos.startsWith('[')) ? List<String>.from((photos as String).isNotEmpty ? (photos as String).contains('[') ? (photos as String).contains(']') ? List<String>.from((photos as String).replaceAll('[', '').replaceAll(']', '').replaceAll('"', '').split(',')) : [photos as String] : [photos as String] : []) : [photos as String];
+                  if (parsed.isNotEmpty) {
+                    imageUrl = parsed[0].trim();
+                  }
+                } catch (e) {
+                  debugPrint('Error parsing restaurant_photos string: $e');
+                  imageUrl = photos;
+                }
+              }
+              if (imageUrl != null && imageUrl.isNotEmpty) {
+                final prefs = await SharedPreferences.getInstance();
+                await prefs.setString('restaurant_image_url', imageUrl);
+                debugPrint('Saved restaurant_image_url to SharedPreferences: $imageUrl');
+                // Also cache name and slogan/address
+                if (restaurantData?['restaurant_name'] != null) {
+                  await prefs.setString('restaurant_name', restaurantData?['restaurant_name']?.toString() ?? '');
+                  debugPrint('Saved restaurant_name to SharedPreferences: \\${restaurantData?['restaurant_name']}');
+                }
+                if (restaurantData?['address'] != null) {
+                  await prefs.setString('restaurant_address', restaurantData?['address']?.toString() ?? '');
+                  debugPrint('Saved restaurant_address to SharedPreferences: \\${restaurantData?['address']}');
+                }
+              }
             } else {
               debugPrint('No restaurant photos available in response');
             }
@@ -139,14 +174,42 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     }
   }
 
-  void _onToggleOrderAcceptance(ToggleOrderAcceptance event, Emitter<HomeState> emit) {
+  void _onToggleOrderAcceptance(ToggleOrderAcceptance event, Emitter<HomeState> emit) async {
     if (state is HomeLoaded) {
       final currentState = state as HomeLoaded;
-      emit(currentState.copyWith(isAcceptingOrders: event.isAccepting));
       
-      // Note: In a real implementation, you might want to call an API here
-      // to persist the order acceptance status change
-      debugPrint('Order acceptance toggled to: ${event.isAccepting}');
+      // Get partner ID from restaurant data
+      final partnerId = currentState.restaurantData?['partner_id'] as String?;
+      
+      if (partnerId == null || partnerId.isEmpty) {
+        debugPrint('Error: Partner ID not found in restaurant data');
+        return;
+      }
+
+      debugPrint('Updating order acceptance status:');
+      debugPrint('Partner ID: $partnerId');
+      debugPrint('Accepting Orders: ${event.isAccepting}');
+
+      try {
+        // Make API call to update order acceptance status
+        final response = await _apiServices.updateOrderAcceptance(
+          partnerId: partnerId,
+          acceptingOrders: event.isAccepting,
+        );
+
+        if (response.success) {
+          debugPrint('Successfully updated order acceptance status');
+          emit(currentState.copyWith(isAcceptingOrders: event.isAccepting));
+        } else {
+          debugPrint('Failed to update order acceptance status: ${response.message}');
+          // Revert the toggle if API call fails
+          emit(currentState.copyWith(isAcceptingOrders: !event.isAccepting));
+        }
+      } catch (e) {
+        debugPrint('Error updating order acceptance status: $e');
+        // Revert the toggle if API call fails
+        emit(currentState.copyWith(isAcceptingOrders: !event.isAccepting));
+      }
     }
   }
 
