@@ -10,6 +10,8 @@ import '../../resources/colors.dart';
 import '../../resources/font.dart';
 import '../chat/view.dart';
 import '../homePage/view.dart';
+import '../homePage/sidebar/side_bar_opener.dart';
+import '../homePage/sidebar/sidebar_drawer.dart';
 import 'bloc.dart';
 import 'event.dart';
 import 'state.dart';
@@ -26,6 +28,7 @@ class _ChatListViewState extends State<ChatListView> with TickerProviderStateMix
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
   final GlobalKey<RefreshIndicatorState> _refreshIndicatorKey = GlobalKey<RefreshIndicatorState>();
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   
   late AnimationController _searchAnimationController;
   late Animation<double> _searchSlideAnimation;
@@ -146,7 +149,30 @@ class _ChatListViewState extends State<ChatListView> with TickerProviderStateMix
         },
         builder: (context, state) {
           return Scaffold(
+            key: _scaffoldKey,
             backgroundColor: Colors.grey[50],
+            appBar: AppBar(
+              backgroundColor: Colors.white,
+              elevation: 0,
+              leading: SidebarOpener(
+                scaffoldKey: _scaffoldKey,
+                iconColor: Colors.black87,
+                padding: const EdgeInsets.all(12),
+              ),
+              title: Padding(
+                padding: const EdgeInsets.only(left: 0.0),
+                child: Image.asset(
+                  'assets/svg/logo_text.png',
+                  height: 80,
+                ),
+              ),
+            ),
+            drawer: SidebarDrawer(
+              activePage: 'chats',
+              restaurantName: null,
+              restaurantSlogan: null,
+              restaurantImageUrl: null,
+            ),
             body: Stack(
               children: [
                 SafeArea(

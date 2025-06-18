@@ -1,4 +1,5 @@
-// lib/presentation/screens/orders/state.dart - UPDATED TO MATCH API RESPONSE
+// lib/presentation/screens/orders/state.dart - UPDATED WITH STATUS UPDATE STATES
+
 import '../../../constants/enums.dart';
 import '../../../models/order_model.dart';
 
@@ -42,6 +43,7 @@ class OrdersError extends OrdersState {
   OrdersError(this.message);
 }
 
+// UPDATED: Enhanced status update states
 class OrderStatusUpdating extends OrdersState {
   final String orderId;
   final OrderStatus newStatus;
@@ -49,6 +51,30 @@ class OrderStatusUpdating extends OrdersState {
   OrderStatusUpdating({
     required this.orderId,
     required this.newStatus,
+  });
+}
+
+// ADD: Success state for status updates
+class OrderStatusUpdateSuccess extends OrdersState {
+  final String orderId;
+  final OrderStatus newStatus;
+  final String message;
+  
+  OrderStatusUpdateSuccess({
+    required this.orderId,
+    required this.newStatus,
+    required this.message,
+  });
+}
+
+// ADD: Error state for status updates
+class OrderStatusUpdateError extends OrdersState {
+  final String orderId;
+  final String message;
+  
+  OrderStatusUpdateError({
+    required this.orderId,
+    required this.message,
   });
 }
 

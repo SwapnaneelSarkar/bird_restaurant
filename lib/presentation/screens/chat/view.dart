@@ -9,6 +9,7 @@ import '../../resources/colors.dart';
 import '../../resources/font.dart';
 import 'bloc.dart';
 import 'event.dart';
+import 'event.dart' as chat_event;
 import 'state.dart' as chat_state;
 
 class ChatView extends StatefulWidget {
@@ -130,33 +131,71 @@ class _ChatViewState extends State<ChatView> {
     _previousMessageCount = messages.length;
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      body: BlocConsumer<ChatBloc, chat_state.ChatState>(
-        listener: (context, state) {
-          if (state is chat_state.ChatLoaded) {
-            // CRITICAL: Check for new messages and scroll to bottom immediately
-            _checkForNewMessages(state.messages);
-          }
-          
-          if (state is chat_state.ChatError) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(state.message),
-                backgroundColor: Colors.red,
-                action: SnackBarAction(
-                  label: 'Retry',
-                  textColor: Colors.white,
-                  onPressed: () {
-                    context.read<ChatBloc>().add(LoadChatData(widget.orderId));
-                  },
+@override
+Widget build(BuildContext context) {
+  return Scaffold(
+    backgroundColor: Colors.white,
+    body: MultiBlocListener(
+      listeners: [
+        // Existing listener for chat errors and message updates
+        BlocListener<ChatBloc, chat_state.ChatState>(
+          listenWhen: (previous, current) {
+            if (current is chat_state.ChatLoaded) {
+              _checkForNewMessages(current.messages);
+              return false; // Don't trigger listener for message updates
+            }
+            return current is chat_state.ChatError;
+          },
+          listener: (context, state) {
+            if (state is chat_state.ChatError) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(state.message),
+                  backgroundColor: Colors.red,
+                  action: SnackBarAction(
+                    label: 'Retry',
+                    textColor: Colors.white,
+                    onPressed: () {
+                      context.read<ChatBloc>().add(LoadChatData(widget.orderId));
+                    },
+                  ),
                 ),
-              ),
-            );
-          }
-        },
+              );
+            }
+          },
+        ),
+        
+        // NEW: Add this listener for status updates
+        BlocListener<ChatBloc, chat_state.ChatState>(
+          listenWhen: (previous, current) {
+            // Listen specifically for status update completion
+            if (previous is chat_state.ChatLoaded && current is chat_state.ChatLoaded) {
+              return previous.lastUpdateTimestamp != current.lastUpdateTimestamp &&
+                     current.lastUpdateSuccess == true;
+            }
+            return false;
+          },
+          listener: (context, state) {
+            if (state is chat_state.ChatLoaded && state.lastUpdateSuccess == true) {
+              // Status was successfully updated - refresh the entire chat view
+              debugPrint('ChatView: Status update successful, refreshing view');
+              
+              // Reload the chat data to get updated order info
+              context.read<ChatBloc>().add(chat_event.LoadChatData(widget.orderId));
+              
+              // Also reload order details if they exist
+              final currentState = state;
+              if (currentState.orderDetails != null) {
+                context.read<ChatBloc>().add(chat_event.LoadOrderDetails(
+                  orderId: widget.orderId,
+                  partnerId: context.read<ChatBloc>().currentPartnerId ?? '',
+                ));
+              }
+            }
+          },
+        ),
+      ],
+      child: BlocBuilder<ChatBloc, chat_state.ChatState>(
         builder: (context, state) {
           if (state is chat_state.ChatLoading) {
             return _buildLoadingState();
@@ -169,8 +208,10 @@ class _ChatViewState extends State<ChatView> {
           return _buildLoadingState(); // Show loading for initial state
         },
       ),
-    );
-  }
+    ),
+  );
+}
+
 
   Widget _buildLoadingState() {
     return const SafeArea(
@@ -195,45 +236,75 @@ class _ChatViewState extends State<ChatView> {
   }
 
   Widget _buildChatContent(BuildContext context, chat_state.ChatLoaded state) {
-    return SafeArea(
-      child: Column(
-        children: [
-          _buildHeader(context, state),
-          _buildOrderHeader(state.orderInfo),
-          Expanded(
-            child: _buildMessagesList(context, state.messages),
-          ),
-          if (state.isConnected && state.isRefreshing)
-            Container(
-              padding: const EdgeInsets.all(8),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: ColorManager.primary,
-                    ),
+  return SafeArea(
+    child: Column(
+      children: [
+        _buildHeader(context, state),
+        _buildOrderHeader(state.orderInfo),
+        
+        // Show status update indicator if updating
+        if (state.isUpdatingOrderStatus)
+          Container(
+            padding: const EdgeInsets.all(8),
+            color: Colors.orange.withOpacity(0.1),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: ColorManager.primary,
                   ),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Syncing messages...',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey[600],
-                    ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'Updating order status...',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.orange[700],
+                    fontWeight: FontWeightManager.medium,
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
-          _buildMessageInput(context, state.isSendingMessage),
-        ],
-      ),
-    );
-  }
-
+          ),
+        
+        Expanded(
+          child: _buildMessagesList(context, state.messages),
+        ),
+        
+        if (state.isConnected && state.isRefreshing)
+          Container(
+            padding: const EdgeInsets.all(8),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: ColorManager.primary,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'Syncing messages...',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey[600],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        _buildMessageInput(context, state.isSendingMessage),
+      ],
+    ),
+  );
+}
   Widget _buildHeader(BuildContext context, chat_state.ChatLoaded state) {
     return Container(
       decoration: BoxDecoration(
@@ -390,7 +461,7 @@ void _onOrderHeaderTap(chat_state.ChatOrderInfo orderInfo) {
   context: context,
   isScrollControlled: true,
   backgroundColor: Colors.transparent,
-  builder: (context) => OrderOptionsBottomSheet(
+  builder: (context) => StatusChangeBottomSheet(
     orderId: orderId,
     partnerId: partnerId,
   ),

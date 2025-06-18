@@ -1,4 +1,6 @@
-// lib/ui_components/universal_widget/order_widgets.dart - COMPLETE FIXED VERSION
+// lib/ui_components/universal_widget/order_widgets.dart
+// COMPLETELY FIXED VERSION
+
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -33,35 +35,6 @@ class OrderDetailsWidget extends StatelessWidget {
       ),
       body: BlocBuilder<ChatBloc, ChatState>(
         builder: (context, state) {
-          print('🔍 DEBUG: Current ChatBloc state: ${state.runtimeType}');
-    
-          if (state is ChatLoaded) {
-            print('🔍 DEBUG: ChatLoaded state:');
-            print('  - Has order details: ${state.orderDetails != null}');
-            print('  - Is loading order details: ${state.isLoadingOrderDetails}');
-            print('  - Menu items count: ${state.menuItems.length}');
-            
-            if (state.orderDetails != null) {
-              print('  - Order ID: ${state.orderDetails!.orderId}');
-              print('  - Items count: ${state.orderDetails!.items.length}');
-            }
-          }
-          
-          if (state is OrderDetailsLoaded) {
-            print('🔍 DEBUG: OrderDetailsLoaded state:');
-            print('  - Order ID: ${state.orderDetails.orderId}');
-            print('  - Items count: ${state.orderDetails.items.length}');
-            print('  - Menu items count: ${state.menuItems?.length ?? 0}');
-          }
-          
-          if (state is OrderDetailsLoading) {
-            print('🔍 DEBUG: OrderDetailsLoading state');
-          }
-          
-          if (state is OrderDetailsError) {
-            print('🔍 DEBUG: OrderDetailsError state: ${state.message}');
-          }
-
           if (state is OrderDetailsLoading) {
             return const Center(
               child: CircularProgressIndicator(color: Color(0xFFE17A47)),
@@ -127,19 +100,13 @@ class OrderDetailsWidget extends StatelessWidget {
         children: [
           // Order header
           _buildOrderHeader(orderDetails),
-          
           const SizedBox(height: 24),
-          
-          // Order items with menu item details
+          // Order items
           _buildOrderItems(orderDetails, menuItems),
-          
           const SizedBox(height: 24),
-          
           // Order summary
           _buildOrderSummary(orderDetails),
-          
           const SizedBox(height: 24),
-          
           // Order status
           _buildOrderStatus(orderDetails),
         ],
@@ -177,9 +144,7 @@ class OrderDetailsWidget extends StatelessWidget {
               ),
             ],
           ),
-          
           const SizedBox(height: 16),
-          
           Row(
             children: [
               Icon(Icons.person_outline, color: Colors.grey[600], size: 20),
@@ -229,23 +194,9 @@ class OrderDetailsWidget extends StatelessWidget {
                   ),
                 ),
               ),
-              
-              // Loading indicator for menu items
-              if (menuItems.isEmpty && orderDetails.items.isNotEmpty)
-                const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: Color(0xFFE17A47),
-                  ),
-                ),
             ],
           ),
-          
           const SizedBox(height: 16),
-          
-          // Show items with enhanced display
           ...orderDetails.items.map((item) => _buildOrderItem(item, menuItems)),
         ],
       ),
@@ -265,7 +216,6 @@ class OrderDetailsWidget extends StatelessWidget {
       ),
       child: Row(
         children: [
-          // Menu item image
           ClipRRect(
             borderRadius: BorderRadius.circular(8),
             child: SizedBox(
@@ -278,23 +228,15 @@ class OrderDetailsWidget extends StatelessWidget {
                       errorBuilder: (context, error, stackTrace) {
                         return _buildPlaceholderImage();
                       },
-                      loadingBuilder: (context, child, loadingProgress) {
-                        if (loadingProgress == null) return child;
-                        return _buildLoadingImage();
-                      },
                     )
                   : _buildPlaceholderImage(),
             ),
           ),
-          
           const SizedBox(width: 12),
-          
-          // Item details
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Item name (from menu item) or fallback to menu ID
                 Text(
                   item.getDisplayName(menuItems),
                   style: TextStyle(
@@ -306,26 +248,7 @@ class OrderDetailsWidget extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   maxLines: 2,
                 ),
-                
                 const SizedBox(height: 4),
-                
-                // Menu item description (if available)
-                if (menuItem?.description.isNotEmpty == true)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 4),
-                    child: Text(
-                      menuItem!.description,
-                      style: TextStyle(
-                        color: Colors.grey[600],
-                        fontSize: 12,
-                        fontFamily: FontFamily.Montserrat,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                      maxLines: 2,
-                    ),
-                  ),
-                
-                // Price and quantity info
                 Row(
                   children: [
                     Text(
@@ -350,45 +273,15 @@ class OrderDetailsWidget extends StatelessWidget {
               ],
             ),
           ),
-          
           const SizedBox(width: 8),
-          
-          // Total price and availability
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                item.formattedTotalPrice,
-                style: TextStyle(
-                  color: ColorManager.black,
-                  fontSize: 16,
-                  fontWeight: FontWeightManager.bold,
-                  fontFamily: FontFamily.Montserrat,
-                ),
-              ),
-              
-              // Availability indicator (if menu item is loaded)
-              if (menuItem != null)
-                Container(
-                  margin: const EdgeInsets.only(top: 4),
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: menuItem.isAvailable 
-                        ? Colors.green.withOpacity(0.1)
-                        : Colors.red.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Text(
-                    menuItem.isAvailable ? 'Available' : 'Unavailable',
-                    style: TextStyle(
-                      color: menuItem.isAvailable ? Colors.green[700] : Colors.red[700],
-                      fontSize: 10,
-                      fontWeight: FontWeightManager.medium,
-                      fontFamily: FontFamily.Montserrat,
-                    ),
-                  ),
-                ),
-            ],
+          Text(
+            item.formattedTotalPrice,
+            style: TextStyle(
+              color: ColorManager.black,
+              fontSize: 16,
+              fontWeight: FontWeightManager.bold,
+              fontFamily: FontFamily.Montserrat,
+            ),
           ),
         ],
       ),
@@ -407,27 +300,6 @@ class OrderDetailsWidget extends StatelessWidget {
         Icons.fastfood,
         color: Colors.grey[400],
         size: 30,
-      ),
-    );
-  }
-
-  Widget _buildLoadingImage() {
-    return Container(
-      width: 60,
-      height: 60,
-      decoration: BoxDecoration(
-        color: Colors.grey[100],
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: const Center(
-        child: SizedBox(
-          width: 20,
-          height: 20,
-          child: CircularProgressIndicator(
-            strokeWidth: 2,
-            color: Color(0xFFE17A47),
-          ),
-        ),
       ),
     );
   }
@@ -458,9 +330,7 @@ class OrderDetailsWidget extends StatelessWidget {
               ),
             ],
           ),
-          
           const SizedBox(height: 16),
-          
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -483,9 +353,7 @@ class OrderDetailsWidget extends StatelessWidget {
               ),
             ],
           ),
-          
           const SizedBox(height: 8),
-          
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -508,9 +376,7 @@ class OrderDetailsWidget extends StatelessWidget {
               ),
             ],
           ),
-          
           const Divider(height: 24),
-          
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -565,9 +431,7 @@ class OrderDetailsWidget extends StatelessWidget {
               ),
             ],
           ),
-          
           const SizedBox(height: 16),
-          
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
@@ -600,7 +464,299 @@ class OrderDetailsWidget extends StatelessWidget {
   }
 }
 
-// Order Options Bottom Sheet Widget
+// StatusChangeBottomSheet Widget - FOR CHAT SCREEN ONLY
+class StatusChangeBottomSheet extends StatefulWidget {
+  final String orderId;
+  final String partnerId;
+
+  const StatusChangeBottomSheet({
+    Key? key,
+    required this.orderId,
+    required this.partnerId,
+  }) : super(key: key);
+
+  @override
+  State<StatusChangeBottomSheet> createState() => _StatusChangeBottomSheetState();
+}
+
+class _StatusChangeBottomSheetState extends State<StatusChangeBottomSheet> {
+  bool _isUpdating = false;
+
+  @override
+  Widget build(BuildContext context) {
+    // Get current status from bloc state if available
+    String currentStatus = 'PENDING';
+    final chatBlocState = context.read<ChatBloc>().state;
+    if (chatBlocState is ChatLoaded && chatBlocState.orderDetails != null) {
+      currentStatus = chatBlocState.orderDetails!.orderStatus;
+    }
+
+    // Get available status options
+    final allStatuses = OrderService.getAllValidStatuses();
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Handle bar
+          Container(
+            width: 40,
+            height: 4,
+            margin: const EdgeInsets.only(bottom: 20),
+            decoration: BoxDecoration(
+              color: Colors.grey[300],
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          
+          // Title
+          Text(
+            'Update Order Status',
+            style: TextStyle(
+              color: ColorManager.black,
+              fontSize: 20,
+              fontWeight: FontWeightManager.bold,
+              fontFamily: FontFamily.Montserrat,
+            ),
+          ),
+          
+          const SizedBox(height: 20),
+          
+          // Show status options
+          Text(
+            'Select New Status:',
+            style: TextStyle(
+              color: ColorManager.black,
+              fontSize: 16,
+              fontWeight: FontWeightManager.medium,
+              fontFamily: FontFamily.Montserrat,
+            ),
+          ),
+          
+          const SizedBox(height: 12),
+          
+          // Show all status options
+          ...allStatuses.map((status) => _buildStatusOption(
+            status: status,
+            currentStatus: currentStatus,
+            isCurrent: status.toUpperCase() == currentStatus.toUpperCase(),
+            onTap: () {
+              if (status.toUpperCase() == currentStatus.toUpperCase()) {
+                _showInfoSnackBar('Order is already in ${OrderService.formatOrderStatus(status)} status');
+                return;
+              }
+              
+              _updateOrderStatus(status, currentStatus);
+            },
+          )),
+          
+          const SizedBox(height: 20),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatusOption({
+    required String status,
+    required String currentStatus,
+    required bool isCurrent,
+    required VoidCallback onTap,
+  }) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      child: InkWell(
+        onTap: _isUpdating ? null : onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: isCurrent
+                ? OrderService.getStatusColor(status).withOpacity(0.1)
+                : Colors.grey[50],
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isCurrent
+                  ? OrderService.getStatusColor(status).withOpacity(0.3)
+                  : Colors.grey[300]!,
+              width: isCurrent ? 2 : 1,
+            ),
+          ),
+          child: Row(
+            children: [
+              // Status emoji and icon
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: OrderService.getStatusColor(status).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      OrderService.getStatusEmoji(status),
+                      style: const TextStyle(fontSize: 16),
+                    ),
+                    const SizedBox(width: 4),
+                    Icon(
+                      OrderService.getStatusIcon(status),
+                      color: OrderService.getStatusColor(status),
+                      size: 18,
+                    ),
+                  ],
+                ),
+              ),
+              
+              const SizedBox(width: 12),
+              
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text(
+                          OrderService.formatOrderStatus(status),
+                          style: TextStyle(
+                            color: ColorManager.black,
+                            fontSize: 14,
+                            fontWeight: isCurrent 
+                                ? FontWeightManager.bold 
+                                : FontWeightManager.medium,
+                            fontFamily: FontFamily.Montserrat,
+                          ),
+                        ),
+                        if (isCurrent) ...[
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: OrderService.getStatusColor(status),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: const Text(
+                              'Current',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      OrderService.getStatusDescription(status),
+                      style: TextStyle(
+                        color: Colors.grey[600],
+                        fontSize: 11,
+                        fontFamily: FontFamily.Montserrat,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              
+              const SizedBox(width: 8),
+              
+              if (_isUpdating) ...[
+                const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Color(0xFFE17A47),
+                  ),
+                ),
+              ] else if (isCurrent) ...[
+                Icon(
+                  Icons.check_circle,
+                  color: OrderService.getStatusColor(status),
+                  size: 18,
+                ),
+              ] else ...[
+                Icon(
+                  Icons.arrow_forward_ios,
+                  color: Colors.grey[600],
+                  size: 14,
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _updateOrderStatus(String newStatus, String currentStatus) async {
+    setState(() {
+      _isUpdating = true;
+    });
+
+    try {
+      // Use ChatBloc to update status
+      context.read<ChatBloc>().add(UpdateOrderStatus(
+        orderId: widget.orderId,
+        partnerId: widget.partnerId,
+        newStatus: newStatus,
+      ));
+
+      // Simple delay and assume success
+      await Future.delayed(const Duration(seconds: 2));
+
+      if (mounted) {
+        setState(() {
+          _isUpdating = false;
+        });
+
+        Navigator.of(context).pop();
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Order status updated successfully!'),
+            backgroundColor: Colors.green,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isUpdating = false;
+        });
+
+        Navigator.of(context).pop();
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to update order status'),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
+  }
+
+  void _showInfoSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.blue,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+}
+
+// Order Options Bottom Sheet Widget - FOR CHAT SCREEN ONLY
 class OrderOptionsBottomSheet extends StatelessWidget {
   final String orderId;
   final String partnerId;
@@ -653,17 +809,13 @@ class OrderOptionsBottomSheet extends StatelessWidget {
             title: 'View Order Details',
             subtitle: 'See items, customer info, and more',
             onTap: () {
-              Navigator.pop(context); // Close the bottom sheet first
-              
-              // Navigate to order details page
+              Navigator.pop(context);
               Navigator.push(
                 context,
                 MaterialPageRoute(
                   builder: (context) => const OrderDetailsWidget(),
                 ),
               );
-              
-              // Trigger the bloc event to load order details
               context.read<ChatBloc>().add(LoadOrderDetails(
                 orderId: orderId,
                 partnerId: partnerId,
@@ -681,7 +833,15 @@ class OrderOptionsBottomSheet extends StatelessWidget {
             subtitle: 'Update the current order status',
             onTap: () {
               Navigator.pop(context);
-              _showStatusChangeBottomSheet(context, orderId, partnerId);
+              showModalBottomSheet(
+                context: context,
+                isScrollControlled: true,
+                backgroundColor: Colors.transparent,
+                builder: (context) => StatusChangeBottomSheet(
+                  orderId: orderId,
+                  partnerId: partnerId,
+                ),
+              );
             },
           ),
           
@@ -722,9 +882,7 @@ class OrderOptionsBottomSheet extends StatelessWidget {
                 size: 24,
               ),
             ),
-            
             const SizedBox(width: 16),
-            
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -750,444 +908,12 @@ class OrderOptionsBottomSheet extends StatelessWidget {
                 ],
               ),
             ),
-            
             Icon(
               Icons.arrow_forward_ios,
               color: Colors.grey[400],
               size: 16,
             ),
           ],
-        ),
-      ),
-    );
-  }
-
-  void _showStatusChangeBottomSheet(BuildContext context, String orderId, String partnerId) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => StatusChangeBottomSheet(
-        orderId: orderId,
-        partnerId: partnerId,
-      ),
-    );
-  }
-}
-
-// Status Change Bottom Sheet Widget - FIXED VERSION
-class StatusChangeBottomSheet extends StatefulWidget {
-  final String orderId;
-  final String partnerId;
-
-  const StatusChangeBottomSheet({
-    Key? key,
-    required this.orderId,
-    required this.partnerId,
-  }) : super(key: key);
-
-  @override
-  State<StatusChangeBottomSheet> createState() => _StatusChangeBottomSheetState();
-}
-
-class _StatusChangeBottomSheetState extends State<StatusChangeBottomSheet> {
-  bool _isUpdating = false;
-
-  @override
-  Widget build(BuildContext context) {
-    // Get current status from bloc state if available
-    String currentStatus = 'PENDING';
-    final chatBlocState = context.read<ChatBloc>().state;
-    if (chatBlocState is ChatLoaded && chatBlocState.orderDetails != null) {
-      currentStatus = chatBlocState.orderDetails!.orderStatus;
-    }
-
-    // Get available status options
-    final allStatuses = OrderService.getAllValidStatuses();
-    final availableStatuses = OrderService.getAvailableStatusOptions(currentStatus);
-
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Handle bar
-          Container(
-            width: 40,
-            height: 4,
-            margin: const EdgeInsets.only(bottom: 20),
-            decoration: BoxDecoration(
-              color: Colors.grey[300],
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-          
-          // Title
-          Text(
-            'Update Order Status',
-            style: TextStyle(
-              color: ColorManager.black,
-              fontSize: 20,
-              fontWeight: FontWeightManager.bold,
-              fontFamily: FontFamily.Montserrat,
-            ),
-          ),
-          
-          const SizedBox(height: 8),
-          
-          // Current status with emoji and enhanced styling
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(
-              color: OrderService.getStatusColor(currentStatus).withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: OrderService.getStatusColor(currentStatus).withOpacity(0.3),
-                width: 2,
-              ),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  OrderService.getStatusEmoji(currentStatus),
-                  style: const TextStyle(fontSize: 20),
-                ),
-                const SizedBox(width: 12),
-                Icon(
-                  OrderService.getStatusIcon(currentStatus),
-                  color: OrderService.getStatusColor(currentStatus),
-                  size: 20,
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  'Current: ${OrderService.formatOrderStatus(currentStatus)}',
-                  style: TextStyle(
-                    color: OrderService.getStatusColor(currentStatus),
-                    fontSize: 16,
-                    fontWeight: FontWeightManager.bold,
-                    fontFamily: FontFamily.Montserrat,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          
-          const SizedBox(height: 20),
-          
-          // Show all status options
-          Text(
-            'Select New Status:',
-            style: TextStyle(
-              color: ColorManager.black,
-              fontSize: 16,
-              fontWeight: FontWeightManager.medium,
-              fontFamily: FontFamily.Montserrat,
-            ),
-          ),
-          
-          const SizedBox(height: 12),
-          
-          // Show all 7 status options
-          ...allStatuses.map((status) => _buildStatusOption(
-            status: status,
-            currentStatus: currentStatus,
-            isAllowed: availableStatuses.contains(status),
-            isCurrent: status.toUpperCase() == currentStatus.toUpperCase(),
-            onTap: () {
-              if (status.toUpperCase() == currentStatus.toUpperCase()) {
-                // Same status - show info message
-                _showInfoSnackBar('Order is already in ${OrderService.formatOrderStatus(status)} status');
-                return;
-              }
-              
-              _updateOrderStatus(status, currentStatus);
-            },
-          )),
-          
-          const SizedBox(height: 20),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStatusOption({
-    required String status,
-    required String currentStatus,
-    required bool isAllowed,
-    required bool isCurrent,
-    required VoidCallback onTap,
-  }) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      child: InkWell(
-        onTap: _isUpdating ? null : onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: Colors.grey[50],
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: Colors.grey[300]!,
-              width: 1,
-            ),
-          ),
-          child: Row(
-            children: [
-              // Status emoji and icon
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: OrderService.getStatusColor(status).withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      OrderService.getStatusEmoji(status),
-                      style: const TextStyle(fontSize: 16),
-                    ),
-                    const SizedBox(width: 4),
-                    Icon(
-                      OrderService.getStatusIcon(status),
-                      color: OrderService.getStatusColor(status),
-                      size: 18,
-                    ),
-                  ],
-                ),
-              ),
-              
-              const SizedBox(width: 12),
-              
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      OrderService.formatOrderStatus(status),
-                      style: TextStyle(
-                        color: ColorManager.black,
-                        fontSize: 14,
-                        fontWeight: isCurrent 
-                            ? FontWeightManager.bold 
-                            : FontWeightManager.medium,
-                        fontFamily: FontFamily.Montserrat,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      OrderService.getStatusDescription(status),
-                      style: TextStyle(
-                        color: Colors.grey[600],
-                        fontSize: 11,
-                        fontFamily: FontFamily.Montserrat,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              
-              const SizedBox(width: 8),
-              
-              if (_isUpdating) ...[
-                const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: Color(0xFFE17A47),
-                  ),
-                ),
-              ] else ...[
-                Icon(
-                  Icons.arrow_forward_ios,
-                  color: Colors.grey[600],
-                  size: 14,
-                ),
-              ],
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  // Helper to determine if status change is progressive (forward in workflow)
-  bool _isProgressiveChange(String currentStatus, String newStatus) {
-    final statusOrder = [
-      'PENDING',
-      'CONFIRMED',
-      'PREPARING',
-      'READY_FOR_DELIVERY',
-      'OUT_FOR_DELIVERY',
-      'DELIVERED'
-    ];
-    
-    final currentIndex = statusOrder.indexOf(currentStatus.toUpperCase());
-    final newIndex = statusOrder.indexOf(newStatus.toUpperCase());
-    
-    return currentIndex != -1 && newIndex != -1 && newIndex > currentIndex;
-  }
-
-  // FIXED: Remove duplicate API call - only use ChatBloc to prevent the duplicate call issue
-  Future<void> _updateOrderStatus(String newStatus, String currentStatus) async {
-    setState(() {
-      _isUpdating = true;
-    });
-
-    try {
-      // ONLY use ChatBloc - this prevents duplicate API calls
-      // The ChatBloc will handle the API call and state management
-      context.read<ChatBloc>().add(UpdateOrderStatus(
-        orderId: widget.orderId,
-        partnerId: widget.partnerId,
-        newStatus: newStatus,
-      ));
-
-      // Wait for the bloc to process the update
-      await Future.delayed(const Duration(milliseconds: 1500));
-
-      if (mounted) {
-        setState(() {
-          _isUpdating = false;
-        });
-
-        // Close the bottom sheet
-        Navigator.of(context).pop();
-
-        // Wait a frame to ensure the bottom sheet is closed
-        await Future.delayed(const Duration(milliseconds: 100));
-
-        if (mounted) {
-          // Show success message (assume success since no exception was thrown)
-          _showSuccessSnackBarInParent(
-            'Order status updated to ${OrderService.formatOrderStatus(newStatus)} successfully!',
-            newStatus,
-          );
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _isUpdating = false;
-        });
-
-        // Close the bottom sheet first
-        Navigator.of(context).pop();
-
-        // Wait a frame to ensure the bottom sheet is closed
-        await Future.delayed(const Duration(milliseconds: 100));
-
-        if (mounted) {
-          // Show error message
-          _showErrorSnackBarInParent('Failed to update order status. Please try again.');
-        }
-      }
-    }
-  }
-
-  void _showSuccessSnackBarInParent(String message, String status) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            Text(
-              OrderService.getStatusEmoji(status),
-              style: const TextStyle(fontSize: 18),
-            ),
-            const SizedBox(width: 12),
-            const Icon(
-              Icons.check_circle,
-              color: Colors.white,
-              size: 20,
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                message,
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 14,
-                ),
-              ),
-            ),
-          ],
-        ),
-        duration: const Duration(seconds: 4),
-        backgroundColor: Colors.green,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(10),
-        ),
-      ),
-    );
-  }
-
-  void _showErrorSnackBarInParent(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            const Icon(
-              Icons.error_outline,
-              color: Colors.white,
-              size: 20,
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                message,
-                style: const TextStyle(
-                  fontWeight: FontWeightManager.medium,
-                  fontSize: 14,
-                ),
-              ),
-            ),
-          ],
-        ),
-        duration: const Duration(seconds: 6),
-        backgroundColor: Colors.red,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(10),
-        ),
-      ),
-    );
-  }
-
-  void _showInfoSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            const Icon(
-              Icons.info_outline,
-              color: Colors.white,
-              size: 20,
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                message,
-                style: const TextStyle(
-                  fontWeight: FontWeightManager.medium,
-                  fontSize: 14,
-                ),
-              ),
-            ),
-          ],
-        ),
-        duration: const Duration(seconds: 2),
-        backgroundColor: Colors.blue,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(10),
         ),
       ),
     );

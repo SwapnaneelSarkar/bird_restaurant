@@ -48,11 +48,11 @@ class ApiChatMessage {
     if (currentUserId == null || currentUserId.isEmpty) return false;
     
     final isMatch = senderId == currentUserId;
-    debugPrint('ChatService: 🔍 Comparing sender IDs:');
-    debugPrint('  - Message sender ID: "$senderId"');
-    debugPrint('  - Current user ID: "$currentUserId"');
-    debugPrint('  - Match: $isMatch');
-    debugPrint('  - Message: "${content.length > 20 ? content.substring(0, 20) + '...' : content}"');
+    // debugPrint('ChatService: 🔍 Comparing sender IDs:');
+    // debugPrint('  - Message sender ID: "$senderId"');
+    // debugPrint('  - Current user ID: "$currentUserId"');
+    // debugPrint('  - Match: $isMatch');
+    // debugPrint('  - Message: "${content.length > 20 ? content.substring(0, 20) + '...' : content}"');
     
     return isMatch;
   }

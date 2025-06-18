@@ -1,13 +1,13 @@
 // lib/ui_components/order_card.dart
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import '../constants/enums.dart';
 import '../presentation/resources/colors.dart';
 import '../presentation/resources/font.dart';
-import '../presentation/screens/orders/state.dart';
+import '../presentation/screens/orders/bloc.dart';
 import '../services/order_service.dart';
-import '../services/token_service.dart';
-import 'universal_widget/order_widgets.dart';
+import 'order_status_bottomsheet.dart'; // Import the ORDERS-specific bottom sheet
 
 class OrderCard extends StatelessWidget {
   final String orderId;
@@ -181,22 +181,22 @@ class OrderCard extends StatelessWidget {
       return;
     }
 
-    // Otherwise, show the order options bottom sheet (new behavior)
-    _showOrderOptionsBottomSheet(context);
+    // Otherwise, show the ORDER STATUS bottom sheet (for orders page)
+    _showOrderStatusBottomSheet(context);
   }
 
-  Future<void> _showOrderOptionsBottomSheet(BuildContext context) async {
-  // Get partner ID - this should be retrieved from the current user/session
-  final partnerId = await TokenService.getUserId();
-  
-  showModalBottomSheet(
-    context: context,
-    isScrollControlled: true,
-    backgroundColor: Colors.transparent,
-    builder: (context) => OrderOptionsBottomSheet(
-      orderId: orderId,
-      partnerId: partnerId ?? 'default_partner_id', // Handle null case
-    ),
-  );
-}
+  void _showOrderStatusBottomSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (bottomSheetContext) => BlocProvider.value(
+        value: context.read<OrdersBloc>(), // Provide the OrdersBloc to the bottom sheet
+        child: OrderStatusBottomSheet(
+          orderId: orderId,
+          currentStatus: status,
+        ),
+      ),
+    );
+  }
 }

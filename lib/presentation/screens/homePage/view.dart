@@ -56,22 +56,12 @@ class _HomeViewState extends State<HomeView> with TickerProviderStateMixin {
       });
       
       if (index == 1) {
-        // Navigate to chat list instead of showing chat content in PageView
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (context) => const ChatListView(),
-          ),
-        ).then((_) {
-          // Reset to home tab when returning from chat list
-          setState(() {
-            _selectedIndex = 0;
-          });
-          _pageController.animateToPage(
-            0,
-            duration: const Duration(milliseconds: 300),
-            curve: Curves.easeInOut,
-          );
-        });
+        // Instead of navigating to a new route, just animate to the chat page
+        _pageController.animateToPage(
+          1,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeInOut,
+        );
       } else {
         _pageController.animateToPage(
           index,
@@ -154,9 +144,16 @@ class _HomeViewState extends State<HomeView> with TickerProviderStateMixin {
               if (state.restaurantData!['restaurant_photos'] != null) {
                 var photos = state.restaurantData!['restaurant_photos'];
                 if (photos is List && photos.isNotEmpty) {
-                  restaurantImageUrl = photos[0];
+                  // Extract the URL from the list item if it's a string
+                  var photoUrl = photos[0];
+                  if (photoUrl is String) {
+                    // Remove any JSON array brackets and quotes
+                    photoUrl = photoUrl.replaceAll('[', '').replaceAll(']', '').replaceAll('"', '');
+                    restaurantImageUrl = photoUrl;
+                  }
                 } else if (photos is String) {
-                  restaurantImageUrl = photos;
+                  // Remove any JSON array brackets and quotes
+                  restaurantImageUrl = photos.replaceAll('[', '').replaceAll(']', '').replaceAll('"', '');
                 }
               }
               
@@ -166,8 +163,13 @@ class _HomeViewState extends State<HomeView> with TickerProviderStateMixin {
               }
               
               // If we found an image URL, ensure it's a complete URL
-              if (restaurantImageUrl != null && !restaurantImageUrl.startsWith('http')) {
-                restaurantImageUrl = '${ApiConstants.baseUrl}/$restaurantImageUrl';
+              if (restaurantImageUrl != null) {
+                // Remove any existing API prefix if present
+                restaurantImageUrl = restaurantImageUrl.replaceAll('${ApiConstants.baseUrl}/api/', '');
+                // Only add base URL if it's not already a complete URL
+                if (!restaurantImageUrl.startsWith('http')) {
+                  restaurantImageUrl = '${ApiConstants.baseUrl}/$restaurantImageUrl';
+                }
               }
             }
             
@@ -241,8 +243,8 @@ class _HomeViewState extends State<HomeView> with TickerProviderStateMixin {
                   },
                 ),
                 
-                // Chats content
-                const ChatView(orderId: '',),
+                // Chats content - Replace ChatView with ChatListView
+                const ChatListView(),
               ],
             ),
             

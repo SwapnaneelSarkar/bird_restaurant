@@ -1,4 +1,7 @@
-// lib/presentation/screens/orders/bloc.dart - UPDATED FOR COMPLETE API INTEGRATION
+// lib/presentation/screens/orders/bloc.dart - UPDATED WITH BETTER ERROR HANDLING
+
+import 'dart:convert';
+
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter/foundation.dart';
 import '../../../constants/enums.dart';
@@ -142,7 +145,8 @@ class OrdersBloc extends Bloc<OrdersEvent, OrdersState> {
     }
   }
 
-    void _onUpdateOrderStatus(UpdateOrderStatusEvent event, Emitter<OrdersState> emit) async {
+  // UPDATED: Better error handling for status updates with page reload
+  void _onUpdateOrderStatus(UpdateOrderStatusEvent event, Emitter<OrdersState> emit) async {
     if (state is OrdersLoaded) {
       final currentState = state as OrdersLoaded;
       
@@ -161,15 +165,69 @@ class OrdersBloc extends Bloc<OrdersEvent, OrdersState> {
         
         if (success) {
           debugPrint('OrdersBloc: ✅ Order status updated successfully');
-          // Reload orders to get updated data
+          
+          // Show success state briefly before reloading
+          emit(OrderStatusUpdateSuccess(
+            orderId: event.orderId,
+            newStatus: event.newStatus,
+            message: 'Order status updated to ${event.newStatus.displayName} successfully!',
+          ));
+          
+          // Wait a moment, then reload orders to get updated data
+          await Future.delayed(const Duration(milliseconds: 1000));
           add(LoadOrdersEvent());
+          
         } else {
           debugPrint('OrdersBloc: ❌ Failed to update order status');
-          emit(OrdersError('Failed to update order status'));
+          
+          // Show error state briefly
+          emit(OrderStatusUpdateError(
+            orderId: event.orderId,
+            message: 'Failed to update order status. Please try again.',
+          ));
+          
+          // ADDED: Also reload orders after error to refresh the page
+          await Future.delayed(const Duration(milliseconds: 1500));
+          add(LoadOrdersEvent());
         }
       } catch (e) {
         debugPrint('OrdersBloc: ❌ Error updating order status: $e');
-        emit(OrdersError('Failed to update order status: ${e.toString()}'));
+        
+        // Parse error message from exception
+        String errorMessage = 'Failed to update order status. Please try again.';
+        try {
+          if (e.toString().contains('"status":"ERROR"')) {
+            // Extract JSON from exception message
+            final startIndex = e.toString().indexOf('{');
+            if (startIndex != -1) {
+              final jsonStr = e.toString().substring(startIndex);
+              final errorJson = jsonDecode(jsonStr);
+              errorMessage = errorJson['message'] ?? errorMessage;
+            }
+          } else if (e.toString().contains('Cannot update status')) {
+            // Extract the actual error message from API
+            final match = RegExp(r'"message":"([^"]*)"').firstMatch(e.toString());
+            if (match != null) {
+              errorMessage = match.group(1) ?? errorMessage;
+            }
+          } else if (e.toString().contains('Invalid request')) {
+            errorMessage = 'Invalid status transition. Please check the current order status.';
+          } else if (e.toString().contains('Server error')) {
+            errorMessage = 'Server error occurred. Please try again later.';
+          }
+        } catch (parseError) {
+          debugPrint('OrdersBloc: Could not parse error details: $parseError');
+        }
+        
+        // Show error state
+        emit(OrderStatusUpdateError(
+          orderId: event.orderId,
+          message: errorMessage,
+        ));
+        
+        // ADDED: Reload orders after error to refresh the page
+        await Future.delayed(const Duration(milliseconds: 1500));
+        add(LoadOrdersEvent());
       }
     }
   }

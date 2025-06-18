@@ -19,12 +19,11 @@ class OrdersScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
-      create: (context) => OrdersBloc(),
+      create: (context) => OrdersBloc()..add(const LoadOrdersEvent()), // Load orders on creation
       child: const OrdersView(),
     );
   }
 }
-
 class OrdersView extends StatefulWidget {
   const OrdersView({Key? key}) : super(key: key);
 
@@ -54,59 +53,134 @@ class _OrdersViewState extends State<OrdersView> {
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: ColorManager.background,
-      appBar: AppBar(
-        elevation: 0,
-        backgroundColor: Colors.white,
-        toolbarHeight: 60,
-        automaticallyImplyLeading: false,
-        title: Row(
-          children: [
-            InkWell(
-              borderRadius: BorderRadius.circular(40),
-              onTap: _openSidebar,
-              child: const Padding(
-                padding: EdgeInsets.all(8.0),
-                child: Icon(
-                  Icons.menu_rounded,
-                  color: Colors.black87,
-                  size: 24.0,
-                ),
+@override
+Widget build(BuildContext context) {
+  return Scaffold(
+    backgroundColor: ColorManager.background,
+    appBar: AppBar(
+      elevation: 0,
+      backgroundColor: Colors.white,
+      toolbarHeight: 60,
+      automaticallyImplyLeading: false,
+      title: Row(
+        children: [
+          InkWell(
+            borderRadius: BorderRadius.circular(40),
+            onTap: _openSidebar,
+            child: const Padding(
+              padding: EdgeInsets.all(8.0),
+              child: Icon(
+                Icons.menu_rounded,
+                color: Colors.black87,
+                size: 24.0,
               ),
             ),
-            const SizedBox(width: 12),
-            Text(
-              'Orders Management',
-              style: TextStyle(
-                fontFamily: FontFamily.Montserrat,
-                fontSize: FontSize.s18,
-                color: ColorManager.black,
-                fontWeight: FontWeightManager.bold,
-              ),
+          ),
+          const SizedBox(width: 12),
+          Text(
+            'Orders Management',
+            style: TextStyle(
+              fontFamily: FontFamily.Montserrat,
+              fontSize: FontSize.s18,
+              color: ColorManager.black,
+              fontWeight: FontWeightManager.bold,
             ),
-          ],
-        ),
-        actions: [
-          IconButton(
-            onPressed: () => context.read<OrdersBloc>().add(const RefreshOrdersEvent()),
-            icon: const Icon(Icons.refresh, color: Colors.black87),
           ),
         ],
       ),
-      body: BlocConsumer<OrdersBloc, OrdersState>(
-        listener: (context, state) {
-          if (state is OrdersError) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(state.message),
-                backgroundColor: Colors.red,
-              ),
-            );
-          }
-        },
+      actions: [
+        IconButton(
+          onPressed: () => context.read<OrdersBloc>().add(const RefreshOrdersEvent()),
+          icon: const Icon(Icons.refresh, color: Colors.black87),
+        ),
+      ],
+    ),
+    body: MultiBlocListener(
+      listeners: [
+        // Status update success listener
+        BlocListener<OrdersBloc, OrdersState>(
+          listenWhen: (previous, current) => current is OrderStatusUpdateSuccess,
+          listener: (context, state) {
+            if (state is OrderStatusUpdateSuccess) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Row(
+                    children: [
+                      const Icon(Icons.check_circle, color: Colors.white, size: 20),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          state.message,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  backgroundColor: Colors.green,
+                  behavior: SnackBarBehavior.floating,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  duration: const Duration(seconds: 3),
+                ),
+              );
+            }
+          },
+        ),
+        
+        // Status update error listener
+        BlocListener<OrdersBloc, OrdersState>(
+          listenWhen: (previous, current) => current is OrderStatusUpdateError,
+          listener: (context, state) {
+            if (state is OrderStatusUpdateError) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Row(
+                    children: [
+                      const Icon(Icons.error_outline, color: Colors.white, size: 20),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          state.message,
+                          style: const TextStyle(
+                            fontWeight: FontWeightManager.medium,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  backgroundColor: Colors.red,
+                  behavior: SnackBarBehavior.floating,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  duration: const Duration(seconds: 5),
+                ),
+              );
+            }
+          },
+        ),
+        
+        // General error listener
+        BlocListener<OrdersBloc, OrdersState>(
+          listenWhen: (previous, current) => current is OrdersError,
+          listener: (context, state) {
+            if (state is OrdersError) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(state.message),
+                  backgroundColor: Colors.red,
+                ),
+              );
+            }
+          },
+        ),
+      ],
+      child: BlocBuilder<OrdersBloc, OrdersState>(
         builder: (context, state) {
           if (state is OrdersLoading) {
             return const Center(
@@ -116,8 +190,58 @@ class _OrdersViewState extends State<OrdersView> {
             );
           }
 
-          if (state is OrdersLoaded) {
-            return _buildOrdersContent(context, state);
+        if (state is OrdersLoaded) {
+              return _buildOrdersContent(context, state);
+            }
+          
+          // Show updating indicator for status updates
+          if (state is OrderStatusUpdating) {
+            // Keep the previous loaded state visible but show updating indicator
+            final previousLoaded = context.read<OrdersBloc>().state;
+            if (previousLoaded is OrdersLoaded) {
+              return Stack(
+                children: [
+                  _buildOrdersContent(context, previousLoaded),
+                  
+                  // Overlay updating indicator
+                  Positioned(
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      color: Colors.orange.withOpacity(0.9),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Text(
+                            'Updating order status...',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeightManager.medium,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            } else {
+              return const Center(
+                child: CircularProgressIndicator(color: Color(0xFFE17A47)),
+              );
+            }
           }
 
           if (state is OrdersError) {
@@ -160,8 +284,9 @@ class _OrdersViewState extends State<OrdersView> {
           return const SizedBox();
         },
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildOrdersContent(BuildContext context, OrdersLoaded state) {
     final bloc = context.read<OrdersBloc>();
@@ -354,17 +479,18 @@ class _OrdersViewState extends State<OrdersView> {
                 (context, index) {
                   final order = state.filteredOrders[index];
                   return OrderCard(
-                        orderId: order.id,
-                        customerName: order.displayCustomerName,
-                        amount: order.amount,
-                        date: order.date,
-                        status: order.orderStatus,
-                        customerPhone: order.customerPhone,
-                        deliveryAddress: order.deliveryAddress,
-                        // Remove the old onTap - the card will handle bottom sheet internally
-                      );
+                    orderId: order.id,
+                    customerName: order.displayCustomerName,
+                    amount: order.amount,
+                    date: order.date,
+                    status: order.orderStatus,
+                    customerPhone: order.customerPhone,
+                    deliveryAddress: order.deliveryAddress,
+                    // The OrderCard will handle bottom sheet internally
+                  );
                 },
                 childCount: state.filteredOrders.length,
+
               ),
             ),
           

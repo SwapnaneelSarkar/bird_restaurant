@@ -1,4 +1,4 @@
-// lib/presentation/screens/chat/state.dart - ENHANCED WITH BETTER MENU ITEMS SUPPORT
+// lib/presentation/screens/chat/state.dart - ENHANCED WITH STATUS UPDATE TRACKING
 
 import 'package:equatable/equatable.dart';
 import '../../../services/menu_item_service.dart';
@@ -22,7 +22,11 @@ class ChatLoaded extends ChatState {
   final bool isRefreshing;
   final OrderDetails? orderDetails;
   final bool isLoadingOrderDetails;
-  final Map<String, MenuItem> menuItems; // ENHANCED: Cache for menu items
+  final Map<String, MenuItem> menuItems;
+  final bool isUpdatingOrderStatus; // ADD THIS FIELD
+  final bool? lastUpdateSuccess; // ADD THIS FIELD
+  final String? lastUpdateMessage; // ADD THIS FIELD
+  final DateTime? lastUpdateTimestamp; // ADD THIS FIELD
 
   const ChatLoaded({
     required this.orderInfo,
@@ -32,7 +36,11 @@ class ChatLoaded extends ChatState {
     this.isRefreshing = false,
     this.orderDetails,
     this.isLoadingOrderDetails = false,
-    this.menuItems = const {}, // ENHANCED: Default empty map
+    this.menuItems = const {},
+    this.isUpdatingOrderStatus = false, // ADD THIS
+    this.lastUpdateSuccess, // ADD THIS
+    this.lastUpdateMessage, // ADD THIS
+    this.lastUpdateTimestamp, // ADD THIS
   });
 
   ChatLoaded copyWith({
@@ -43,7 +51,11 @@ class ChatLoaded extends ChatState {
     bool? isRefreshing,
     OrderDetails? orderDetails,
     bool? isLoadingOrderDetails,
-    Map<String, MenuItem>? menuItems, // ENHANCED: Add menu items to copyWith
+    Map<String, MenuItem>? menuItems,
+    bool? isUpdatingOrderStatus, // ADD THIS
+    bool? lastUpdateSuccess, // ADD THIS
+    String? lastUpdateMessage, // ADD THIS
+    DateTime? lastUpdateTimestamp, // ADD THIS
   }) {
     return ChatLoaded(
       orderInfo: orderInfo ?? this.orderInfo,
@@ -53,7 +65,11 @@ class ChatLoaded extends ChatState {
       isRefreshing: isRefreshing ?? this.isRefreshing,
       orderDetails: orderDetails ?? this.orderDetails,
       isLoadingOrderDetails: isLoadingOrderDetails ?? this.isLoadingOrderDetails,
-      menuItems: menuItems ?? this.menuItems, // ENHANCED: Include in copyWith
+      menuItems: menuItems ?? this.menuItems,
+      isUpdatingOrderStatus: isUpdatingOrderStatus ?? this.isUpdatingOrderStatus, // ADD THIS
+      lastUpdateSuccess: lastUpdateSuccess ?? this.lastUpdateSuccess, // ADD THIS
+      lastUpdateMessage: lastUpdateMessage ?? this.lastUpdateMessage, // ADD THIS
+      lastUpdateTimestamp: lastUpdateTimestamp ?? this.lastUpdateTimestamp, // ADD THIS
     );
   }
 
@@ -66,7 +82,11 @@ class ChatLoaded extends ChatState {
         isRefreshing,
         orderDetails,
         isLoadingOrderDetails,
-        menuItems, // ENHANCED: Include in props
+        menuItems,
+        isUpdatingOrderStatus, // ADD THIS
+        lastUpdateSuccess, // ADD THIS
+        lastUpdateMessage, // ADD THIS
+        lastUpdateTimestamp, // ADD THIS
       ];
 }
 
@@ -97,7 +117,7 @@ class OrderDetailsLoading extends ChatState {}
 
 class OrderDetailsLoaded extends ChatState {
   final OrderDetails orderDetails;
-  final Map<String, MenuItem>? menuItems; // ENHANCED: Include menu items
+  final Map<String, MenuItem>? menuItems;
 
   const OrderDetailsLoaded(this.orderDetails, {this.menuItems});
 
@@ -186,6 +206,27 @@ class OrderDetails {
       totalAmount: _parseAmount(json['total_amount']),
       deliveryFees: _parseAmount(json['delivery_fees']),
       orderStatus: json['order_status'] ?? 'UNKNOWN',
+    );
+  }
+
+  // ADD THIS COPYWITH METHOD FOR STATUS UPDATES
+  OrderDetails copyWith({
+    String? orderId,
+    String? userId,
+    List<String>? itemIds,
+    List<OrderItem>? items,
+    String? totalAmount,
+    String? deliveryFees,
+    String? orderStatus,
+  }) {
+    return OrderDetails(
+      orderId: orderId ?? this.orderId,
+      userId: userId ?? this.userId,
+      itemIds: itemIds ?? this.itemIds,
+      items: items ?? this.items,
+      totalAmount: totalAmount ?? this.totalAmount,
+      deliveryFees: deliveryFees ?? this.deliveryFees,
+      orderStatus: orderStatus ?? this.orderStatus, // This is the key update
     );
   }
 
