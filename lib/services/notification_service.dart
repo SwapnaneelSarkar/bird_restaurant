@@ -286,14 +286,14 @@ class NotificationService {
       }
 
       debugPrint('🔔 Registering FCM token with server...');
-      debugPrint('User ID: $userId');
+      debugPrint('Partner ID: $userId');
       debugPrint('FCM Token: $token');
 
 
       final url = Uri.parse('${ApiConstants.baseUrl}/user/register-device-token');
       
       final body = jsonEncode({
-        "userId": userId.toString(),
+        "partnerId": userId.toString(),
         "token": token,
       });
 

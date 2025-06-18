@@ -13,7 +13,6 @@ import '../../../models/restaurant_menu_model.dart';
 import 'bloc.dart';
 import 'event.dart';
 import 'state.dart';
-import '../../../services/restaurant_info_service.dart';
 
 class AttributesScreen extends StatefulWidget {
   const AttributesScreen({Key? key}) : super(key: key);
@@ -42,17 +41,8 @@ class _AttributesScreenState extends State<AttributesScreen> {
   void _openSidebar() {
     Navigator.of(context).push(
       PageRouteBuilder(
-        pageBuilder: (context, animation, secondaryAnimation) => FutureBuilder<Map<String, String>>(
-          future: RestaurantInfoService.getRestaurantInfo(),
-          builder: (context, snapshot) {
-            final info = snapshot.data ?? {};
-            return SidebarDrawer(
-              activePage: 'add_attributes',
-              restaurantName: info['name'],
-              restaurantSlogan: info['slogan'],
-              restaurantImageUrl: info['imageUrl'],
-            );
-          },
+        pageBuilder: (context, animation, secondaryAnimation) => const SidebarDrawer(
+          activePage: 'add_attributes',
         ),
         transitionDuration: Duration.zero,
         reverseTransitionDuration: Duration.zero,
@@ -68,7 +58,7 @@ class _AttributesScreenState extends State<AttributesScreen> {
           create: (context) => AttributeBloc(),
         ),
         BlocProvider(
-          create: (context) => MenuItemsBloc()..add(LoadMenuItemsEvent()),
+          create: (context) => MenuItemsBloc()..add(const LoadMenuItemsEvent()),
         ),
       ],
       child: Scaffold(
@@ -88,7 +78,7 @@ class _AttributesScreenState extends State<AttributesScreen> {
                         SnackBar(
                           content: Text(state.message),
                           backgroundColor: Colors.green,
-                          duration: Duration(seconds: 2),
+                          duration: const Duration(seconds: 2),
                         ),
                       );
                     } else if (state is AttributeError) {
@@ -96,7 +86,7 @@ class _AttributesScreenState extends State<AttributesScreen> {
                         SnackBar(
                           content: Text(state.message),
                           backgroundColor: Colors.red,
-                          duration: Duration(seconds: 3),
+                          duration: const Duration(seconds: 3),
                         ),
                       );
                     }
@@ -207,9 +197,17 @@ class _AttributesScreenState extends State<AttributesScreen> {
           BlocBuilder<MenuItemsBloc, MenuItemsState>(
             builder: (context, menuState) {
               if (menuState is MenuItemsLoading) {
-                return const Center(
-                  child: CircularProgressIndicator(
-                    color: Color(0xFFCD6E32),
+                return Container(
+                  height: 60,
+                  decoration: BoxDecoration(
+                    color: Colors.grey[50],
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.grey[200]!),
+                  ),
+                  child: const Center(
+                    child: CircularProgressIndicator(
+                      color: Color(0xFFCD6E32),
+                    ),
                   ),
                 );
               } else if (menuState is MenuItemsLoaded) {
@@ -249,6 +247,7 @@ class _AttributesScreenState extends State<AttributesScreen> {
                     ),
                     contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
                   ),
+                  isExpanded: true, // This helps prevent render box size issues
                   items: menuState.menuItems.map((MenuItem item) {
                     return DropdownMenuItem<MenuItem>(
                       value: item,
@@ -299,12 +298,27 @@ class _AttributesScreenState extends State<AttributesScreen> {
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(color: Colors.red[200]!),
                   ),
-                  child: Text(
-                    'Error loading menu items: ${menuState.message}',
-                    style: TextStyle(
-                      color: Colors.red[700],
-                      fontSize: FontSize.s14,
-                    ),
+                  child: Column(
+                    children: [
+                      Text(
+                        'Error loading menu items: ${menuState.message}',
+                        style: TextStyle(
+                          color: Colors.red[700],
+                          fontSize: FontSize.s14,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      ElevatedButton(
+                        onPressed: () {
+                          context.read<MenuItemsBloc>().add(const LoadMenuItemsEvent(forceRefresh: true));
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFCD6E32),
+                          foregroundColor: Colors.white,
+                        ),
+                        child: const Text('Retry'),
+                      ),
+                    ],
                   ),
                 );
               }
@@ -423,7 +437,8 @@ class _AttributesScreenState extends State<AttributesScreen> {
                 ),
                 contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
               ),
-              items: [
+              isExpanded: true, // Prevent render box size issues
+              items: const [
                 DropdownMenuItem(value: 'radio', child: Text('Single Choice (Radio)')),
                 DropdownMenuItem(value: 'checkbox', child: Text('Multiple Choice (Checkbox)')),
               ],
@@ -508,6 +523,7 @@ class _AttributesScreenState extends State<AttributesScreen> {
           if (attributeState?.newAttributeValues.isNotEmpty == true) ...[
             const SizedBox(height: 16),
             Container(
+              width: double.infinity, // Explicit width to prevent render box issues
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: Colors.grey[50],
@@ -528,6 +544,7 @@ class _AttributesScreenState extends State<AttributesScreen> {
                   const SizedBox(height: 8),
                   ...attributeState!.newAttributeValues.map((value) {
                     return Container(
+                      width: double.infinity, // Prevent sizing issues
                       margin: const EdgeInsets.only(bottom: 8),
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
@@ -613,7 +630,7 @@ class _AttributesScreenState extends State<AttributesScreen> {
                   ? Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        SizedBox(
+                        const SizedBox(
                           width: 16,
                           height: 16,
                           child: CircularProgressIndicator(
@@ -757,6 +774,7 @@ class _AttributesScreenState extends State<AttributesScreen> {
 
   Widget _buildAttributeCard(BuildContext context, Attribute attribute, int index) {
     return Container(
+      width: double.infinity, // Explicit width to prevent render box issues
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
@@ -821,6 +839,7 @@ class _AttributesScreenState extends State<AttributesScreen> {
                 ),
               ),
               Row(
+                mainAxisSize: MainAxisSize.min, // Prevent overflow
                 children: [
                   IconButton(
                     onPressed: () => _showEditDialog(context, attribute),
@@ -861,36 +880,37 @@ class _AttributesScreenState extends State<AttributesScreen> {
             ],
           ),
           const SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: attribute.values.map((value) {
-              return Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                decoration: BoxDecoration(
-                  color: attribute.isActive
-                      ? const Color(0xFFCD6E32).withOpacity(0.1)
-                      : Colors.grey[100],
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
+          if (attribute.values.isNotEmpty)
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: attribute.values.map((value) {
+                return Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
                     color: attribute.isActive
-                        ? const Color(0xFFCD6E32).withOpacity(0.3)
-                        : Colors.grey[300]!,
+                        ? const Color(0xFFCD6E32).withOpacity(0.1)
+                        : Colors.grey[100],
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: attribute.isActive
+                          ? const Color(0xFFCD6E32).withOpacity(0.3)
+                          : Colors.grey[300]!,
+                    ),
                   ),
-                ),
-                child: Text(
-                  value,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: attribute.isActive
-                        ? const Color(0xFFCD6E32)
-                        : Colors.grey[600],
-                    fontWeight: FontWeight.w500,
+                  child: Text(
+                    value,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: attribute.isActive
+                          ? const Color(0xFFCD6E32)
+                          : Colors.grey[600],
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
-                ),
-              );
-            }).toList(),
-          ),
+                );
+              }).toList(),
+            ),
         ],
       ),
     );
@@ -942,9 +962,6 @@ class _AttributesScreenState extends State<AttributesScreen> {
   }
 
   void _showEditDialog(BuildContext context, Attribute attribute) {
-    final TextEditingController editValueController = TextEditingController();
-    final TextEditingController editPriceController = TextEditingController();
-    
     showDialog(
       context: context,
       builder: (dialogContext) {
@@ -982,7 +999,7 @@ class _AttributesScreenState extends State<AttributesScreen> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                Text(
+                const Text(
                   "Current Values:",
                   style: TextStyle(
                     fontWeight: FontWeight.w500,
@@ -990,8 +1007,8 @@ class _AttributesScreenState extends State<AttributesScreen> {
                   ),
                 ),
                 const SizedBox(height: 8),
-                SizedBox(
-                  height: 200,
+                Container(
+                  constraints: const BoxConstraints(maxHeight: 200),
                   child: ListView.builder(
                     shrinkWrap: true,
                     itemCount: attribute.values.length,
@@ -999,7 +1016,7 @@ class _AttributesScreenState extends State<AttributesScreen> {
                       return ListTile(
                         dense: true,
                         title: Text(attribute.values[index]),
-                        trailing: Icon(Icons.info_outline, color: Colors.grey),
+                        trailing: const Icon(Icons.info_outline, color: Colors.grey),
                       );
                     },
                   ),
@@ -1026,15 +1043,15 @@ class _AttributesScreenState extends State<AttributesScreen> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
-          title: Row(
+          title: const Row(
             children: [
               Icon(
                 Icons.warning_amber_rounded,
                 color: Colors.red,
                 size: 24,
               ),
-              const SizedBox(width: 8),
-              const Text("Delete Attribute"),
+              SizedBox(width: 8),
+              Text("Delete Attribute"),
             ],
           ),
           content: Text(

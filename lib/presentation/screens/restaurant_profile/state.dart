@@ -18,6 +18,7 @@ class RestaurantProfileState extends Equatable {
   final String restaurantName;
   final String description;
   final String cookingTime;
+  final String deliveryRadius; // 👈 NEW FIELD ADDED
 
   // Location
   final String latitude;
@@ -53,6 +54,7 @@ class RestaurantProfileState extends Equatable {
     this.restaurantName = '',
     this.description = '',
     this.cookingTime = '',
+    this.deliveryRadius = '', // 👈 NEW FIELD ADDED
     this.latitude = '',
     this.longitude = '',
     this.restaurantTypes = const [],
@@ -77,6 +79,7 @@ class RestaurantProfileState extends Equatable {
     String? restaurantName,
     String? description,
     String? cookingTime,
+    String? deliveryRadius, // 👈 NEW FIELD ADDED
     String? latitude,
     String? longitude,
     List<Map<String, dynamic>>? restaurantTypes,
@@ -100,6 +103,7 @@ class RestaurantProfileState extends Equatable {
         restaurantName: restaurantName ?? this.restaurantName,
         description: description ?? this.description,
         cookingTime: cookingTime ?? this.cookingTime,
+        deliveryRadius: deliveryRadius ?? this.deliveryRadius, // 👈 NEW FIELD ADDED
         latitude: latitude ?? this.latitude,
         longitude: longitude ?? this.longitude,
         restaurantTypes: restaurantTypes ?? this.restaurantTypes,
@@ -120,6 +124,7 @@ class RestaurantProfileState extends Equatable {
     debugPrint('- restaurantName: "$restaurantName"');
     debugPrint('- ownerName: "$ownerName"');
     debugPrint('- ownerMobile: "$ownerMobile"');
+    debugPrint('- deliveryRadius: "$deliveryRadius"'); // 👈 NEW DEBUG LOG
     
     return true;
   }
@@ -135,6 +140,7 @@ class RestaurantProfileState extends Equatable {
         restaurantName,
         description,
         cookingTime,
+        deliveryRadius, // 👈 NEW FIELD ADDED TO PROPS
         latitude,
         longitude,
         restaurantTypes,

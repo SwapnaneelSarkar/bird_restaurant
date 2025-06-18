@@ -69,6 +69,7 @@ class _BodyState extends State<_Body> {
   late final TextEditingController _restNameCtrl;
   late final TextEditingController _descriptionCtrl;
   late final TextEditingController _cookTimeCtrl;
+  late final TextEditingController _deliveryRadiusCtrl; // 👈 NEW CONTROLLER ADDED
 
   // We'll store address info from the location picker
   String _selectedAddress = '';
@@ -83,6 +84,7 @@ class _BodyState extends State<_Body> {
     _restNameCtrl    = TextEditingController();
     _descriptionCtrl = TextEditingController();
     _cookTimeCtrl    = TextEditingController();
+    _deliveryRadiusCtrl = TextEditingController(); // 👈 NEW CONTROLLER INITIALIZED
     
     // Load mobile number from shared preferences
     _loadMobileNumber();
@@ -111,6 +113,7 @@ class _BodyState extends State<_Body> {
     _restNameCtrl.dispose();
     _descriptionCtrl.dispose();
     _cookTimeCtrl.dispose();
+    _deliveryRadiusCtrl.dispose(); // 👈 NEW CONTROLLER DISPOSED
     super.dispose();
   }
   
@@ -183,6 +186,10 @@ class _BodyState extends State<_Body> {
     if (_cookTimeCtrl.text != state.cookingTime) {
       _cookTimeCtrl.text = state.cookingTime;
     }
+    // 👈 NEW CONTROLLER UPDATE ADDED
+    if (_deliveryRadiusCtrl.text != state.deliveryRadius) {
+      _deliveryRadiusCtrl.text = state.deliveryRadius;
+    }
   }
 
   @override
@@ -238,6 +245,7 @@ class _BodyState extends State<_Body> {
                  previous.restaurantName != current.restaurantName ||
                  previous.description != current.description ||
                  previous.cookingTime != current.cookingTime ||
+                 previous.deliveryRadius != current.deliveryRadius || // 👈 NEW FIELD ADDED
                  previous.latitude != current.latitude ||
                  previous.longitude != current.longitude ||
                  previous.submissionMessage != current.submissionMessage ||
@@ -404,6 +412,16 @@ class _BodyState extends State<_Body> {
                         hintText: 'Enter cooking time',
                         keyboardType: TextInputType.number,
                         onChanged: (v) => bloc.add(CookingTimeChanged(v)),
+                      ),
+                      SizedBox(height: vert * .8),
+                      
+                      // 👈 NEW DELIVERY RADIUS FIELD ADDED
+                      CustomTextField(
+                        controller: _deliveryRadiusCtrl,
+                        label: 'Delivery Radius (km)',
+                        hintText: 'Enter delivery radius in kilometers',
+                        keyboardType: TextInputType.number,
+                        onChanged: (v) => bloc.add(DeliveryRadiusChanged(v)),
                       ),
                       SizedBox(height: vert * 1.2),
 
@@ -594,12 +612,30 @@ class _BodyState extends State<_Body> {
     } 
     // If we have a URL from the API, display network image
     else if (state.restaurantImageUrl != null && state.restaurantImageUrl!.isNotEmpty) {
-      // Construct the full URL (adjust based on your API URL structure)
-      String fullUrl = state.restaurantImageUrl!;
-      if (!fullUrl.startsWith('http')) {
-        // If it's a relative path, append to base URL
-        fullUrl = '${ApiConstants.baseUrl}/${state.restaurantImageUrl!}';
+      // Clean and construct the image URL
+      String cleanUrl = state.restaurantImageUrl!;
+      
+      // Remove malformed prefix if present
+      if (cleanUrl.contains('https://api.bird.delivery/api/%5B%22')) {
+        cleanUrl = cleanUrl.replaceAll('https://api.bird.delivery/api/%5B%22', '');
       }
+      
+      // Remove trailing encoded characters
+      if (cleanUrl.contains('%22%5D')) {
+        cleanUrl = cleanUrl.replaceAll('%22%5D', '');
+      }
+      
+      // URL decode any remaining encoded characters
+      cleanUrl = Uri.decodeFull(cleanUrl);
+      
+      // If it's already a full URL (starts with http), use it as is
+      // Otherwise, check if we need to add base URL
+      String fullUrl = cleanUrl;
+      if (!cleanUrl.startsWith('http')) {
+        fullUrl = '${ApiConstants.baseUrl}/$cleanUrl';
+      }
+      
+      debugPrint('Using cleaned image URL: $fullUrl');
       
       return ClipRRect(
         borderRadius: BorderRadius.circular(8),
@@ -610,6 +646,7 @@ class _BodyState extends State<_Body> {
           height: double.infinity,
           errorBuilder: (context, error, stackTrace) {
             debugPrint('Error loading image: $error');
+            debugPrint('Failed URL: $fullUrl');
             // Fallback to placeholder on error
             return Icon(
               Icons.add_photo_alternate_outlined,

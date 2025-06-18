@@ -53,6 +53,7 @@ class RestaurantProfileBloc
     on<RestaurantNameChanged>((e, emit) => emit(state.copyWith(restaurantName: e.value)));
     on<DescriptionChanged>((e, emit) => emit(state.copyWith(description: e.v)));
     on<CookingTimeChanged>((e, emit) => emit(state.copyWith(cookingTime: e.v)));
+    on<DeliveryRadiusChanged>((e, emit) => emit(state.copyWith(deliveryRadius: e.v))); // 👈 NEW EVENT HANDLER
 
     // Location fields
     on<LatitudeChanged>((e, emit) => emit(state.copyWith(latitude: e.v)));
@@ -326,8 +327,36 @@ class RestaurantProfileBloc
           if (data['restaurant_photos'] is List && data['restaurant_photos'].isNotEmpty) {
             imageUrl = data['restaurant_photos'][0];
           } else if (data['restaurant_photos'] is String && data['restaurant_photos'].isNotEmpty) {
-            imageUrl = data['restaurant_photos'];
+            // Handle case where restaurant_photos might be a JSON string
+            try {
+              final decoded = jsonDecode(data['restaurant_photos']);
+              if (decoded is List && decoded.isNotEmpty) {
+                imageUrl = decoded[0];
+              } else if (decoded is String) {
+                imageUrl = decoded;
+              } else {
+                imageUrl = data['restaurant_photos'];
+              }
+            } catch (e) {
+              // If it's not valid JSON, use as is
+              imageUrl = data['restaurant_photos'];
+            }
           }
+        }
+        
+        // Clean up the image URL if it has the malformed prefix
+        if (imageUrl != null && imageUrl.isNotEmpty) {
+          // Remove malformed prefix if present
+          if (imageUrl.contains('https://api.bird.delivery/api/%5B%22')) {
+            imageUrl = imageUrl.replaceAll('https://api.bird.delivery/api/%5B%22', '');
+          }
+          // Remove trailing encoded characters
+          if (imageUrl.contains('%22%5D')) {
+            imageUrl = imageUrl.replaceAll('%22%5D', '');
+          }
+          // URL decode any remaining encoded characters
+          imageUrl = Uri.decodeFull(imageUrl);
+          debugPrint('Cleaned image URL: $imageUrl');
         }
         
         // Check for restaurant_type in the API response
@@ -344,6 +373,7 @@ class RestaurantProfileBloc
         final longitudeStr = data['longitude']?.toString() ?? '';
         final cookingTimeStr = data['cooking_time']?.toString() ?? '';
         final descriptionStr = data['description']?.toString() ?? '';
+        final deliveryRadiusStr = data['delivery_radius']?.toString() ?? ''; // 👈 NEW FIELD FROM API
         
         // Update state with all fetched data
         emit(state.copyWith(
@@ -354,6 +384,7 @@ class RestaurantProfileBloc
           restaurantName: data['restaurant_name'] ?? '',
           description: descriptionStr,
           cookingTime: cookingTimeStr,
+          deliveryRadius: deliveryRadiusStr, // 👈 NEW FIELD ADDED
           latitude: latitudeStr,
           longitude: longitudeStr,
           type: restaurantType,
@@ -364,6 +395,7 @@ class RestaurantProfileBloc
         debugPrint('State updated with API data');
         debugPrint('Restaurant name: ${state.restaurantName}');
         debugPrint('Owner name: ${state.ownerName}');
+        debugPrint('Delivery radius: ${state.deliveryRadius}'); // 👈 NEW DEBUG LOG
         debugPrint('Latitude: ${state.latitude}');
         debugPrint('Longitude: ${state.longitude}');
       } else {
@@ -458,6 +490,7 @@ class RestaurantProfileBloc
     debugPrint('Restaurant Name: ${state.restaurantName}');
     debugPrint('Owner Name: ${state.ownerName}');
     debugPrint('Owner Mobile: ${state.ownerMobile}');
+    debugPrint('Delivery Radius: ${state.deliveryRadius}'); // 👈 NEW DEBUG LOG
     
     // Show loading indicator
     emit(state.copyWith(isSubmitting: true, errorMessage: null));
@@ -588,6 +621,12 @@ class RestaurantProfileBloc
       
       if (state.description.isNotEmpty) {
         request.fields['description'] = state.description;
+      }
+      
+      // 👈 ADD NEW DELIVERY RADIUS FIELD
+      if (state.deliveryRadius.isNotEmpty) {
+        request.fields['delivery_radius'] = state.deliveryRadius;
+        debugPrint('Adding delivery_radius to request: ${state.deliveryRadius}');
       }
       
       // Add files if available

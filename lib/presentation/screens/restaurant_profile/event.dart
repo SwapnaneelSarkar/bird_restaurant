@@ -31,6 +31,7 @@ class RestaurantNameChanged extends RestaurantProfileEvent {
 }
 class DescriptionChanged   extends RestaurantProfileEvent { final String v; const DescriptionChanged(this.v); @override List<Object?> get props => [v]; }
 class CookingTimeChanged   extends RestaurantProfileEvent { final String v; const CookingTimeChanged(this.v); @override List<Object?> get props => [v]; }
+class DeliveryRadiusChanged extends RestaurantProfileEvent { final String v; const DeliveryRadiusChanged(this.v); @override List<Object?> get props => [v]; }
 
 // location
 class LatitudeChanged   extends RestaurantProfileEvent { final String v; const LatitudeChanged(this.v); @override List<Object?> get props => [v]; }
