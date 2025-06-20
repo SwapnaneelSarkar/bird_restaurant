@@ -360,30 +360,16 @@ class _SplashViewState extends State<SplashView> with TickerProviderStateMixin {
                       child: ScaleTransition(
                         scale: _logoScaleAnimation,
                         child: Container(
-                          padding: const EdgeInsets.all(20),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
+                          width: size.width * 0.3,
+                          height: size.width * 0.3,
+                          decoration: const BoxDecoration(
                             shape: BoxShape.circle,
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.white.withOpacity(0.3),
-                                blurRadius: 20,
-                                spreadRadius: 5,
-                              ),
-                            ],
                           ),
-                          child: Container(
-                            width: size.width * 0.3,
-                            height: size.width * 0.3,
-                            decoration: const BoxDecoration(
-                              shape: BoxShape.circle,
-                            ),
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(80),
-                              child: Image.asset(
-                                'assets/images/logo.png',
-                                fit: BoxFit.contain,
-                              ),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(80),
+                            child: Image.asset(
+                              'assets/images/logo.png',
+                              fit: BoxFit.contain,
                             ),
                           ),
                         ),

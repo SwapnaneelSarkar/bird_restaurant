@@ -177,7 +177,36 @@ Widget build(BuildContext context) {
           },
           listener: (context, state) {
             if (state is chat_state.ChatLoaded && state.lastUpdateSuccess == true) {
-              // Status was successfully updated - refresh the entire chat view
+              // Status was successfully updated - show success snackbar
+              debugPrint('ChatView: Status update successful, showing success snackbar');
+              
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Row(
+                    children: [
+                      const Icon(Icons.check_circle, color: Colors.white, size: 20),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          'Order status updated successfully!',
+                          style: const TextStyle(
+                            fontWeight: FontWeightManager.medium,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  backgroundColor: Colors.green,
+                  behavior: SnackBarBehavior.floating,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  duration: const Duration(seconds: 3),
+                ),
+              );
+              
+              // Refresh the entire chat view
               debugPrint('ChatView: Status update successful, refreshing view');
               
               // Reload the chat data to get updated order info
@@ -191,6 +220,50 @@ Widget build(BuildContext context) {
                   partnerId: context.read<ChatBloc>().currentPartnerId ?? '',
                 ));
               }
+            }
+          },
+        ),
+        
+        // NEW: Add listener for status update errors
+        BlocListener<ChatBloc, chat_state.ChatState>(
+          listenWhen: (previous, current) {
+            // Listen specifically for status update errors
+            if (previous is chat_state.ChatLoaded && current is chat_state.ChatLoaded) {
+              return previous.lastUpdateTimestamp != current.lastUpdateTimestamp &&
+                     current.lastUpdateSuccess == false;
+            }
+            return false;
+          },
+          listener: (context, state) {
+            if (state is chat_state.ChatLoaded && state.lastUpdateSuccess == false && state.lastUpdateMessage != null) {
+              // Status update failed - show error snackbar
+              debugPrint('ChatView: Status update failed, showing snackbar: ${state.lastUpdateMessage}');
+              
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Row(
+                    children: [
+                      const Icon(Icons.error_outline, color: Colors.white, size: 20),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          state.lastUpdateMessage!,
+                          style: const TextStyle(
+                            fontWeight: FontWeightManager.medium,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  backgroundColor: Colors.red,
+                  behavior: SnackBarBehavior.floating,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  duration: const Duration(seconds: 5),
+                ),
+              );
             }
           },
         ),

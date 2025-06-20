@@ -106,6 +106,9 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
           orderInfo: updatedOrderInfo,
           orderDetails: updatedOrderDetails,
           isUpdatingOrderStatus: false,
+          lastUpdateSuccess: true,
+          lastUpdateMessage: 'Order status updated successfully!',
+          lastUpdateTimestamp: DateTime.now(),
         ));
         
         debugPrint('ChatBloc: 🎯 Emitted success state with updated status: ${event.newStatus}');
@@ -132,17 +135,18 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       debugPrint('ChatBloc: Could not parse error details: $parseError');
     }
     
+    // Instead of emitting ChatError, update the current ChatLoaded state with error info
     if (state is ChatLoaded) {
       final currentState = state as ChatLoaded;
       emit(currentState.copyWith(
         isUpdatingOrderStatus: false,
+        lastUpdateSuccess: false,
+        lastUpdateMessage: errorMessage,
+        lastUpdateTimestamp: DateTime.now(),
       ));
+      
+      debugPrint('ChatBloc: 🎯 Emitted error state within ChatLoaded: $errorMessage');
     }
-    
-    // EMIT ERROR STATE FOR UI TO CATCH
-    emit(ChatError(errorMessage));
-    
-    debugPrint('ChatBloc: 🎯 Emitted error state: $errorMessage');
   }
 }  
   void _onChatServiceUpdate() {

@@ -308,7 +308,7 @@ class AnimatedSidebarContent extends StatelessWidget {
                     _buildAnimatedMenuItem(
                       animations[5],
                       icon: Icons.view_list_outlined,
-                      title: 'Add Attributes',
+                      title: 'Attributes',
                       isActive: activePage == 'add_attributes',
                       onTap: () => onNavigate('/attributes'),
                     ),

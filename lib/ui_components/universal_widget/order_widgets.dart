@@ -1,6 +1,7 @@
 // lib/ui_components/universal_widget/order_widgets.dart
 // COMPLETELY FIXED VERSION
 
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -481,16 +482,123 @@ class StatusChangeBottomSheet extends StatefulWidget {
 
 class _StatusChangeBottomSheetState extends State<StatusChangeBottomSheet> {
   bool _isUpdating = false;
+  late StreamSubscription<ChatState> _stateSubscription;
+
+  @override
+  void initState() {
+    super.initState();
+    
+    // Listen to ChatBloc state changes
+    _stateSubscription = context.read<ChatBloc>().stream.listen((state) {
+      if (!mounted || !_isUpdating) return;
+      
+      debugPrint('StatusChangeBottomSheet: Stream listener - State: ${state.runtimeType}');
+      
+      if (state is ChatLoaded) {
+        // Check if this is a status update response
+        if (state.lastUpdateTimestamp != null) {
+          if (state.lastUpdateSuccess == true) {
+            debugPrint('StatusChangeBottomSheet: Success detected');
+            _handleSuccess();
+          } else if (state.lastUpdateSuccess == false) {
+            debugPrint('StatusChangeBottomSheet: Error detected - ${state.lastUpdateMessage}');
+            _handleError(state.lastUpdateMessage ?? 'Failed to update order status');
+          }
+        }
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _stateSubscription.cancel();
+    super.dispose();
+  }
+
+  void _handleSuccess() {
+    if (!mounted || !_isUpdating) return;
+    
+    setState(() {
+      _isUpdating = false;
+    });
+
+    Navigator.of(context).pop();
+    
+    // Show success message
+    Future.delayed(const Duration(milliseconds: 100), () {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.check_circle, color: Colors.white, size: 20),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'Order status updated successfully!',
+                    style: const TextStyle(
+                      fontWeight: FontWeightManager.medium,
+                      fontSize: 14,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            duration: const Duration(seconds: 3),
+            backgroundColor: Colors.green,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+        );
+      }
+    });
+  }
+
+  void _handleError(String message) {
+    if (!mounted || !_isUpdating) return;
+    
+    setState(() {
+      _isUpdating = false;
+    });
+
+    Navigator.of(context).pop();
+    
+    // Show error message
+    Future.delayed(const Duration(milliseconds: 100), () {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.error_outline, color: Colors.white, size: 20),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    message,
+                    style: const TextStyle(
+                      fontWeight: FontWeightManager.medium,
+                      fontSize: 14,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            duration: const Duration(seconds: 5),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+        );
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
-    // Get current status from bloc state if available
-    String currentStatus = 'PENDING';
-    final chatBlocState = context.read<ChatBloc>().state;
-    if (chatBlocState is ChatLoaded && chatBlocState.orderDetails != null) {
-      currentStatus = chatBlocState.orderDetails!.orderStatus;
-    }
-
     // Get available status options
     final allStatuses = OrderService.getAllValidStatuses();
 
@@ -543,16 +651,7 @@ class _StatusChangeBottomSheetState extends State<StatusChangeBottomSheet> {
           // Show all status options
           ...allStatuses.map((status) => _buildStatusOption(
             status: status,
-            currentStatus: currentStatus,
-            isCurrent: status.toUpperCase() == currentStatus.toUpperCase(),
-            onTap: () {
-              if (status.toUpperCase() == currentStatus.toUpperCase()) {
-                _showInfoSnackBar('Order is already in ${OrderService.formatOrderStatus(status)} status');
-                return;
-              }
-              
-              _updateOrderStatus(status, currentStatus);
-            },
+            onTap: () => _updateOrderStatus(status),
           )),
           
           const SizedBox(height: 20),
@@ -563,8 +662,6 @@ class _StatusChangeBottomSheetState extends State<StatusChangeBottomSheet> {
 
   Widget _buildStatusOption({
     required String status,
-    required String currentStatus,
-    required bool isCurrent,
     required VoidCallback onTap,
   }) {
     return Container(
@@ -575,15 +672,11 @@ class _StatusChangeBottomSheetState extends State<StatusChangeBottomSheet> {
         child: Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: isCurrent
-                ? OrderService.getStatusColor(status).withOpacity(0.1)
-                : Colors.grey[50],
+            color: Colors.grey[50],
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: isCurrent
-                  ? OrderService.getStatusColor(status).withOpacity(0.3)
-                  : Colors.grey[300]!,
-              width: isCurrent ? 2 : 1,
+              color: Colors.grey[300]!,
+              width: 1,
             ),
           ),
           child: Row(
@@ -618,38 +711,14 @@ class _StatusChangeBottomSheetState extends State<StatusChangeBottomSheet> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      children: [
-                        Text(
-                          OrderService.formatOrderStatus(status),
-                          style: TextStyle(
-                            color: ColorManager.black,
-                            fontSize: 14,
-                            fontWeight: isCurrent 
-                                ? FontWeightManager.bold 
-                                : FontWeightManager.medium,
-                            fontFamily: FontFamily.Montserrat,
-                          ),
-                        ),
-                        if (isCurrent) ...[
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: OrderService.getStatusColor(status),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: const Text(
-                              'Current',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ],
+                    Text(
+                      OrderService.formatOrderStatus(status),
+                      style: TextStyle(
+                        color: ColorManager.black,
+                        fontSize: 14,
+                        fontWeight: FontWeightManager.medium,
+                        fontFamily: FontFamily.Montserrat,
+                      ),
                     ),
                     const SizedBox(height: 4),
                     Text(
@@ -675,12 +744,6 @@ class _StatusChangeBottomSheetState extends State<StatusChangeBottomSheet> {
                     color: Color(0xFFE17A47),
                   ),
                 ),
-              ] else if (isCurrent) ...[
-                Icon(
-                  Icons.check_circle,
-                  color: OrderService.getStatusColor(status),
-                  size: 18,
-                ),
               ] else ...[
                 Icon(
                   Icons.arrow_forward_ios,
@@ -695,64 +758,17 @@ class _StatusChangeBottomSheetState extends State<StatusChangeBottomSheet> {
     );
   }
 
-  Future<void> _updateOrderStatus(String newStatus, String currentStatus) async {
+  Future<void> _updateOrderStatus(String newStatus) async {
     setState(() {
       _isUpdating = true;
     });
 
-    try {
-      // Use ChatBloc to update status
-      context.read<ChatBloc>().add(UpdateOrderStatus(
-        orderId: widget.orderId,
-        partnerId: widget.partnerId,
-        newStatus: newStatus,
-      ));
-
-      // Simple delay and assume success
-      await Future.delayed(const Duration(seconds: 2));
-
-      if (mounted) {
-        setState(() {
-          _isUpdating = false;
-        });
-
-        Navigator.of(context).pop();
-        
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Order status updated successfully!'),
-            backgroundColor: Colors.green,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _isUpdating = false;
-        });
-
-        Navigator.of(context).pop();
-        
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to update order status'),
-            backgroundColor: Colors.red,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      }
-    }
-  }
-
-  void _showInfoSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.blue,
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+    // Use ChatBloc to update status - the stream listener will handle the response
+    context.read<ChatBloc>().add(UpdateOrderStatus(
+      orderId: widget.orderId,
+      partnerId: widget.partnerId,
+      newStatus: newStatus,
+    ));
   }
 }
 
