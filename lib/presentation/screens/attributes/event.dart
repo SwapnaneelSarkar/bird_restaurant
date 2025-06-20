@@ -139,3 +139,25 @@ class SetSelectedMenuIdEvent extends AttributeEvent {
   @override
   List<Object?> get props => [menuId];
 }
+
+// Update attribute value
+class UpdateAttributeValueEvent extends AttributeEvent {
+  final String menuId;
+  final String attributeId;
+  final String valueId;
+  final String name;
+  final int priceAdjustment;
+  final bool isDefault;
+
+  const UpdateAttributeValueEvent({
+    required this.menuId,
+    required this.attributeId,
+    required this.valueId,
+    required this.name,
+    required this.priceAdjustment,
+    required this.isDefault,
+  });
+
+  @override
+  List<Object?> get props => [menuId, attributeId, valueId, name, priceAdjustment, isDefault];
+}

@@ -14,6 +14,8 @@ import 'bloc.dart';
 import 'event.dart';
 import 'state.dart';
 import '../../../services/currency_service.dart';
+import '../../../services/attribute_service.dart';
+import '../../../models/attribute_model.dart';
 
 class AttributesScreen extends StatefulWidget {
   const AttributesScreen({Key? key}) : super(key: key);
@@ -864,7 +866,7 @@ class _AttributesScreenState extends State<AttributesScreen> {
                 mainAxisSize: MainAxisSize.min, // Prevent overflow
                 children: [
                   IconButton(
-                    onPressed: () => _showEditDialog(context, attribute),
+                    onPressed: () => showEditDialog(context, attribute),
                     icon: Icon(
                       Icons.edit_outlined,
                       color: Colors.grey[600],
@@ -983,9 +985,14 @@ class _AttributesScreenState extends State<AttributesScreen> {
            _selectedMenuItem != null;
   }
 
-  void _showEditDialog(BuildContext context, Attribute attribute) {
+  void showEditDialog(BuildContext parentContext, Attribute attribute, {Future<AttributeGroup?>? testFuture}) {
+    final menuId = _selectedMenuItem?.menuId;
+    final attributeId = attribute.attributeId;
+    if (menuId == null || attributeId == null) {
+      return;
+    }
     showDialog(
-      context: context,
+      context: parentContext,
       builder: (dialogContext) {
         return AlertDialog(
           shape: RoundedRectangleBorder(
@@ -1009,41 +1016,93 @@ class _AttributesScreenState extends State<AttributesScreen> {
           ),
           content: SizedBox(
             width: double.maxFinite,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  "Note: Editing attribute values requires backend implementation.",
-                  style: TextStyle(
-                    fontStyle: FontStyle.italic,
-                    color: Colors.orange,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                const Text(
-                  "Current Values:",
-                  style: TextStyle(
-                    fontWeight: FontWeight.w500,
-                    fontSize: 14,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Container(
-                  constraints: const BoxConstraints(maxHeight: 200),
-                  child: ListView.builder(
-                    shrinkWrap: true,
-                    itemCount: attribute.values.length,
-                    itemBuilder: (context, index) {
-                      return ListTile(
-                        dense: true,
-                        title: Text(attribute.values[index]),
-                        trailing: const Icon(Icons.info_outline, color: Colors.grey),
-                      );
-                    },
-                  ),
-                ),
-              ],
+            child: FutureBuilder<AttributeGroup?>(
+              future: testFuture ?? _getAttributeGroupById(menuId, attributeId),
+              builder: (context, snapshot) {
+                if (!snapshot.hasData) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                final group = snapshot.data!;
+                return ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: group.attributeValues.length,
+                  itemBuilder: (context, index) {
+                    final value = group.attributeValues[index].toValueWithPrice();
+                    final nameController = TextEditingController(text: value.name);
+                    final priceController = TextEditingController(text: value.priceAdjustment.toString());
+                    bool isDefault = value.isDefault;
+                    return StatefulBuilder(
+                      builder: (context, setState) {
+                        return Card(
+                          margin: const EdgeInsets.symmetric(vertical: 6),
+                          child: Padding(
+                            padding: const EdgeInsets.all(8.0),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                TextField(
+                                  controller: nameController,
+                                  decoration: const InputDecoration(labelText: 'Name'),
+                                ),
+                                TextField(
+                                  controller: priceController,
+                                  decoration: const InputDecoration(labelText: 'Price Adjustment'),
+                                  keyboardType: TextInputType.number,
+                                ),
+                                Row(
+                                  children: [
+                                    Checkbox(
+                                      value: isDefault,
+                                      onChanged: (val) {
+                                        setState(() {
+                                          isDefault = val ?? false;
+                                        });
+                                      },
+                                    ),
+                                    const Text('Default'),
+                                    const Spacer(),
+                                    ElevatedButton(
+                                      onPressed: () {
+                                        Navigator.of(parentContext).pop();
+                                        parentContext.read<AttributeBloc>().add(
+                                          UpdateAttributeValueEvent(
+                                            menuId: menuId,
+                                            attributeId: attributeId,
+                                            valueId: value.valueId!,
+                                            name: nameController.text.trim(),
+                                            priceAdjustment: int.tryParse(priceController.text.trim()) ?? 0,
+                                            isDefault: isDefault,
+                                          ),
+                                        );
+                                      },
+                                      child: const Text('Save'),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    ElevatedButton(
+                                      style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                                      onPressed: () {
+                                        Navigator.of(parentContext).pop();
+                                        parentContext.read<AttributeBloc>().add(
+                                          DeleteAttributeValueEvent(
+                                            menuId: menuId,
+                                            attributeId: attributeId,
+                                            valueId: value.valueId!,
+                                          ),
+                                        );
+                                      },
+                                      child: const Text('Delete'),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    );
+                  },
+                );
+              },
             ),
           ),
           actions: [
@@ -1055,6 +1114,16 @@ class _AttributesScreenState extends State<AttributesScreen> {
         );
       },
     );
+  }
+
+  Future<AttributeGroup?> _getAttributeGroupById(String menuId, String attributeId) async {
+    try {
+      final response = await AttributeService.getAttributes(menuId);
+      if (response.status == 'SUCCESS' && response.data != null) {
+        return response.data!.firstWhereOrNull((g) => g.attributeId == attributeId);
+      }
+    } catch (_) {}
+    return null;
   }
 
   void _showDeleteAttributeDialog(BuildContext context, Attribute attribute) {
@@ -1106,5 +1175,14 @@ class _AttributesScreenState extends State<AttributesScreen> {
         );
       },
     );
+  }
+}
+
+extension IterableX<E> on Iterable<E> {
+  E? firstWhereOrNull(bool Function(E) test) {
+    for (var element in this) {
+      if (test(element)) return element;
+    }
+    return null;
   }
 }

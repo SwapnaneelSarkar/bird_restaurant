@@ -19,6 +19,7 @@ class AttributeBloc extends Bloc<AttributeEvent, AttributeState> {
     on<DeleteAttributeEvent>(_onDeleteAttribute);
     on<RemoveValueFromNewAttributeEvent>(_onRemoveValueFromNewAttribute);
     on<SetSelectedMenuIdEvent>(_onSetSelectedMenuId);
+    on<UpdateAttributeValueEvent>(_onUpdateAttributeValue);
   }
 
   void _onLoadAttributes(LoadAttributesEvent event, Emitter<AttributeState> emit) async {
@@ -132,14 +133,15 @@ class AttributeBloc extends Bloc<AttributeEvent, AttributeState> {
     final currentState = state;
     if (currentState is AttributeLoaded) {
       emit(const AttributeOperationInProgress(operation: 'Updating attribute status...'));
-      
       try {
+        final attribute = currentState.attributes.firstWhere((a) => a.attributeId == event.attributeId);
         final success = await AttributeService.updateAttributeStatus(
           menuId: event.menuId,
           attributeId: event.attributeId,
+          name: attribute.name,
+          type: attribute.type ?? 'radio',
           isRequired: event.isActive,
         );
-        
         if (success) {
           // Update the local state
           final updatedAttributes = currentState.attributes.map((attribute) {
@@ -148,7 +150,6 @@ class AttributeBloc extends Bloc<AttributeEvent, AttributeState> {
             }
             return attribute;
           }).toList();
-          
           emit(currentState.copyWith(attributes: updatedAttributes));
         } else {
           emit(const AttributeError(message: 'Failed to update attribute status'));
@@ -266,6 +267,31 @@ class AttributeBloc extends Bloc<AttributeEvent, AttributeState> {
         attributes: const [],
         selectedMenuId: event.menuId,
       ));
+    }
+  }
+
+  void _onUpdateAttributeValue(UpdateAttributeValueEvent event, Emitter<AttributeState> emit) async {
+    final currentState = state;
+    if (currentState is AttributeLoaded) {
+      emit(const AttributeOperationInProgress(operation: 'Updating attribute value...'));
+      try {
+        final success = await AttributeService.updateAttributeValue(
+          menuId: event.menuId,
+          attributeId: event.attributeId,
+          valueId: event.valueId,
+          name: event.name,
+          priceAdjustment: event.priceAdjustment,
+          isDefault: event.isDefault,
+        );
+        if (success) {
+          add(LoadAttributesEvent(menuId: event.menuId));
+        } else {
+          emit(const AttributeError(message: 'Failed to update attribute value'));
+        }
+      } catch (e) {
+        debugPrint('Error updating attribute value: $e');
+        emit(const AttributeError(message: 'Failed to update attribute value'));
+      }
     }
   }
 }

@@ -107,6 +107,15 @@ class AttributeValue {
       'is_default': isDefault ?? 0,
     };
   }
+
+  AttributeValueWithPrice toValueWithPrice() {
+    return AttributeValueWithPrice(
+      name: name ?? '',
+      priceAdjustment: priceAdjustment ?? 0,
+      isDefault: (isDefault ?? 0) == 1,
+      valueId: valueId,
+    );
+  }
 }
 
 // Request models for creating attributes

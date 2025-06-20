@@ -174,25 +174,24 @@ class AttributeService {
   static Future<bool> updateAttributeStatus({
     required String menuId,
     required String attributeId,
+    required String name,
+    required String type,
     required bool isRequired,
   }) async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('token');
-      
       if (token == null) {
         throw UnauthorizedException('No token found. Please login again.');
       }
-
       final url = Uri.parse('${ApiConstants.baseUrl}$_attributesEndpoint/$menuId/attributes/$attributeId');
-      
       final requestBody = {
+        'name': name,
+        'type': type,
         'is_required': isRequired,
       };
-
       debugPrint('Updating attribute status at: $url');
       debugPrint('Request body: ${jsonEncode(requestBody)}');
-      
       final response = await http.put(
         url,
         headers: {
@@ -201,11 +200,9 @@ class AttributeService {
         },
         body: jsonEncode(requestBody),
       );
-
       debugPrint('Update Attribute Status Response:');
       debugPrint('Status Code: ${response.statusCode}');
       debugPrint('Body: ${response.body}');
-
       if (response.statusCode == 200) {
         return true;
       } else if (response.statusCode == 401) {
@@ -313,6 +310,57 @@ class AttributeService {
       }
       debugPrint('Error deleting attribute: $e');
       throw ApiException('Failed to delete attribute: $e');
+    }
+  }
+
+  // Update attribute value
+  static Future<bool> updateAttributeValue({
+    required String menuId,
+    required String attributeId,
+    required String valueId,
+    required String name,
+    required int priceAdjustment,
+    required bool isDefault,
+  }) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('token');
+      if (token == null) {
+        throw UnauthorizedException('No token found. Please login again.');
+      }
+      final url = Uri.parse('${ApiConstants.baseUrl}$_attributesEndpoint/$menuId/attributes/$attributeId/values/$valueId');
+      final requestBody = {
+        'name': name,
+        'price_adjustment': priceAdjustment,
+        'is_default': isDefault,
+      };
+      debugPrint('Updating attribute value at: $url');
+      debugPrint('Request body: \\${jsonEncode(requestBody)}');
+      final response = await http.put(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode(requestBody),
+      );
+      debugPrint('Update Attribute Value Response:');
+      debugPrint('Status Code: \\${response.statusCode}');
+      debugPrint('Body: \\${response.body}');
+      if (response.statusCode == 200) {
+        return true;
+      } else if (response.statusCode == 401) {
+        throw UnauthorizedException('Unauthorized access. Please login again.');
+      } else {
+        final responseData = jsonDecode(response.body);
+        throw ApiException(responseData['message'] ?? 'Failed to update attribute value');
+      }
+    } catch (e) {
+      if (e is UnauthorizedException || e is ApiException) {
+        rethrow;
+      }
+      debugPrint('Error updating attribute value: $e');
+      throw ApiException('Failed to update attribute value: $e');
     }
   }
 }
