@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:flutter/gestures.dart';
 
 import '../../../ui_components/custom_button.dart';
 import '../../../ui_components/country_picker.dart';
@@ -27,126 +28,139 @@ class LoginView extends StatelessWidget {
     return BlocProvider<LoginBloc>(
       create: (_) => LoginBloc(),
       child: Scaffold(
-        body: Stack(
-          fit: StackFit.expand,
-          children: [
-            // Background image
-            Image.asset(
-              'assets/images/login.jpg',
-              fit: BoxFit.cover,
-            ),
-
-            // Dark overlay
-            Container(color: Colors.black.withOpacity(0.7)),
-
-            // Content
-            SafeArea(
-              child: SingleChildScrollView(
-                padding: EdgeInsets.symmetric(horizontal: w * 0.06),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    // Logo
-                    Image.asset(
-                      'assets/svg/logo_text.png',
-                      height: h * 0.2,
-                    ),
-                    
-                    // Welcome text
-                    Text(
-                      'Welcome to BIRD Partner',
-                      textAlign: TextAlign.center,
-                      style: GoogleFonts.poppins(
-                        fontSize: FontSize.s22,
-                        fontWeight: FontWeightManager.semiBold,
-                        color: ColorManager.textWhite,
+        backgroundColor: ColorManager.background,
+        body: SafeArea(
+          child: SingleChildScrollView(
+            padding: EdgeInsets.symmetric(horizontal: w * 0.06),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                SizedBox(height: h * 0.10),
+                // Logo
+                Image.asset(
+                  'assets/svg/logo_text.png',
+                  height: h * 0.13,
+                ),
+                SizedBox(height: h * 0.04),
+                Container(
+                  width: double.infinity,
+                  padding: EdgeInsets.symmetric(horizontal: w * 0.04, vertical: h * 0.04),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(18),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.06),
+                        blurRadius: 18,
+                        offset: Offset(0, 8),
                       ),
-                    ),
-                    SizedBox(height: h * 0.015),
-                    
-                    // Subtitle
-                    Text(
-                      'Sign in with your mobile number',
-                      style: GoogleFonts.poppins(
-                        fontSize: FontSize.s16,
-                        color: ColorManager.textWhite.withOpacity(0.9),
-                      ),
-                    ),
-                    SizedBox(height: h * 0.05),
-                    
-                    // Mobile input field with country picker
-                    const MobileInputField(),
-                    SizedBox(height: h * 0.03),
-                    
-                    // Send OTP button
-                    SizedBox(
-                      width: double.infinity,
-                      height: h * 0.07,
-                      child: BlocBuilder<LoginBloc, LoginState>(
-                        builder: (context, state) {
-                          return CustomButton(
-                            label: 'Send OTP',
-                            onPressed: state.mobileNumber.length >= 5 ? () {
-                              // Format the phone number using selected country
-                              final formattedNumber = '${state.selectedCountry.dialCode}${state.mobileNumber}';
-                              
-                              debugPrint('Navigating with phone number: $formattedNumber');
-                              
-                              // Fire bloc event
-                              context.read<LoginBloc>().add(SendOtpPressed());
-                              
-                              // Navigate to OTP screen
-                              Navigator.pushNamed(
-                                context,
-                                Routes.otp,
-                                arguments: formattedNumber,
-                              );
-                            } : null,
-                          );
-                        },
-                      ),
-                    ),
-                    SizedBox(height: h * 0.02),
-                    
-                    // Terms and privacy policy
-                    Padding(
-                      padding: EdgeInsets.only(bottom: h * 0.02),
-                      child: RichText(
+                    ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Text(
+                        'Welcome to BIRD Partner',
                         textAlign: TextAlign.center,
-                        text: TextSpan(
-                          style: GoogleFonts.poppins(
-                            fontSize: FontSize.s12,
-                            fontWeight: FontWeightManager.regular,
-                            color: ColorManager.textWhite,
-                          ),
-                          children: [
-                            const TextSpan(text: 'By continuing, you agree to our '),
-                            TextSpan(
-                              text: 'Terms of Service',
-                              style: GoogleFonts.poppins(
-                                fontSize: FontSize.s12,
-                                fontWeight: FontWeightManager.semiBold,
-                                color: ColorManager.textWhite,
-                              ),
-                            ),
-                            const TextSpan(text: ' and\n'),
-                            TextSpan(
-                              text: 'Privacy Policy',
-                              style: GoogleFonts.poppins(
-                                fontSize: FontSize.s12,
-                                fontWeight: FontWeightManager.semiBold,
-                                color: ColorManager.textWhite,
-                              ),
-                            ),
-                          ],
+                        style: GoogleFonts.poppins(
+                          fontSize: FontSize.s22,
+                          fontWeight: FontWeightManager.semiBold,
+                          color: ColorManager.primary,
                         ),
                       ),
-                    ),
-                  ],
+                      SizedBox(height: h * 0.012),
+                      Text(
+                        'Sign in with your mobile number',
+                        style: GoogleFonts.poppins(
+                          fontSize: FontSize.s16,
+                          color: Colors.grey[700],
+                        ),
+                      ),
+                      SizedBox(height: h * 0.04),
+                      // Mobile input field with country picker
+                      const MobileInputField(),
+                      SizedBox(height: h * 0.03),
+                      // Send OTP button
+                      SizedBox(
+                        width: double.infinity,
+                        height: h * 0.07,
+                        child: BlocBuilder<LoginBloc, LoginState>(
+                          builder: (context, state) {
+                            return CustomButton(
+                              label: 'Send OTP',
+                              onPressed: state.mobileNumber.length >= 5 ? () {
+                                final formattedNumber = '${state.selectedCountry.dialCode}${state.mobileNumber}';
+                                debugPrint('Navigating with phone number: $formattedNumber');
+                                context.read<LoginBloc>().add(SendOtpPressed());
+                                Navigator.pushNamed(
+                                  context,
+                                  Routes.otp,
+                                  arguments: formattedNumber,
+                                );
+                              } : null,
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
+                SizedBox(height: h * 0.04),
+                Divider(
+                  color: Colors.grey[300],
+                  thickness: 1.1,
+                  indent: w * 0.18,
+                  endIndent: w * 0.18,
+                ),
+                SizedBox(height: h * 0.01),
+                // Terms and privacy policy
+                Padding(
+                  padding: EdgeInsets.only(bottom: h * 0.02),
+                  child: RichText(
+                    textAlign: TextAlign.center,
+                    text: TextSpan(
+                      style: GoogleFonts.poppins(
+                        fontSize: FontSize.s12,
+                        fontWeight: FontWeightManager.regular,
+                        color: Colors.grey[700],
+                      ),
+                      children: [
+                        const TextSpan(text: 'By continuing, you agree to our '),
+                        TextSpan(
+                          text: 'Terms of Service',
+                          style: GoogleFonts.poppins(
+                            fontSize: FontSize.s12,
+                            fontWeight: FontWeightManager.semiBold,
+                            color: ColorManager.primary,
+                            decoration: TextDecoration.underline,
+                          ),
+                          recognizer: TapGestureRecognizer()
+                            ..onTap = () {
+                              Navigator.pushNamed(context, Routes.terms);
+                            },
+                        ),
+                        const TextSpan(text: ' and\n'),
+                        TextSpan(
+                          text: 'Privacy Policy',
+                          style: GoogleFonts.poppins(
+                            fontSize: FontSize.s12,
+                            fontWeight: FontWeightManager.semiBold,
+                            color: ColorManager.primary,
+                            decoration: TextDecoration.underline,
+                          ),
+                          recognizer: TapGestureRecognizer()
+                            ..onTap = () {
+                              Navigator.pushNamed(context, Routes.privacy);
+                            },
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                SizedBox(height: h * 0.04),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -182,7 +196,7 @@ class MobileInputField extends StatelessWidget {
                   // Phone icon
                   Icon(
                     Icons.phone,
-                    color: Colors.white,
+                    color: Colors.grey[700] ?? Colors.grey,
                     size: h * 0.035,
                   ),
                   SizedBox(width: w * 0.02),
@@ -216,7 +230,7 @@ class MobileInputField extends StatelessWidget {
                           Text(
                             state.selectedCountry.dialCode,
                             style: GoogleFonts.poppins(
-                              color: ColorManager.textWhite,
+                              color: Colors.grey[700] ?? Colors.grey,
                               fontSize: FontSize.s14,
                               fontWeight: FontWeightManager.medium,
                             ),
@@ -226,7 +240,7 @@ class MobileInputField extends StatelessWidget {
                           // Dropdown arrow
                           Icon(
                             Icons.keyboard_arrow_down,
-                            color: Colors.white.withOpacity(0.7),
+                            color: (Colors.grey[700] ?? Colors.grey).withOpacity(0.7),
                             size: h * 0.022,
                           ),
                         ],
@@ -245,14 +259,14 @@ class MobileInputField extends StatelessWidget {
                         LengthLimitingTextInputFormatter(10),
                       ],
                       style: GoogleFonts.poppins(
-                        color: ColorManager.textWhite,
+                        color: Colors.grey[700] ?? Colors.grey,
                         fontSize: FontSize.s16,
                       ),
                       decoration: InputDecoration(
                         border: InputBorder.none,
                         hintText: 'Enter mobile number',
                         hintStyle: GoogleFonts.poppins(
-                          color: ColorManager.textWhite.withOpacity(0.6),
+                          color: (Colors.grey[700] ?? Colors.grey).withOpacity(0.6),
                           fontSize: FontSize.s16,
                         ),
                       ),

@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:google_fonts/google_fonts.dart';
+import '../../resources/colors.dart';
 
 import '../../resources/router/router.dart';
 
@@ -24,6 +25,17 @@ class _SplashViewState extends State<SplashView> with TickerProviderStateMixin {
   late AnimationController _textAnimationController;
   late AnimationController _loadingAnimationController;
   late AnimationController _backgroundAnimationController;
+  late AnimationController _gradientController;
+  late Animation<Color?> _gradientColor1;
+  late Animation<Color?> _gradientColor2;
+  late AnimationController _glowController;
+  late Animation<double> _glowAnimation;
+  late AnimationController _typewriterController;
+  int _typewriterLength = 0;
+  late AnimationController _underlineController;
+  late Animation<double> _underlineAnimation;
+  late AnimationController _versionController;
+  late Animation<Offset> _versionOffset;
   
   // Animations
   late Animation<double> _logoScaleAnimation;
@@ -119,6 +131,51 @@ class _SplashViewState extends State<SplashView> with TickerProviderStateMixin {
       ),
     );
     
+    // Animated gradient background
+    _gradientController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 3),
+    )..repeat(reverse: true);
+    _gradientColor1 = ColorTween(
+      begin: ColorManager.primary.withOpacity(0.10),
+      end: ColorManager.primary.withOpacity(0.18),
+    ).animate(CurvedAnimation(parent: _gradientController, curve: Curves.easeInOut));
+    _gradientColor2 = ColorTween(
+      begin: Colors.orange.withOpacity(0.06),
+      end: Colors.deepOrange.withOpacity(0.10),
+    ).animate(CurvedAnimation(parent: _gradientController, curve: Curves.easeInOut));
+    // Glowing logo
+    _glowController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    )..repeat(reverse: true);
+    _glowAnimation = Tween<double>(begin: 0.08, end: 0.18).animate(CurvedAnimation(parent: _glowController, curve: Curves.easeInOut));
+    // Typewriter effect for app name
+    _typewriterController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    );
+    _typewriterController.addListener(() {
+      setState(() {
+        _typewriterLength = (_typewriterController.value * 'BIRD PARTNER'.length).clamp(0, 'BIRD PARTNER'.length).toInt();
+      });
+    });
+    _typewriterController.forward();
+    // Animated underline for slogan
+    _underlineController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    );
+    _underlineAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(CurvedAnimation(parent: _underlineController, curve: Curves.easeOutCubic));
+    Future.delayed(const Duration(milliseconds: 900), () => _underlineController.forward());
+    // Version animation
+    _versionController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 700),
+    );
+    _versionOffset = Tween<Offset>(begin: const Offset(0, 0.5), end: Offset.zero).animate(CurvedAnimation(parent: _versionController, curve: Curves.easeOut));
+    Future.delayed(const Duration(milliseconds: 1800), () => _versionController.forward());
+    
     // Generate initial particles
     _generateParticles();
     
@@ -200,6 +257,11 @@ class _SplashViewState extends State<SplashView> with TickerProviderStateMixin {
     _loadingAnimationController.dispose();
     _backgroundAnimationController.dispose();
     _particleTimer.cancel();
+    _gradientController.dispose();
+    _glowController.dispose();
+    _typewriterController.dispose();
+    _underlineController.dispose();
+    _versionController.dispose();
     super.dispose();
   }
 
@@ -302,68 +364,70 @@ class _SplashViewState extends State<SplashView> with TickerProviderStateMixin {
     final size = MediaQuery.of(context).size;
     
     return Scaffold(
-      backgroundColor: Colors.black,
-      body: Container(
-        decoration: BoxDecoration(
-          image: DecorationImage(
-            image: const AssetImage('assets/images/login.jpg'),
-            fit: BoxFit.cover,
-            colorFilter: ColorFilter.mode(
-              Colors.black.withOpacity(0.75),
-              BlendMode.darken,
-            ),
+      backgroundColor: Colors.white,
+      body: Stack(
+        children: [
+          // Animated gradient background
+          AnimatedBuilder(
+            animation: _gradientController,
+            builder: (context, child) {
+              return Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topRight,
+                    end: Alignment.bottomLeft,
+                    colors: [
+                      _gradientColor1.value ?? ColorManager.primary.withOpacity(0.18),
+                      _gradientColor2.value ?? Colors.orange.withOpacity(0.10),
+                    ],
+                  ),
+                ),
+              );
+            },
           ),
-        ),
-        child: Stack(
-          children: [
-            // Animated background gradient
-            AnimatedBuilder(
-              animation: _backgroundAnimation,
+          // Floating accent circle
+          Positioned(
+            left: -size.width * 0.2,
+            top: size.height * 0.18,
+            child: AnimatedBuilder(
+              animation: _gradientController,
               builder: (context, child) {
                 return Container(
+                  width: size.width * 0.55,
+                  height: size.width * 0.55,
                   decoration: BoxDecoration(
-                    gradient: RadialGradient(
-                      center: Alignment.center,
-                      radius: 1.0 * _backgroundAnimation.value,
-                      colors: [
-                        Colors.black.withOpacity(0.0),
-                        Colors.black.withOpacity(0.5),
-                        Colors.black.withOpacity(0.8),
-                      ],
-                      stops: const [0.0, 0.6, 1.0],
-                    ),
+                    shape: BoxShape.circle,
+                    color: _gradientColor2.value?.withOpacity(0.07) ?? Colors.orange.withOpacity(0.07),
                   ),
                 );
               },
             ),
-            
-            // Particles
-            Center(
-              child: SizedBox(
-                width: size.width,
-                height: size.height,
-                child: CustomPaint(
-                  painter: ParticlePainter(particles: _particles),
-                ),
-              ),
-            ),
-            
-            // Main content
-            SafeArea(
-              child: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    // Animated Logo with white container
-                    FadeTransition(
-                      opacity: _logoOpacityAnimation,
-                      child: ScaleTransition(
-                        scale: _logoScaleAnimation,
-                        child: Container(
+          ),
+          // Main content
+          Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                // Animated Logo with glow
+                FadeTransition(
+                  opacity: _logoOpacityAnimation,
+                  child: ScaleTransition(
+                    scale: _logoScaleAnimation,
+                    child: AnimatedBuilder(
+                      animation: _glowAnimation,
+                      builder: (context, child) {
+                        return Container(
                           width: size.width * 0.3,
                           height: size.width * 0.3,
-                          decoration: const BoxDecoration(
+                          decoration: BoxDecoration(
                             shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: ColorManager.primary.withOpacity(_glowAnimation.value),
+                                blurRadius: 16,
+                                spreadRadius: 1,
+                              ),
+                            ],
                           ),
                           child: ClipRRect(
                             borderRadius: BorderRadius.circular(80),
@@ -372,125 +436,135 @@ class _SplashViewState extends State<SplashView> with TickerProviderStateMixin {
                               fit: BoxFit.contain,
                             ),
                           ),
-                        ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 30),
+                // Typewriter app name
+                FadeTransition(
+                  opacity: _textOpacityAnimation,
+                  child: SlideTransition(
+                    position: _textSlideAnimation,
+                    child: Text(
+                      'BIRD PARTNER'.substring(0, _typewriterLength),
+                      style: GoogleFonts.poppins(
+                        color: ColorManager.primary,
+                        fontSize: 28,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 2.0,
                       ),
                     ),
-                    
-                    const SizedBox(height: 30),
-                    
-                    // Animated text
-                    FadeTransition(
-                      opacity: _textOpacityAnimation,
-                      child: SlideTransition(
-                        position: _textSlideAnimation,
-                        child: Text(
-                          'BIRD PARTNER',
-                          style: GoogleFonts.poppins(
-                            color: Colors.white,
-                            fontSize: 28,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 2.0,
-                          ),
-                        ),
-                      ),
-                    ),
-                    
-                    const SizedBox(height: 10),
-                    
-                    // Slogan with fade animation
-                    FadeTransition(
-                      opacity: _textOpacityAnimation,
-                      child: SlideTransition(
-                        position: _textSlideAnimation,
-                        child: Text(
+                  ),
+                ),
+                const SizedBox(height: 10),
+                // Animated slogan with underline
+                FadeTransition(
+                  opacity: _textOpacityAnimation,
+                  child: SlideTransition(
+                    position: _textSlideAnimation,
+                    child: Column(
+                      children: [
+                        Text(
                           'Delivering Excellence',
                           style: GoogleFonts.poppins(
-                            color: Colors.white.withOpacity(0.8),
+                            color: Colors.grey[700] ?? Colors.grey,
                             fontSize: 16,
                             fontWeight: FontWeight.w300,
                             letterSpacing: 1.5,
                           ),
                         ),
-                      ),
-                    ),
-                    
-                    const SizedBox(height: 15),
-                    
-                    // Additional slogan
-                    FadeTransition(
-                      opacity: _textOpacityAnimation,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(20),
+                        const SizedBox(height: 2),
+                        AnimatedBuilder(
+                          animation: _underlineAnimation,
+                          builder: (context, child) {
+                            return Align(
+                              alignment: Alignment.centerLeft,
+                              child: Container(
+                                margin: const EdgeInsets.only(top: 2),
+                                height: 3,
+                                width: 160 * _underlineAnimation.value,
+                                decoration: BoxDecoration(
+                                  color: ColorManager.primary,
+                                  borderRadius: BorderRadius.circular(2),
+                                ),
+                              ),
+                            );
+                          },
                         ),
-                        child: Text(
-                          'Partner with us for success',
-                          style: GoogleFonts.poppins(
-                            color: Colors.white.withOpacity(0.9),
-                            fontSize: 14,
-                            fontWeight: FontWeight.w300,
-                          ),
-                        ),
-                      ),
+                      ],
                     ),
-                    
-                    const SizedBox(height: 40),
-                    
-                    // Custom Loading Animation
-                    FadeTransition(
-                      opacity: _loadingOpacityAnimation,
-                      child: Column(
-                        children: [
-                          // Dot animation container
-                          Container(
-                            height: 50,
-                            width: 120,
-                            padding: const EdgeInsets.symmetric(vertical: 10),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(25),
-                            ),
-                            child: const DotPulseLoader(
-                              dotSize: 10,
-                              color: Colors.white,
-                            ),
-                          ),
-                          const SizedBox(height: 20),
-                          // Text animation
-                          const TextLoadingAnimation(
-                            text: 'LOADING',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: 3,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    
-                    const SizedBox(height: 50),
-                    
-                    // Version number
-                    FadeTransition(
-                      opacity: _loadingOpacityAnimation,
-                      child: Text(
-                        'v1.0.0',
-                        style: GoogleFonts.poppins(
-                          color: Colors.white.withOpacity(0.6),
-                          fontSize: 12,
-                        ),
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
-              ),
+                const SizedBox(height: 15),
+                FadeTransition(
+                  opacity: _textOpacityAnimation,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: ColorManager.primary.withOpacity(0.08),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      'Partner with us for success',
+                      style: GoogleFonts.poppins(
+                        color: ColorManager.primary,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w300,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 40),
+                FadeTransition(
+                  opacity: _loadingOpacityAnimation,
+                  child: Column(
+                    children: [
+                      Container(
+                        height: 50,
+                        width: 120,
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        decoration: BoxDecoration(
+                          color: ColorManager.primary.withOpacity(0.08),
+                          borderRadius: BorderRadius.circular(25),
+                        ),
+                        child: DotPulseLoader(
+                          dotSize: 10,
+                          color: ColorManager.primary,
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      TextLoadingAnimation(
+                        text: 'LOADING',
+                        style: TextStyle(
+                          color: ColorManager.primary,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 3,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 50),
+                SlideTransition(
+                  position: _versionOffset,
+                  child: FadeTransition(
+                    opacity: _loadingOpacityAnimation,
+                    child: Text(
+                      'v1.0.0',
+                      style: GoogleFonts.poppins(
+                        color: Colors.grey[400] ?? Colors.grey,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

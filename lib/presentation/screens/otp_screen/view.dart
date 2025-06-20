@@ -147,94 +147,86 @@ class _OtpViewContentState extends State<OtpViewContent> {
       },
       child: Scaffold(
         resizeToAvoidBottomInset: true,
-        body: Stack(
-          fit: StackFit.expand,
-          children: [
-            // Background image
-            Image.asset(
-              'assets/images/login.jpg',
-              fit: BoxFit.cover,
-            ),
-
-            // Dark overlay
-            Container(
-              color: Colors.black.withOpacity(0.7),
-            ),
-
-            // Content
-            SafeArea(
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  return SingleChildScrollView(
-                    physics: const ClampingScrollPhysics(),
-                    child: ConstrainedBox(
-                      constraints: BoxConstraints(
-                        minHeight: constraints.maxHeight,
-                      ),
-                      child: Padding(
-                        padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [                            
-                            // Logo
-                            Image.asset(
-                              'assets/svg/logo_text.png',
-                              height: logoHeight,
-                            ),
-                            
-                            SizedBox(height: verticalSpacing),
-                            
-                            // Title
-                            Text(
-                              'Enter OTP',
-                              textAlign: TextAlign.center,
-                              style: GoogleFonts.poppins(
-                                fontSize: titleFontSize,
-                                fontWeight: FontWeightManager.semiBold,
-                                color: ColorManager.textWhite,
+        backgroundColor: ColorManager.background,
+        body: SafeArea(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              return SingleChildScrollView(
+                physics: const ClampingScrollPhysics(),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    minHeight: constraints.maxHeight,
+                  ),
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        SizedBox(height: verticalSpacing * 2.5),
+                        // Logo
+                        Image.asset(
+                          'assets/svg/logo_text.png',
+                          height: logoHeight,
+                        ),
+                        SizedBox(height: verticalSpacing * 1.5),
+                        Container(
+                          width: double.infinity,
+                          padding: EdgeInsets.symmetric(horizontal: 18, vertical: verticalSpacing * 2.2),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(18),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.06),
+                                blurRadius: 18,
+                                offset: Offset(0, 8),
                               ),
-                            ),
-                            
-                            SizedBox(height: verticalSpacing),
-                            
-                            // Subtitle
-                            Text(
-                              'We have sent an OTP to your mobile number',
-                              textAlign: TextAlign.center,
-                              style: GoogleFonts.poppins(
-                                fontSize: subtitleFontSize,
-                                color: ColorManager.textWhite.withOpacity(0.9),
+                            ],
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              Text(
+                                'Enter OTP',
+                                textAlign: TextAlign.center,
+                                style: GoogleFonts.poppins(
+                                  fontSize: titleFontSize,
+                                  fontWeight: FontWeightManager.semiBold,
+                                  color: ColorManager.primary,
+                                ),
                               ),
-                            ),
-                            
-                            SizedBox(height: verticalSpacing * 3),
-                            
-                            // OTP input as a single TextField instead of 6 boxes
-                            BlocBuilder<OtpBloc, OtpState>(
-                              buildWhen: (previous, current) => 
-                                previous.digits != current.digits || 
-                                previous.status != current.status,
-                              builder: (context, state) {
-                                // Update controller if needed to reflect state
-                                final stateOtp = state.digits.join();
-                                if (_otpController.text != stateOtp) {
-                                  _otpController.text = stateOtp;
-                                }
-                                
-                                return ClipRRect(
-                                  borderRadius: BorderRadius.circular(8),
-                                  child: BackdropFilter(
-                                    filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                              SizedBox(height: verticalSpacing * 0.7),
+                              Text(
+                                'We have sent an OTP to your mobile number',
+                                textAlign: TextAlign.center,
+                                style: GoogleFonts.poppins(
+                                  fontSize: subtitleFontSize,
+                                  color: Colors.grey[700] ?? Colors.grey,
+                                ),
+                              ),
+                              SizedBox(height: verticalSpacing * 2.2),
+                              // OTP input as a single TextField instead of 6 boxes
+                              BlocBuilder<OtpBloc, OtpState>(
+                                buildWhen: (previous, current) => 
+                                  previous.digits != current.digits || 
+                                  previous.status != current.status,
+                                builder: (context, state) {
+                                  final stateOtp = state.digits.join();
+                                  if (_otpController.text != stateOtp) {
+                                    _otpController.text = stateOtp;
+                                  }
+                                  return ClipRRect(
+                                    borderRadius: BorderRadius.circular(8),
                                     child: Container(
                                       width: size.width * 0.7,
                                       height: 55,
                                       decoration: BoxDecoration(
-                                        color: Colors.white.withOpacity(0.15),
+                                        color: Colors.white,
                                         borderRadius: BorderRadius.circular(8),
                                         border: Border.all(
                                           color: _otpFocusNode.hasFocus 
-                                            ? Colors.white.withOpacity(0.5)
-                                            : Colors.white.withOpacity(0.2),
+                                            ? ColorManager.primary
+                                            : (Colors.grey[300] ?? Colors.grey),
                                           width: _otpFocusNode.hasFocus ? 2 : 1,
                                         ),
                                       ),
@@ -244,10 +236,10 @@ class _OtpViewContentState extends State<OtpViewContent> {
                                         keyboardType: TextInputType.number,
                                         textAlign: TextAlign.center,
                                         style: GoogleFonts.poppins(
-                                          color: ColorManager.textWhite,
+                                          color: ColorManager.primary,
                                           fontSize: FontSize.s18,
                                           fontWeight: FontWeightManager.semiBold,
-                                          letterSpacing: 8, // Spaced for OTP look
+                                          letterSpacing: 8,
                                         ),
                                         maxLength: 6,
                                         inputFormatters: [
@@ -256,15 +248,14 @@ class _OtpViewContentState extends State<OtpViewContent> {
                                         decoration: InputDecoration(
                                           border: InputBorder.none,
                                           counterText: '',
-                                          hintText: '• • • • • •',
+                                          hintText: '\u2022 \u2022 \u2022 \u2022 \u2022 \u2022',
                                           hintStyle: GoogleFonts.poppins(
-                                            color: ColorManager.textWhite.withOpacity(0.6),
+                                            color: Colors.grey[400] ?? Colors.grey,
                                             fontSize: FontSize.s18,
                                           ),
                                           contentPadding: EdgeInsets.zero,
                                         ),
                                         onChanged: (val) {
-                                          // Update each digit in the bloc
                                           final digits = val.split('');
                                           for (int i = 0; i < 6; i++) {
                                             final digit = i < digits.length ? digits[i] : '';
@@ -273,76 +264,77 @@ class _OtpViewContentState extends State<OtpViewContent> {
                                         },
                                       ),
                                     ),
-                                  ),
-                                );
-                              },
-                            ),
-                            
-                            SizedBox(height: verticalSpacing * 4),
-                            
-                            // Verify button
-                            BlocBuilder<OtpBloc, OtpState>(
-                              buildWhen: (previous, current) => 
-                                previous.isButtonEnabled != current.isButtonEnabled ||
-                                previous.status != current.status,
-                              builder: (context, state) {
-                                return SizedBox(
-                                  width: double.infinity,
-                                  height: buttonHeight,
-                                  child: CustomButton(
-                                    label: state.status == OtpStatus.validating 
-                                      ? 'Verifying...' 
-                                      : 'Verify OTP',
-                                    onPressed: state.isButtonEnabled && state.status != OtpStatus.validating
-                                      ? () {
-                                          debugPrint('Verify button pressed');
-                                          FocusScope.of(context).unfocus();
-                                          context.read<OtpBloc>().add(SubmitOtpPressed());
-                                        }
-                                      : null,
-                                  ),
-                                );
-                              },
-                            ),
-                            
-                            SizedBox(height: verticalSpacing * 2),
-                            
-                            // Resend timer
-                            BlocBuilder<OtpBloc, OtpState>(
-                              buildWhen: (previous, current) => 
-                                previous.remainingSeconds != current.remainingSeconds,
-                              builder: (context, state) {
-                                return GestureDetector(
-                                  onTap: state.remainingSeconds <= 0
-                                    ? () => context.read<OtpBloc>().add(ResendOtpEvent())
-                                    : null,
-                                  child: Text(
-                                    state.remainingSeconds > 0
-                                      ? "Didn't receive OTP? Resend in ${state.remainingSeconds}s"
-                                      : "Didn't receive OTP? Tap to resend",
-                                    textAlign: TextAlign.center,
-                                    style: GoogleFonts.poppins(
-                                      fontSize: FontSize.s12,
-                                      color: ColorManager.textWhite,
-                                      decoration: state.remainingSeconds <= 0 
-                                        ? TextDecoration.underline 
-                                        : TextDecoration.none,
+                                  );
+                                },
+                              ),
+                              SizedBox(height: verticalSpacing * 2.2),
+                              // Verify button
+                              BlocBuilder<OtpBloc, OtpState>(
+                                buildWhen: (previous, current) => 
+                                  previous.isButtonEnabled != current.isButtonEnabled ||
+                                  previous.status != current.status,
+                                builder: (context, state) {
+                                  return SizedBox(
+                                    width: double.infinity,
+                                    height: buttonHeight,
+                                    child: CustomButton(
+                                      label: state.status == OtpStatus.validating 
+                                        ? 'Verifying...' 
+                                        : 'Verify OTP',
+                                      onPressed: state.isButtonEnabled && state.status != OtpStatus.validating
+                                        ? () {
+                                            FocusScope.of(context).unfocus();
+                                            context.read<OtpBloc>().add(SubmitOtpPressed());
+                                          }
+                                        : null,
                                     ),
-                                  ),
-                                );
-                              },
-                            ),
-                            
-                            SizedBox(height: verticalSpacing * 2),
-                          ],
+                                  );
+                                },
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
+                        SizedBox(height: verticalSpacing * 2.2),
+                        Divider(
+                          color: Colors.grey[300],
+                          thickness: 1.1,
+                          indent: size.width * 0.18,
+                          endIndent: size.width * 0.18,
+                        ),
+                        SizedBox(height: verticalSpacing * 0.7),
+                        // Resend timer
+                        BlocBuilder<OtpBloc, OtpState>(
+                          buildWhen: (previous, current) => 
+                            previous.remainingSeconds != current.remainingSeconds,
+                          builder: (context, state) {
+                            return GestureDetector(
+                              onTap: state.remainingSeconds <= 0
+                                ? () => context.read<OtpBloc>().add(ResendOtpEvent())
+                                : null,
+                              child: Text(
+                                state.remainingSeconds > 0
+                                  ? "Didn't receive OTP? Resend in ${state.remainingSeconds}s"
+                                  : "Didn't receive OTP? Tap to resend",
+                                textAlign: TextAlign.center,
+                                style: GoogleFonts.poppins(
+                                  fontSize: FontSize.s12,
+                                  color: ColorManager.primary,
+                                  decoration: state.remainingSeconds <= 0 
+                                    ? TextDecoration.underline 
+                                    : TextDecoration.none,
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                        SizedBox(height: verticalSpacing * 2.2),
+                      ],
                     ),
-                  );
-                },
-              ),
-            ),
-          ],
+                  ),
+                ),
+              );
+            },
+          ),
         ),
       ),
     );
