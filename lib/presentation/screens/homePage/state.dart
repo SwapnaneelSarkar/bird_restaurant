@@ -1,3 +1,5 @@
+import '../../../models/partner_summary_model.dart';
+
 abstract class HomeState {}
 
 class HomeInitial extends HomeState {}
@@ -12,6 +14,7 @@ class HomeLoaded extends HomeState {
   final double rating;
   final List<Map<String, dynamic>> salesData;
   final Map<String, dynamic>? restaurantData;
+  final PartnerSummaryModel? partnerSummary;
 
   HomeLoaded({
     required this.isAcceptingOrders,
@@ -21,6 +24,7 @@ class HomeLoaded extends HomeState {
     required this.rating,
     required this.salesData,
     this.restaurantData,
+    this.partnerSummary,
   });
 
   HomeLoaded copyWith({
@@ -31,6 +35,7 @@ class HomeLoaded extends HomeState {
     double? rating,
     List<Map<String, dynamic>>? salesData,
     Map<String, dynamic>? restaurantData,
+    PartnerSummaryModel? partnerSummary,
   }) {
     return HomeLoaded(
       isAcceptingOrders: isAcceptingOrders ?? this.isAcceptingOrders,
@@ -40,6 +45,7 @@ class HomeLoaded extends HomeState {
       rating: rating ?? this.rating,
       salesData: salesData ?? this.salesData,
       restaurantData: restaurantData ?? this.restaurantData,
+      partnerSummary: partnerSummary ?? this.partnerSummary,
     );
   }
 }

@@ -18,6 +18,7 @@ import 'event.dart';
 import 'sidebar/side_bar_opener.dart';
 import 'sidebar/sidebar_drawer.dart';
 import 'state.dart';
+import '../../../models/partner_summary_model.dart';
 
 class HomeView extends StatefulWidget {
   const HomeView({Key? key}) : super(key: key);
@@ -29,8 +30,8 @@ class HomeView extends StatefulWidget {
 class _HomeViewState extends State<HomeView> with TickerProviderStateMixin {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   int _selectedIndex = 0;
-  late AnimationController _pageTransitionController;
-  late PageController _pageController;
+  late final AnimationController _pageTransitionController;
+  late final PageController _pageController;
 
   @override
   void initState() {
@@ -131,48 +132,15 @@ class _HomeViewState extends State<HomeView> with TickerProviderStateMixin {
         backgroundColor: Colors.grey[50],
         drawer: BlocBuilder<HomeBloc, HomeState>(
           builder: (context, state) {
-            // Handle restaurant data for sidebar
             String? restaurantName;
             String? restaurantSlogan;
             String? restaurantImageUrl;
-            
-            if (state is HomeLoaded && state.restaurantData != null) {
-              restaurantName = state.restaurantData!['restaurant_name'] as String?;
-              restaurantSlogan = state.restaurantData!['address'] as String?;
-              
-              // Get restaurant image URL - path based on your API response structure
-              if (state.restaurantData!['restaurant_photos'] != null) {
-                var photos = state.restaurantData!['restaurant_photos'];
-                if (photos is List && photos.isNotEmpty) {
-                  // Extract the URL from the list item if it's a string
-                  var photoUrl = photos[0];
-                  if (photoUrl is String) {
-                    // Remove any JSON array brackets and quotes
-                    photoUrl = photoUrl.replaceAll('[', '').replaceAll(']', '').replaceAll('"', '');
-                    restaurantImageUrl = photoUrl;
-                  }
-                } else if (photos is String) {
-                  // Remove any JSON array brackets and quotes
-                  restaurantImageUrl = photos.replaceAll('[', '').replaceAll(']', '').replaceAll('"', '');
-                }
-              }
-              
-              // Alternative fields to check for images
-              if (restaurantImageUrl == null && state.restaurantData!['logo_url'] != null) {
-                restaurantImageUrl = state.restaurantData!['logo_url'] as String?;
-              }
-              
-              // If we found an image URL, ensure it's a complete URL
-              if (restaurantImageUrl != null) {
-                // Remove any existing API prefix if present
-                restaurantImageUrl = restaurantImageUrl.replaceAll('${ApiConstants.baseUrl}/api/', '');
-                // Only add base URL if it's not already a complete URL
-                if (!restaurantImageUrl.startsWith('http')) {
-                  restaurantImageUrl = '${ApiConstants.baseUrl}/$restaurantImageUrl';
-                }
-              }
+            PartnerSummaryModel? summaryModel;
+            if (state is HomeLoaded && state.partnerSummary != null) {
+              summaryModel = state.partnerSummary;
+              // Use available fields from summaryModel if needed
+              // For now, fallback to null for name, slogan, imageUrl
             }
-            
             return SidebarDrawer(
               activePage: 'home',
               restaurantName: restaurantName,
@@ -194,6 +162,7 @@ class _HomeViewState extends State<HomeView> with TickerProviderStateMixin {
             child: Image.asset(
               'assets/svg/logo_text.png',
               height: 80,
+              semanticLabel: 'Bird Partner Logo',
             ),
           ),
         ) : null,

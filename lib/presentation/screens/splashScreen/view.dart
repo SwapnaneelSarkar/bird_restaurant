@@ -21,21 +21,21 @@ class SplashView extends StatefulWidget {
 
 class _SplashViewState extends State<SplashView> with TickerProviderStateMixin {
   // Animation controllers
-  late AnimationController _logoAnimationController;
-  late AnimationController _textAnimationController;
-  late AnimationController _loadingAnimationController;
-  late AnimationController _backgroundAnimationController;
-  late AnimationController _gradientController;
-  late Animation<Color?> _gradientColor1;
-  late Animation<Color?> _gradientColor2;
-  late AnimationController _glowController;
-  late Animation<double> _glowAnimation;
-  late AnimationController _typewriterController;
+  late final AnimationController _logoAnimationController;
+  late final AnimationController _textAnimationController;
+  late final AnimationController _loadingAnimationController;
+  late final AnimationController _backgroundAnimationController;
+  late final AnimationController _gradientController;
+  late final Animation<Color?> _gradientColor1;
+  late final Animation<Color?> _gradientColor2;
+  late final AnimationController _glowController;
+  late final Animation<double> _glowAnimation;
+  late final AnimationController _typewriterController;
   int _typewriterLength = 0;
-  late AnimationController _underlineController;
-  late Animation<double> _underlineAnimation;
-  late AnimationController _versionController;
-  late Animation<Offset> _versionOffset;
+  late final AnimationController _underlineController;
+  late final Animation<double> _underlineAnimation;
+  late final AnimationController _versionController;
+  late final Animation<Offset> _versionOffset;
   
   // Animations
   late Animation<double> _logoScaleAnimation;
@@ -434,6 +434,7 @@ class _SplashViewState extends State<SplashView> with TickerProviderStateMixin {
                             child: Image.asset(
                               'assets/images/logo.png',
                               fit: BoxFit.contain,
+                              semanticLabel: 'Bird Partner Logo',
                             ),
                           ),
                         );

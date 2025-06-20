@@ -14,6 +14,7 @@ import 'state.dart';
 
 class HomeBloc extends Bloc<HomeEvent, HomeState> {
   final ApiServices _apiServices = ApiServices();
+  PartnerSummaryModel? partnerSummary;
   
   HomeBloc() : super(HomeInitial()) {
     on<LoadHomeData>(_onLoadHomeData);
@@ -89,13 +90,12 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
       }
 
       // Fetch partner summary from the new API using the model
-      PartnerSummaryModel? summaryData;
       try {
         debugPrint('Fetching partner summary data...');
         final summaryResponse = await _apiServices.getPartnerSummary();
         if (summaryResponse.success && summaryResponse.data != null) {
-          summaryData = summaryResponse.data!;
-          debugPrint('Partner summary data fetched successfully: $summaryData');
+          partnerSummary = summaryResponse.data!;
+          debugPrint('Partner summary data fetched successfully: $partnerSummary');
         } else {
           debugPrint('Failed to fetch partner summary: ${summaryResponse.message}');
         }
@@ -105,34 +105,27 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
       }
 
       // Use API data if available, otherwise use default values
-      final ordersCount = summaryData?.ordersCount ?? 0;
-      final productsCount = summaryData?.productsCount ?? 0;
-      final tagsCount = summaryData?.tagsCount ?? 0;
-      final rating = summaryData?.rating ?? 0.0;
-      final isAcceptingOrders = summaryData?.acceptingOrders ?? false;
+      final ordersCount = partnerSummary?.ordersCount ?? 0;
+      final productsCount = partnerSummary?.productsCount ?? 0;
+      final tagsCount = partnerSummary?.tagsCount ?? 0;
+      final rating = partnerSummary?.rating ?? 0.0;
+      final isAcceptingOrders = partnerSummary?.acceptingOrders ?? false;
       
       // Convert API sales data to the format expected by the UI
       List<Map<String, dynamic>> salesData = [];
-      if (summaryData?.salesData != null && summaryData!.salesData.isNotEmpty) {
-        // Transform the API format to UI format
-        salesData = summaryData.salesData.map<Map<String, dynamic>>((salesPoint) {
-          // Convert date to day name for chart display
+      if (partnerSummary?.salesData != null && partnerSummary?.salesData.isNotEmpty == true) {
+        salesData = partnerSummary!.salesData.map<Map<String, dynamic>>((salesPoint) {
           final dayName = _formatDateToDay(salesPoint.date);
-          
           return {
             'day': dayName,
             'sales': salesPoint.sales,
           };
         }).toList();
-        
-        debugPrint('Converted ${salesData.length} sales data points for chart');
-        
-        // Sort by date to ensure proper order
         salesData.sort((a, b) {
-          final dateA = _parseDate(summaryData!.salesData.firstWhere(
+          final dateA = _parseDate(partnerSummary!.salesData.firstWhere(
             (sp) => _formatDateToDay(sp.date) == a['day']
           ).date);
-          final dateB = _parseDate(summaryData.salesData.firstWhere(
+          final dateB = _parseDate(partnerSummary!.salesData.firstWhere(
             (sp) => _formatDateToDay(sp.date) == b['day']
           ).date);
           return dateA.compareTo(dateB);
@@ -159,6 +152,7 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
         rating: rating,
         salesData: salesData,
         restaurantData: restaurantData,
+        partnerSummary: partnerSummary,
       ));
       
       debugPrint('Home data loaded successfully with API data:');
