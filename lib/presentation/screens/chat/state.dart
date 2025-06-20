@@ -241,13 +241,14 @@ class OrderDetails {
     return amount.toString();
   }
 
-  double get totalAmountDouble => double.tryParse(totalAmount) ?? 0.0;
+  // Calculate subtotal from items, not from API field
+  double get subtotal => items.fold(0.0, (sum, item) => sum + (item.itemPrice * item.quantity));
   double get deliveryFeesDouble => double.tryParse(deliveryFees) ?? 0.0;
-  double get grandTotal => totalAmountDouble + deliveryFeesDouble;
+  double get grandTotal => subtotal + deliveryFeesDouble;
 
-  String get formattedTotal => '₹${totalAmount}';
-  String get formattedDeliveryFees => '₹${deliveryFees}';
-  String get formattedGrandTotal => '₹${grandTotal.toStringAsFixed(2)}';
+  String formattedTotal(String currencySymbol) => '$currencySymbol${subtotal.toStringAsFixed(2)}';
+  String formattedDeliveryFees(String currencySymbol) => '$currencySymbol$deliveryFees';
+  String formattedGrandTotal(String currencySymbol) => '$currencySymbol${grandTotal.toStringAsFixed(2)}';
 
   // ENHANCED: Get all menu IDs from the order items
   List<String> get allMenuIds => items.map((item) => item.menuId).toList();
@@ -257,11 +258,13 @@ class OrderItem {
   final String menuId;
   final int quantity;
   final double itemPrice;
+  final Map<String, dynamic>? attributes;
 
   const OrderItem({
     required this.menuId,
     required this.quantity,
     required this.itemPrice,
+    this.attributes,
   });
 
   factory OrderItem.fromJson(Map<String, dynamic> json) {
@@ -269,6 +272,7 @@ class OrderItem {
       menuId: json['menu_id'] ?? '',
       quantity: json['quantity'] ?? 0,
       itemPrice: _parsePrice(json['item_price']),
+      attributes: json['attributes'] != null ? Map<String, dynamic>.from(json['attributes']) : null,
     );
   }
 
@@ -292,8 +296,8 @@ class OrderItem {
   }
 
   double get totalPrice => itemPrice * quantity;
-  String get formattedPrice => '₹${itemPrice.toStringAsFixed(2)}';
-  String get formattedTotalPrice => '₹${totalPrice.toStringAsFixed(2)}';
+  String formattedPrice(String currencySymbol) => '$currencySymbol${itemPrice.toStringAsFixed(2)}';
+  String formattedTotalPrice(String currencySymbol) => '$currencySymbol${totalPrice.toStringAsFixed(2)}';
 
   // ENHANCED: Helper method to get menu item info
   MenuItem? getMenuItem(Map<String, MenuItem> menuItems) {

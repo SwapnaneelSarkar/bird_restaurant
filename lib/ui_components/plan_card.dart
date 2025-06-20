@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../models/plan_model.dart';
 import '../presentation/resources/font.dart';
 import 'plan_button.dart';
+import '../../../services/currency_service.dart';
 
 class PlanCard extends StatelessWidget {
   final PlanModel plan;
@@ -114,8 +115,17 @@ class PlanCard extends StatelessWidget {
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
+                      CurrencyService.currencySymbolWidget(
+                        style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeightManager.bold,
+                          color: const Color(0xFF111827),
+                          letterSpacing: -0.5,
+                          height: 1.0,
+                        ),
+                      ),
                       Text(
-                        '₹${plan.price.toInt().toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},')}',
+                        '${plan.price.toInt().toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},')}',
                         style: TextStyle(
                           fontSize: 24,
                           fontWeight: FontWeightManager.bold,

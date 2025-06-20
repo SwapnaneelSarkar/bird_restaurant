@@ -53,35 +53,25 @@ class MenuItemsBloc extends Bloc<MenuItemsEvent, MenuItemsState> {
           restaurantData: response.data!,
         ));
       } else {
-        // If we have cached data but the refresh failed, keep using the cache
+        // Only emit error if there is no cached data
         if (_cachedRestaurantData != null) {
           emit(MenuItemsLoaded(
             menuItems: _cachedRestaurantData!.menuItems,
             restaurantData: _cachedRestaurantData!,
           ));
-          // Show error message without changing main state
-          emit(MenuItemsError(response.message));
-          emit(MenuItemsLoaded(
-            menuItems: _cachedRestaurantData!.menuItems,
-            restaurantData: _cachedRestaurantData!,
-          ));
+          // Optionally: show error as a Snackbar via a side effect, but do NOT emit MenuItemsError
         } else {
           emit(MenuItemsError(response.message));
         }
       }
     } catch (e) {
-      // If we have cached data but the refresh failed, keep using the cache
+      // Only emit error if there is no cached data
       if (_cachedRestaurantData != null) {
         emit(MenuItemsLoaded(
           menuItems: _cachedRestaurantData!.menuItems,
           restaurantData: _cachedRestaurantData!,
         ));
-        // Show error message without changing main state
-        emit(MenuItemsError('Failed to load menu items: ${e.toString()}'));
-        emit(MenuItemsLoaded(
-          menuItems: _cachedRestaurantData!.menuItems,
-          restaurantData: _cachedRestaurantData!,
-        ));
+        // Optionally: show error as a Snackbar via a side effect, but do NOT emit MenuItemsError
       } else {
         emit(MenuItemsError('Failed to load menu items: ${e.toString()}'));
       }
@@ -103,21 +93,25 @@ class MenuItemsBloc extends Bloc<MenuItemsEvent, MenuItemsState> {
           restaurantData: response.data!,
         ));
       } else {
-        // Keep current state and just emit temporary error
-        if (state is MenuItemsLoaded) {
-          final currentState = state as MenuItemsLoaded;
-          emit(MenuItemsError(response.message));
-          emit(currentState);
+        // Only emit error if there is no cached data
+        if (_cachedRestaurantData != null) {
+          emit(MenuItemsLoaded(
+            menuItems: _cachedRestaurantData!.menuItems,
+            restaurantData: _cachedRestaurantData!,
+          ));
+          // Optionally: show error as a Snackbar via a side effect, but do NOT emit MenuItemsError
         } else {
           emit(MenuItemsError(response.message));
         }
       }
     } catch (e) {
-      // Keep current state and just emit temporary error
-      if (state is MenuItemsLoaded) {
-        final currentState = state as MenuItemsLoaded;
-        emit(MenuItemsError('Failed to refresh menu items: ${e.toString()}'));
-        emit(currentState);
+      // Only emit error if there is no cached data
+      if (_cachedRestaurantData != null) {
+        emit(MenuItemsLoaded(
+          menuItems: _cachedRestaurantData!.menuItems,
+          restaurantData: _cachedRestaurantData!,
+        ));
+        // Optionally: show error as a Snackbar via a side effect, but do NOT emit MenuItemsError
       } else {
         emit(MenuItemsError('Failed to refresh menu items: ${e.toString()}'));
       }
@@ -125,139 +119,133 @@ class MenuItemsBloc extends Bloc<MenuItemsEvent, MenuItemsState> {
   }
 
   Future<void> _onToggleItemAvailability(
-  ToggleItemAvailabilityEvent event,
-  Emitter<MenuItemsState> emit,
-) async {
-  if (state is MenuItemsLoaded) {
-    final currentState = state as MenuItemsLoaded;
-    
-    // Emit a state indicating that availability is being updated
-    emit(ItemAvailabilityUpdating(event.menuItem));
-    
-    try {
-      // Call the API to update availability - pass the complete menu item
-      final response = await _updateMenuItemAvailability(
-        event.menuItem,
-        event.isAvailable
-      );
+    ToggleItemAvailabilityEvent event,
+    Emitter<MenuItemsState> emit,
+  ) async {
+    if (state is MenuItemsLoaded) {
+      final currentState = state as MenuItemsLoaded;
       
-      if (response.status == 'SUCCESS') {
-        // Update the local state with the new availability
-        final updatedItems = currentState.menuItems.map((item) {
-          if (item.menuId == event.menuItem.menuId) {
-            // ✅ FIXED: Include all required fields including new ones
-            return MenuItem(
-              menuId: item.menuId,
-              name: item.name,
-              price: item.price,
-              available: event.isAvailable,
-              imageUrl: item.imageUrl,
-              description: item.description,
-              category: item.category,
-              isVeg: item.isVeg,
-              // ✅ NEW: Include the new required fields
-              isTaxIncluded: item.isTaxIncluded,
-              isCancellable: item.isCancellable,
-              tags: item.tags,
-            );
+      // Emit a state indicating that availability is being updated
+      emit(ItemAvailabilityUpdating(event.menuItem));
+      
+      try {
+        // Call the API to update availability - pass the complete menu item
+        final response = await _updateMenuItemAvailability(
+          event.menuItem,
+          event.isAvailable
+        );
+        
+        if (response.status == 'SUCCESS') {
+          // Update the local state with the new availability
+          final updatedItems = currentState.menuItems.map((item) {
+            if (item.menuId == event.menuItem.menuId) {
+              return MenuItem(
+                menuId: item.menuId,
+                name: item.name,
+                price: item.price,
+                available: event.isAvailable,
+                imageUrl: item.imageUrl,
+                description: item.description,
+                category: item.category,
+                isVeg: item.isVeg,
+                isTaxIncluded: item.isTaxIncluded,
+                isCancellable: item.isCancellable,
+                tags: item.tags,
+              );
+            }
+            return item;
+          }).toList();
+          
+          // Update cached data
+          if (_cachedRestaurantData != null) {
+            _cachedRestaurantData = null;
           }
-          return item;
-        }).toList();
-        
-        // Update cached data
-        if (_cachedRestaurantData != null) {
-          // Instead of trying to create a new RestaurantData object,
-          // we'll invalidate the cache to force a refresh on next load
-          _cachedRestaurantData = null;
+          
+          emit(MenuItemsLoaded(
+            menuItems: updatedItems,
+            restaurantData: currentState.restaurantData,
+            isFiltered: currentState.isFiltered,
+            filterType: currentState.filterType,
+            searchQuery: currentState.searchQuery,
+          ));
+        } else {
+          // Do NOT emit MenuItemsError here to avoid flicker
+          emit(currentState);
+          // Optionally: handle error notification elsewhere (e.g., Snackbar in UI)
         }
-        
-        emit(MenuItemsLoaded(
-          menuItems: updatedItems,
-          restaurantData: currentState.restaurantData,
-          isFiltered: currentState.isFiltered,
-          filterType: currentState.filterType,
-          searchQuery: currentState.searchQuery,
-        ));
-      } else {
-        // Show error but don't change the UI state
-        emit(MenuItemsError(response.message));
-        emit(currentState); // Revert to previous state
+      } catch (e) {
+        // Do NOT emit MenuItemsError here to avoid flicker
+        emit(currentState);
+        // Optionally: handle error notification elsewhere (e.g., Snackbar in UI)
       }
-    } catch (e) {
-      emit(MenuItemsError('Failed to update item availability: ${e.toString()}'));
-      // Revert back to the previous state after the error
-      emit(currentState);
     }
   }
-}
-
 
   Future<UpdateMenuItemResponse> _updateMenuItemAvailability(MenuItem menuItem, bool isAvailable) async {
-  try {
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('token');
-    
-    if (token == null) {
-      throw Exception('Authentication information not found. Please login again.');
-    }
-    
-    final url = Uri.parse('${ApiConstants.baseUrl}/partner/menu_item/${menuItem.menuId}');
-    
-    debugPrint('Updating menu item availability: $url');
-    
-    // ✅ FIXED: Include all required fields from the menu item including new ones
-    final requestBody = jsonEncode({
-      'name': menuItem.name,
-      'price': menuItem.price,
-      'available': isAvailable.toString(),
-      'description': menuItem.description,
-      'category': menuItem.category,
-      'isVeg': menuItem.isVeg.toString(),
-      // ✅ NEW: Include the new fields in the API request
-      'isTaxIncluded': menuItem.isTaxIncluded.toString(),
-      'isCancellable': menuItem.isCancellable.toString(),
-      if (menuItem.tags != null) 'tags': menuItem.tags,
-    });
-    
-    final response = await http.put(
-      url,
-      headers: {
-        'Authorization': 'Bearer $token',
-        'Content-Type': 'application/json',
-      },
-      body: requestBody,
-    );
-    
-    debugPrint('Response status: ${response.statusCode}');
-    debugPrint('Response body: ${response.body}');
-    
-    if (response.statusCode == 200) {
-      final data = json.decode(response.body);
-      return UpdateMenuItemResponse.fromJson(data);
-    } else {
-      try {
-        final errorData = json.decode(response.body);
-        return UpdateMenuItemResponse(
-          status: 'ERROR',
-          message: errorData['message'] ?? 'Failed to update menu item',
-        );
-      } catch (e) {
-        return UpdateMenuItemResponse(
-          status: 'ERROR',
-          message: 'Failed to update menu item. Status: ${response.statusCode}',
-        );
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('token');
+      
+      if (token == null) {
+        throw Exception('Authentication information not found. Please login again.');
       }
+      
+      final url = Uri.parse('${ApiConstants.baseUrl}/partner/menu_item/${menuItem.menuId}');
+      
+      debugPrint('Updating menu item availability: $url');
+      
+      // ✅ FIXED: Include all required fields from the menu item including new ones
+      final requestBody = jsonEncode({
+        'name': menuItem.name,
+        'price': menuItem.price,
+        'available': isAvailable.toString(),
+        'description': menuItem.description,
+        'category': menuItem.category,
+        'isVeg': menuItem.isVeg.toString(),
+        // ✅ NEW: Include the new fields in the API request
+        'isTaxIncluded': menuItem.isTaxIncluded.toString(),
+        'isCancellable': menuItem.isCancellable.toString(),
+        if (menuItem.tags != null) 'tags': menuItem.tags,
+      });
+      
+      final response = await http.put(
+        url,
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+        body: requestBody,
+      );
+      
+      debugPrint('Response status: ${response.statusCode}');
+      debugPrint('Response body: ${response.body}');
+      
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        return UpdateMenuItemResponse.fromJson(data);
+      } else {
+        try {
+          final errorData = json.decode(response.body);
+          return UpdateMenuItemResponse(
+            status: 'ERROR',
+            message: errorData['message'] ?? 'Failed to update menu item',
+          );
+        } catch (e) {
+          return UpdateMenuItemResponse(
+            status: 'ERROR',
+            message: 'Failed to update menu item. Status: ${response.statusCode}',
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('Error updating menu item: $e');
+      return UpdateMenuItemResponse(
+        status: 'ERROR',
+        message: 'Error: ${e.toString()}',
+      );
     }
-  } catch (e) {
-    debugPrint('Error updating menu item: $e');
-    return UpdateMenuItemResponse(
-      status: 'ERROR',
-      message: 'Error: ${e.toString()}',
-    );
   }
-}
 
-  
   Future<void> _onDeleteMenuItem(
     DeleteMenuItemEvent event,
     Emitter<MenuItemsState> emit,

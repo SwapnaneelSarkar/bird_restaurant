@@ -26,6 +26,9 @@ class _EditMenuViewState extends State<EditMenuView> {
   final TextEditingController _searchController = TextEditingController();
   Timer? _debounce;
 
+  // Track the last loaded state
+  MenuItemsLoaded? _lastLoadedState;
+
   @override
   void initState() {
     super.initState();
@@ -121,6 +124,10 @@ class _EditMenuViewState extends State<EditMenuView> {
           }
         },
         builder: (context, state) {
+          // Track the last loaded state
+          if (state is MenuItemsLoaded) {
+            _lastLoadedState = state;
+          }
           return Scaffold(
             backgroundColor: Colors.grey[100],
             body: SafeArea(
@@ -128,7 +135,7 @@ class _EditMenuViewState extends State<EditMenuView> {
                 children: [
                   _buildHeader(context),
                   Expanded(
-                    child: _buildBody(context, state),
+                    child: _buildBodyWithLastLoaded(context, state),
                   ),
                 ],
               ),
@@ -327,6 +334,77 @@ class _EditMenuViewState extends State<EditMenuView> {
         ),
       ),
     );
+  }
+
+  // New function to handle error state with fallback to last loaded data
+  Widget _buildBodyWithLastLoaded(BuildContext context, MenuItemsState state) {
+    if (state is MenuItemsLoading) {
+      return const Center(
+        child: CircularProgressIndicator(
+          valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFE67E22)),
+        ),
+      );
+    } else if (state is MenuItemsLoaded) {
+      return _buildBody(context, state);
+    } else if (state is MenuItemsError) {
+      if (_lastLoadedState != null && _lastLoadedState!.menuItems.isNotEmpty) {
+        // Show the last loaded data, error is shown as Snackbar in listener
+        return _buildBody(context, _lastLoadedState!);
+      } else {
+        // No data at all, show error UI
+        return RefreshIndicator(
+          key: _refreshIndicatorKey,
+          onRefresh: _handleRefresh,
+          color: const Color(0xFFE67E22),
+          child: ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            children: [
+              SizedBox(
+                height: MediaQuery.of(context).size.height * 0.7,
+                child: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.error_outline,
+                        size: 48,
+                        color: Colors.red[300],
+                      ),
+                      const SizedBox(height: 16),
+                      const Text(
+                        'Failed to load menu items',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      ElevatedButton(
+                        onPressed: () {
+                          _menuItemsBloc.add(const LoadMenuItemsEvent(forceRefresh: true));
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFE67E22),
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                        ),
+                        child: const Text('Retry'),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      }
+    } else {
+      // Fallback: show loading
+      return const Center(child: CircularProgressIndicator());
+    }
   }
 
   Widget _buildBody(BuildContext context, MenuItemsState state) {

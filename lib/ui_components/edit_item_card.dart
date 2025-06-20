@@ -1,6 +1,7 @@
 // lib/ui_components/menu_item_card.dart
 import 'package:flutter/material.dart';
 import '../models/restaurant_menu_model.dart';
+import '../services/currency_service.dart';
 
 class MenuItemCard extends StatelessWidget {
   final MenuItem menuItem;
@@ -72,13 +73,19 @@ class MenuItemCard extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 4),
-                      Text(
-                        '\$${_formatPrice(menuItem.price)}',
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w500,
-                          color: Colors.black54,
-                        ),
+                      FutureBuilder<String>(
+                        future: CurrencyService().getCurrencySymbol(),
+                        builder: (context, snapshot) {
+                          final symbol = snapshot.data ?? '';
+                          return Text(
+                            '$symbol${_formatPrice(menuItem.price)}',
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                              color: Colors.black54,
+                            ),
+                          );
+                        },
                       ),
                       const SizedBox(height: 2),
                       Text(

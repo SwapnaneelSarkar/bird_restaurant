@@ -519,10 +519,9 @@ Widget build(BuildContext context) {
 // 3. Add this new method to your _ChatViewState class:
 
 void _onOrderHeaderTap(chat_state.ChatOrderInfo orderInfo) {
-  // Extract partner ID and order ID for the API call
   final chatBloc = context.read<ChatBloc>();
   final partnerId = chatBloc.currentPartnerId ?? '';
-  final orderId = chatBloc.currentOrderId ?? widget.orderId; // Use full order ID
+  final orderId = chatBloc.currentOrderId ?? widget.orderId;
 
   print('ChatView: Tapping order header');
   print('ChatView: Partner ID: $partnerId');
@@ -531,17 +530,15 @@ void _onOrderHeaderTap(chat_state.ChatOrderInfo orderInfo) {
   if (partnerId.isNotEmpty && orderId.isNotEmpty) {
     // Show the order options bottom sheet
     showModalBottomSheet(
-  context: context,
-  isScrollControlled: true,
-  backgroundColor: Colors.transparent,
-  builder: (context) => StatusChangeBottomSheet(
-    orderId: orderId,
-    partnerId: partnerId,
-  ),
-);
-
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => OrderOptionsBottomSheet(
+        orderId: orderId,
+        partnerId: partnerId,
+      ),
+    );
   } else {
-    // Show error message
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('Unable to load order options. Please try again.'),

@@ -8,6 +8,8 @@ import '../presentation/resources/font.dart';
 import '../presentation/screens/orders/bloc.dart';
 import '../services/order_service.dart';
 import 'order_status_bottomsheet.dart'; // Import the ORDERS-specific bottom sheet
+import 'universal_widget/order_widgets.dart'; // Import the ORDER OPTIONS bottom sheet
+import '../services/token_service.dart';
 
 class OrderCard extends StatelessWidget {
   final String orderId;
@@ -185,17 +187,25 @@ class OrderCard extends StatelessWidget {
     _showOrderStatusBottomSheet(context);
   }
 
-  void _showOrderStatusBottomSheet(BuildContext context) {
+  void _showOrderStatusBottomSheet(BuildContext context) async {
+    // Fetch partnerId from TokenService
+    final partnerId = await TokenService.getUserId();
+    if (partnerId == null || partnerId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Unable to load order details. Please login again.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (bottomSheetContext) => BlocProvider.value(
-        value: context.read<OrdersBloc>(), // Provide the OrdersBloc to the bottom sheet
-        child: OrderStatusBottomSheet(
-          orderId: orderId,
-          currentStatus: status,
-        ),
+      builder: (bottomSheetContext) => OrderOptionsBottomSheet(
+        orderId: orderId,
+        partnerId: partnerId,
       ),
     );
   }

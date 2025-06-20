@@ -136,4 +136,7 @@ class MenuItem {
   String get displayPrice => '₹$price';
   String get displayImageUrl => imageUrl ?? '';
   bool get hasImage => imageUrl != null && imageUrl!.isNotEmpty;
+
+  // Helper for display purposes
+  static String formatPrice(String price, String currencySymbol) => '$currencySymbol$price';
 }

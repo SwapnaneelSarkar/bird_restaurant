@@ -13,6 +13,9 @@ import '../../presentation/screens/chat/event.dart';
 import '../../presentation/screens/chat/state.dart';
 import '../../services/menu_item_service.dart';
 import '../../services/order_service.dart';
+import '../../services/currency_service.dart';
+import '../../services/attribute_service.dart';
+import '../../models/attribute_model.dart';
 
 class OrderDetailsWidget extends StatelessWidget {
   const OrderDetailsWidget({Key? key}) : super(key: key);
@@ -20,19 +23,20 @@ class OrderDetailsWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: ColorManager.background,
       appBar: AppBar(
         title: Text(
           'Order Details',
           style: TextStyle(
-            color: ColorManager.black,
+            color: ColorManager.primary,
             fontWeight: FontWeightManager.bold,
             fontFamily: FontFamily.Montserrat,
+            fontSize: 22,
           ),
         ),
         backgroundColor: Colors.white,
-        elevation: 1,
-        iconTheme: IconThemeData(color: ColorManager.black),
+        elevation: 0.5,
+        iconTheme: IconThemeData(color: ColorManager.primary),
       ),
       body: BlocBuilder<ChatBloc, ChatState>(
         builder: (context, state) {
@@ -73,7 +77,10 @@ class OrderDetailsWidget extends StatelessWidget {
                   ElevatedButton(
                     onPressed: () => Navigator.pop(context),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFE17A47),
+                      backgroundColor: ColorManager.primary,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
                     ),
                     child: const Text(
                       'Go Back',
@@ -95,20 +102,16 @@ class OrderDetailsWidget extends StatelessWidget {
 
   Widget _buildOrderDetails(BuildContext context, OrderDetails orderDetails, Map<String, MenuItem> menuItems) {
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Order header
           _buildOrderHeader(orderDetails),
-          const SizedBox(height: 24),
-          // Order items
+          const SizedBox(height: 18),
           _buildOrderItems(orderDetails, menuItems),
-          const SizedBox(height: 24),
-          // Order summary
+          const SizedBox(height: 18),
           _buildOrderSummary(orderDetails),
-          const SizedBox(height: 24),
-          // Order status
+          const SizedBox(height: 18),
           _buildOrderStatus(orderDetails),
         ],
       ),
@@ -117,24 +120,32 @@ class OrderDetailsWidget extends StatelessWidget {
 
   Widget _buildOrderHeader(OrderDetails orderDetails) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(18),
+      margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
-        color: Colors.grey[50],
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey[200]!),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+        border: Border.all(color: ColorManager.primary.withOpacity(0.08)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const Icon(Icons.receipt_long, color: Color(0xFFE17A47), size: 24),
+              Icon(Icons.receipt_long, color: ColorManager.primary, size: 26),
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
                   'Order #${orderDetails.orderId.length > 8 ? orderDetails.orderId.substring(orderDetails.orderId.length - 8) : orderDetails.orderId}',
                   style: TextStyle(
-                    color: ColorManager.black,
+                    color: ColorManager.primary,
                     fontSize: 20,
                     fontWeight: FontWeightManager.bold,
                     fontFamily: FontFamily.Montserrat,
@@ -145,7 +156,7 @@ class OrderDetailsWidget extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 14),
           Row(
             children: [
               Icon(Icons.person_outline, color: Colors.grey[600], size: 20),
@@ -154,7 +165,7 @@ class OrderDetailsWidget extends StatelessWidget {
                 child: Text(
                   'User ID: ${orderDetails.userId.length > 12 ? orderDetails.userId.substring(orderDetails.userId.length - 12) : orderDetails.userId}',
                   style: TextStyle(
-                    color: Colors.grey[600],
+                    color: Colors.grey[700],
                     fontSize: 14,
                     fontFamily: FontFamily.Montserrat,
                   ),
@@ -171,24 +182,31 @@ class OrderDetailsWidget extends StatelessWidget {
 
   Widget _buildOrderItems(OrderDetails orderDetails, Map<String, MenuItem> menuItems) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: Colors.grey[50],
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey[200]!),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+        border: Border.all(color: ColorManager.primary.withOpacity(0.08)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const Icon(Icons.restaurant_menu, color: Color(0xFFE17A47), size: 24),
+              Icon(Icons.restaurant_menu, color: ColorManager.primary, size: 24),
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
                   'Order Items (${orderDetails.items.length})',
                   style: TextStyle(
-                    color: ColorManager.black,
+                    color: ColorManager.primary,
                     fontSize: 18,
                     fontWeight: FontWeightManager.bold,
                     fontFamily: FontFamily.Montserrat,
@@ -197,133 +215,149 @@ class OrderDetailsWidget extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 16),
-          ...orderDetails.items.map((item) => _buildOrderItem(item, menuItems)),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildOrderItem(OrderItem item, Map<String, MenuItem> menuItems) {
-    final menuItem = item.getMenuItem(menuItems);
-    
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.grey[300]!),
-      ),
-      child: Row(
-        children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: SizedBox(
-              width: 60,
-              height: 60,
-              child: (menuItem != null && menuItem.imageUrl.isNotEmpty)
-                  ? Image.network(
-                      menuItem.displayImageUrl,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) {
-                        return _buildPlaceholderImage();
-                      },
-                    )
-                  : _buildPlaceholderImage(),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  item.getDisplayName(menuItems),
-                  style: TextStyle(
-                    color: ColorManager.black,
-                    fontSize: 16,
-                    fontWeight: FontWeightManager.bold,
-                    fontFamily: FontFamily.Montserrat,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                  maxLines: 2,
-                ),
-                const SizedBox(height: 4),
-                Row(
-                  children: [
-                    Text(
-                      item.formattedPrice,
-                      style: TextStyle(
-                        color: const Color(0xFFE17A47),
-                        fontSize: 14,
-                        fontWeight: FontWeightManager.medium,
-                        fontFamily: FontFamily.Montserrat,
+          const SizedBox(height: 12),
+          ...orderDetails.items.map((item) {
+            return Container(
+              margin: const EdgeInsets.only(bottom: 14),
+              padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+              decoration: BoxDecoration(
+                color: ColorManager.background,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: ColorManager.primary.withOpacity(0.06)),
+              ),
+              child: FutureBuilder<AttributeResponse>(
+                future: AttributeService.getAttributes(item.menuId),
+                builder: (context, snapshot) {
+                  List<Widget> attributeWidgets = [];
+                  final itemAttributes = (item.attributes != null && item.attributes!.isNotEmpty)
+                    ? item.attributes!
+                    : null;
+                  if (snapshot.connectionState == ConnectionState.done && snapshot.hasData && snapshot.data!.data != null && itemAttributes != null) {
+                    final attributes = snapshot.data!.data!;
+                    itemAttributes.forEach((attributeId, valueId) {
+                      final attributeGroup = attributes.firstWhere(
+                        (attr) => attr.attributeId == attributeId,
+                        orElse: () => AttributeGroup(
+                          attributeId: '',
+                          menuId: '',
+                          name: 'Unknown Attribute',
+                          type: '',
+                          isRequired: 0,
+                          createdAt: '',
+                          updatedAt: '',
+                          attributeValues: [],
+                        ),
+                      );
+                      final value = attributeGroup.attributeValues.firstWhere(
+                        (val) => val.valueId == valueId,
+                        orElse: () => AttributeValue(name: 'Unknown Value'),
+                      );
+                      attributeWidgets.add(
+                        Padding(
+                          padding: const EdgeInsets.only(top: 2.0, left: 4.0),
+                          child: Row(
+                            children: [
+                              Icon(Icons.label_important, color: ColorManager.primary, size: 14),
+                              const SizedBox(width: 4),
+                              Text(
+                                '${attributeGroup.name}: ',
+                                style: TextStyle(
+                                  color: ColorManager.primary,
+                                  fontSize: 13,
+                                  fontWeight: FontWeightManager.medium,
+                                  fontFamily: FontFamily.Montserrat,
+                                ),
+                              ),
+                              Text(
+                                value.name ?? '',
+                                style: TextStyle(
+                                  color: Colors.grey[800],
+                                  fontSize: 13,
+                                  fontFamily: FontFamily.Montserrat,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    });
+                  }
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              menuItems[item.menuId]?.name ?? 'Item',
+                              style: TextStyle(
+                                color: ColorManager.black,
+                                fontSize: 16,
+                                fontWeight: FontWeightManager.medium,
+                                fontFamily: FontFamily.Montserrat,
+                              ),
+                            ),
+                          ),
+                          Text(
+                            'x${item.quantity}',
+                            style: TextStyle(
+                              color: ColorManager.primary,
+                              fontSize: 15,
+                              fontWeight: FontWeightManager.bold,
+                              fontFamily: FontFamily.Montserrat,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            '\u20B9${item.itemPrice.toStringAsFixed(2)}',
+                            style: TextStyle(
+                              color: ColorManager.primary,
+                              fontSize: 15,
+                              fontWeight: FontWeightManager.bold,
+                              fontFamily: FontFamily.Montserrat,
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                    Text(
-                      ' × ${item.quantity}',
-                      style: TextStyle(
-                        color: Colors.grey[600],
-                        fontSize: 14,
-                        fontFamily: FontFamily.Montserrat,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          Text(
-            item.formattedTotalPrice,
-            style: TextStyle(
-              color: ColorManager.black,
-              fontSize: 16,
-              fontWeight: FontWeightManager.bold,
-              fontFamily: FontFamily.Montserrat,
-            ),
-          ),
+                      ...attributeWidgets,
+                    ],
+                  );
+                },
+              ),
+            );
+          }).toList(),
         ],
-      ),
-    );
-  }
-
-  Widget _buildPlaceholderImage() {
-    return Container(
-      width: 60,
-      height: 60,
-      decoration: BoxDecoration(
-        color: Colors.grey[200],
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Icon(
-        Icons.fastfood,
-        color: Colors.grey[400],
-        size: 30,
       ),
     );
   }
 
   Widget _buildOrderSummary(OrderDetails orderDetails) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: Colors.grey[50],
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey[200]!),
+        color: ColorManager.primary.withOpacity(0.07),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+        border: Border.all(color: ColorManager.primary.withOpacity(0.10)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const Icon(Icons.receipt, color: Color(0xFFE17A47), size: 24),
+              Icon(Icons.receipt, color: ColorManager.primary, size: 22),
               const SizedBox(width: 12),
               Text(
                 'Order Summary',
                 style: TextStyle(
-                  color: ColorManager.black,
+                  color: ColorManager.primary,
                   fontSize: 18,
                   fontWeight: FontWeightManager.bold,
                   fontFamily: FontFamily.Montserrat,
@@ -331,75 +365,85 @@ class OrderDetailsWidget extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 16),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Subtotal',
-                style: TextStyle(
-                  color: Colors.grey[600],
-                  fontSize: 14,
-                  fontFamily: FontFamily.Montserrat,
-                ),
-              ),
-              Text(
-                orderDetails.formattedTotal,
-                style: TextStyle(
-                  color: ColorManager.black,
-                  fontSize: 14,
-                  fontWeight: FontWeightManager.medium,
-                  fontFamily: FontFamily.Montserrat,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Delivery Fees',
-                style: TextStyle(
-                  color: Colors.grey[600],
-                  fontSize: 14,
-                  fontFamily: FontFamily.Montserrat,
-                ),
-              ),
-              Text(
-                orderDetails.formattedDeliveryFees,
-                style: TextStyle(
-                  color: ColorManager.black,
-                  fontSize: 14,
-                  fontWeight: FontWeightManager.medium,
-                  fontFamily: FontFamily.Montserrat,
-                ),
-              ),
-            ],
-          ),
-          const Divider(height: 24),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Total',
-                style: TextStyle(
-                  color: ColorManager.black,
-                  fontSize: 16,
-                  fontWeight: FontWeightManager.bold,
-                  fontFamily: FontFamily.Montserrat,
-                ),
-              ),
-              Text(
-                orderDetails.formattedGrandTotal,
-                style: TextStyle(
-                  color: const Color(0xFFE17A47),
-                  fontSize: 16,
-                  fontWeight: FontWeightManager.bold,
-                  fontFamily: FontFamily.Montserrat,
-                ),
-              ),
-            ],
+          const SizedBox(height: 14),
+          FutureBuilder<String>(
+            future: CurrencyService().getCurrencySymbol(),
+            builder: (context, snapshot) {
+              final symbol = snapshot.data ?? '';
+              return Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Subtotal',
+                        style: TextStyle(
+                          color: Colors.grey[700],
+                          fontSize: 15,
+                          fontFamily: FontFamily.Montserrat,
+                        ),
+                      ),
+                      Text(
+                        orderDetails.formattedTotal(symbol),
+                        style: TextStyle(
+                          color: ColorManager.black,
+                          fontSize: 15,
+                          fontWeight: FontWeightManager.medium,
+                          fontFamily: FontFamily.Montserrat,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Delivery Fees',
+                        style: TextStyle(
+                          color: Colors.grey[700],
+                          fontSize: 15,
+                          fontFamily: FontFamily.Montserrat,
+                        ),
+                      ),
+                      Text(
+                        orderDetails.formattedDeliveryFees(symbol),
+                        style: TextStyle(
+                          color: ColorManager.black,
+                          fontSize: 15,
+                          fontWeight: FontWeightManager.medium,
+                          fontFamily: FontFamily.Montserrat,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const Divider(height: 24),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Total',
+                        style: TextStyle(
+                          color: ColorManager.primary,
+                          fontSize: 18,
+                          fontWeight: FontWeightManager.bold,
+                          fontFamily: FontFamily.Montserrat,
+                        ),
+                      ),
+                      Text(
+                        orderDetails.formattedGrandTotal(symbol),
+                        style: TextStyle(
+                          color: ColorManager.primary,
+                          fontSize: 18,
+                          fontWeight: FontWeightManager.bold,
+                          fontFamily: FontFamily.Montserrat,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              );
+            },
           ),
         ],
       ),
@@ -408,23 +452,30 @@ class OrderDetailsWidget extends StatelessWidget {
 
   Widget _buildOrderStatus(OrderDetails orderDetails) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: Colors.grey[50],
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey[200]!),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+        border: Border.all(color: ColorManager.primary.withOpacity(0.08)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const Icon(Icons.info_outline, color: Color(0xFFE17A47), size: 24),
+              Icon(Icons.info_outline, color: ColorManager.primary, size: 22),
               const SizedBox(width: 12),
               Text(
                 'Order Status',
                 style: TextStyle(
-                  color: ColorManager.black,
+                  color: ColorManager.primary,
                   fontSize: 18,
                   fontWeight: FontWeightManager.bold,
                   fontFamily: FontFamily.Montserrat,
@@ -432,11 +483,11 @@ class OrderDetailsWidget extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 14),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
-              color: OrderService.getStatusColor(orderDetails.orderStatus),
+              color: OrderService.getStatusColor(orderDetails.orderStatus).withOpacity(0.12),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Row(
@@ -444,16 +495,17 @@ class OrderDetailsWidget extends StatelessWidget {
               children: [
                 Icon(
                   OrderService.getStatusIcon(orderDetails.orderStatus),
-                  color: Colors.white,
-                  size: 20,
+                  color: OrderService.getStatusColor(orderDetails.orderStatus),
+                  size: 22,
                 ),
                 const SizedBox(width: 8),
                 Text(
                   OrderService.formatOrderStatus(orderDetails.orderStatus),
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: OrderService.getStatusColor(orderDetails.orderStatus),
                     fontSize: 16,
-                    fontWeight: FontWeight.bold,
+                    fontWeight: FontWeightManager.bold,
+                    fontFamily: FontFamily.Montserrat,
                   ),
                 ),
               ],

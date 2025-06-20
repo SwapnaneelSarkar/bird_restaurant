@@ -13,6 +13,7 @@ import 'bloc.dart';
 import 'event.dart';
 import 'state.dart';
 import '../../../services/restaurant_info_service.dart';
+import '../../../services/currency_service.dart';
 
 class AddProductScreen extends StatefulWidget {
   const AddProductScreen({Key? key}) : super(key: key);
@@ -445,8 +446,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
                 right: BorderSide(color: Colors.grey.withOpacity(0.3)),
               ),
             ),
-            child: const Text(
-              '\$',
+            child: CurrencyService.currencySymbolWidget(
               style: TextStyle(fontSize: 18),
             ),
           ),

@@ -13,6 +13,7 @@ import '../../../models/restaurant_menu_model.dart';
 import 'bloc.dart';
 import 'event.dart';
 import 'state.dart';
+import '../../../services/currency_service.dart';
 
 class AttributesScreen extends StatefulWidget {
   const AttributesScreen({Key? key}) : super(key: key);
@@ -29,6 +30,14 @@ class _AttributesScreenState extends State<AttributesScreen> {
   String _selectedType = 'radio';
   bool _isRequired = true;
   MenuItem? _selectedMenuItem;
+
+  late Future<String> _currencySymbolFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _currencySymbolFuture = CurrencyService().getCurrencySymbol();
+  }
 
   @override
   void dispose() {
@@ -229,65 +238,71 @@ class _AttributesScreenState extends State<AttributesScreen> {
                   );
                 }
                 
-                return DropdownButtonFormField<MenuItem>(
-                  value: _selectedMenuItem,
-                  decoration: InputDecoration(
-                    hintText: 'Choose a menu item',
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: BorderSide(color: Colors.grey[300]!),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: BorderSide(color: Colors.grey[300]!),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: const BorderSide(color: Color(0xFFCD6E32)),
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-                  ),
-                  isExpanded: true, // This helps prevent render box size issues
-                  items: menuState.menuItems.map((MenuItem item) {
-                    return DropdownMenuItem<MenuItem>(
-                      value: item,
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 8,
-                            height: 8,
-                            decoration: BoxDecoration(
-                              color: item.isVeg ? Colors.green : Colors.red,
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              item.name,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          Text(
-                            '₹${item.price}',
-                            style: TextStyle(
-                              color: Colors.grey[600],
-                              fontSize: FontSize.s12,
-                            ),
-                          ),
-                        ],
+                return FutureBuilder<String>(
+                  future: _currencySymbolFuture,
+                  builder: (context, snapshot) {
+                    final symbol = snapshot.data ?? '';
+                    return DropdownButtonFormField<MenuItem>(
+                      value: _selectedMenuItem,
+                      decoration: InputDecoration(
+                        hintText: 'Choose a menu item',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide(color: Colors.grey[300]!),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide(color: Colors.grey[300]!),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: const BorderSide(color: Color(0xFFCD6E32)),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
                       ),
+                      isExpanded: true, // This helps prevent render box size issues
+                      items: menuState.menuItems.map((MenuItem item) {
+                        return DropdownMenuItem<MenuItem>(
+                          value: item,
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 8,
+                                height: 8,
+                                decoration: BoxDecoration(
+                                  color: item.isVeg ? Colors.green : Colors.red,
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  item.name,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              Text(
+                                '$symbol${item.price}',
+                                style: TextStyle(
+                                  color: Colors.grey[600],
+                                  fontSize: FontSize.s12,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }).toList(),
+                      onChanged: (MenuItem? newValue) {
+                        setState(() {
+                          _selectedMenuItem = newValue;
+                        });
+                        if (newValue != null) {
+                          context.read<AttributeBloc>().add(
+                            LoadAttributesEvent(menuId: newValue.menuId),
+                          );
+                        }
+                      },
                     );
-                  }).toList(),
-                  onChanged: (MenuItem? newValue) {
-                    setState(() {
-                      _selectedMenuItem = newValue;
-                    });
-                    if (newValue != null) {
-                      context.read<AttributeBloc>().add(
-                        LoadAttributesEvent(menuId: newValue.menuId),
-                      );
-                    }
                   },
                 );
               } else if (menuState is MenuItemsError) {
@@ -494,7 +509,7 @@ class _AttributesScreenState extends State<AttributesScreen> {
                     const SizedBox(width: 8),
                     Expanded(
                       child: CustomTextField(
-                        hintText: "Price (₹)",
+                        hintText: "Price",
                         controller: _priceController,
                         keyboardType: TextInputType.number,
                         enabled: !isLoading,
@@ -565,12 +580,19 @@ class _AttributesScreenState extends State<AttributesScreen> {
                                     fontSize: FontSize.s14,
                                   ),
                                 ),
-                                Text(
-                                  'Price: ₹${value.priceAdjustment}',
-                                  style: TextStyle(
-                                    fontSize: FontSize.s12,
-                                    color: Colors.grey[600],
-                                  ),
+                                Row(
+                                  children: [
+                                    Text('Price: '),
+                                    CurrencyService.currencySymbolWidget(
+                                      style: TextStyle(fontSize: FontSize.s12, color: Colors.grey[600]),
+                                    ),
+                                    Text('${value.priceAdjustment}',
+                                      style: TextStyle(
+                                        fontSize: FontSize.s12,
+                                        color: Colors.grey[600],
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ],
                             ),
