@@ -26,7 +26,7 @@ class Attribute {
     return Attribute(
       name: name ?? this.name,
       values: values ?? this.values,
-      isActive: isActive ?? this.isActive,
+      isActive: isActive ?? true,
       attributeId: attributeId ?? this.attributeId,
       type: type ?? this.type,
     );

@@ -71,7 +71,7 @@ class AttributeGroup {
           .where((v) => v.name != null && v.name!.isNotEmpty)
           .map((v) => v.name!)
           .toList(),
-      isActive: isRequired == 1,
+      isActive: true,
       attributeId: attributeId,
       type: type,
     );

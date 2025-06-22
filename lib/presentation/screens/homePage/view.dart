@@ -7,6 +7,7 @@ import 'package:fl_chart/fl_chart.dart';
 
 import '../../../constants/api_constants.dart';
 import '../../../ui_components/universal_widget/nav_bar.dart';
+import '../../../ui_components/shimmer_loading.dart';
 import '../../resources/colors.dart';
 import '../../resources/router/router.dart';
 import '../chat/view.dart';
@@ -19,6 +20,7 @@ import 'sidebar/side_bar_opener.dart';
 import 'sidebar/sidebar_drawer.dart';
 import 'state.dart';
 import '../../../models/partner_summary_model.dart';
+import '../../../services/restaurant_info_service.dart';
 
 class HomeView extends StatefulWidget {
   const HomeView({Key? key}) : super(key: key);
@@ -32,6 +34,7 @@ class _HomeViewState extends State<HomeView> with TickerProviderStateMixin {
   int _selectedIndex = 0;
   late final AnimationController _pageTransitionController;
   late final PageController _pageController;
+  late final HomeBloc _homeBloc;
 
   @override
   void initState() {
@@ -41,12 +44,32 @@ class _HomeViewState extends State<HomeView> with TickerProviderStateMixin {
       vsync: this,
     );
     _pageController = PageController();
+    
+    // Create HomeBloc once in initState
+    _homeBloc = HomeBloc();
+    
+    // Load data only once when the screen initializes
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _homeBloc.add(LoadHomeData());
+    });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Refresh data when returning to this page
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _homeBloc.add(RefreshHomeData());
+      }
+    });
   }
 
   @override
   void dispose() {
     _pageTransitionController.dispose();
     _pageController.dispose();
+    _homeBloc.close(); // Properly dispose the BLoC
     super.dispose();
   }
 
@@ -125,27 +148,20 @@ class _HomeViewState extends State<HomeView> with TickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (context) => HomeBloc()..add(LoadHomeData()),
+    return BlocProvider.value(
+      value: _homeBloc, // Use the existing BLoC instance
       child: Scaffold(
         key: _scaffoldKey,
         backgroundColor: Colors.grey[50],
-        drawer: BlocBuilder<HomeBloc, HomeState>(
-          builder: (context, state) {
-            String? restaurantName;
-            String? restaurantSlogan;
-            String? restaurantImageUrl;
-            PartnerSummaryModel? summaryModel;
-            if (state is HomeLoaded && state.partnerSummary != null) {
-              summaryModel = state.partnerSummary;
-              // Use available fields from summaryModel if needed
-              // For now, fallback to null for name, slogan, imageUrl
-            }
+        drawer: FutureBuilder<Map<String, String>>(
+          future: RestaurantInfoService.getRestaurantInfo(),
+          builder: (context, snapshot) {
+            final info = snapshot.data ?? {};
             return SidebarDrawer(
               activePage: 'home',
-              restaurantName: restaurantName,
-              restaurantSlogan: restaurantSlogan,
-              restaurantImageUrl: restaurantImageUrl,
+              restaurantName: info['name'],
+              restaurantSlogan: info['slogan'],
+              restaurantImageUrl: info['imageUrl'],
             );
           },
         ),
@@ -181,7 +197,7 @@ class _HomeViewState extends State<HomeView> with TickerProviderStateMixin {
                 BlocBuilder<HomeBloc, HomeState>(
                   builder: (context, state) {
                     if (state is HomeLoading) {
-                      return const Center(child: CircularProgressIndicator());
+                      return const ShimmerHomeContent();
                     } else if (state is HomeLoaded) {
                       return _buildHomeContent(context, state);
                     } else if (state is HomeError) {
@@ -199,7 +215,7 @@ class _HomeViewState extends State<HomeView> with TickerProviderStateMixin {
                             const SizedBox(height: 16),
                             ElevatedButton(
                               onPressed: () {
-                                context.read<HomeBloc>().add(LoadHomeData());
+                                _homeBloc.add(LoadHomeData()); // Use the instance variable
                               },
                               child: const Text('Retry'),
                             ),
@@ -207,17 +223,14 @@ class _HomeViewState extends State<HomeView> with TickerProviderStateMixin {
                         ),
                       );
                     }
-                    
-                    return const Center(child: CircularProgressIndicator());
+                    return const ShimmerHomeContent();
                   },
                 ),
-                
-                // Chats content - Replace ChatView with ChatListView
+                // Chat content
                 const ChatListView(),
               ],
             ),
-            
-            // Bottom Navigation
+            // Bottom navigation
             Positioned(
               bottom: 0,
               left: 0,
@@ -287,7 +300,7 @@ class _HomeViewState extends State<HomeView> with TickerProviderStateMixin {
                   Switch(
                     value: state.isAcceptingOrders,
                     onChanged: (value) {
-                      context.read<HomeBloc>().add(ToggleOrderAcceptance(value));
+                      _homeBloc.add(ToggleOrderAcceptance(value));
                     },
                     activeColor: ColorManager.primary,
                   ),
@@ -581,12 +594,20 @@ class _HomeViewState extends State<HomeView> with TickerProviderStateMixin {
     
     final List<String> days = salesData.map((data) => data['day'] as String).toList();
     
+    // Calculate smart interval based on sales data range
+    final double maxSales = spots.isNotEmpty ? spots.map((spot) => spot.y).reduce((a, b) => a > b ? a : b) : 0;
+    final double minSales = spots.isNotEmpty ? spots.map((spot) => spot.y).reduce((a, b) => a < b ? a : b) : 0;
+    final double salesRange = maxSales - minSales;
+    
+    // Smart interval calculation based on sales range
+    double interval = _calculateSmartInterval(salesRange, maxSales);
+    
     return LineChart(
       LineChartData(
         gridData: FlGridData(
           show: true,
           drawVerticalLine: false,
-          horizontalInterval: 300,
+          horizontalInterval: interval,
           getDrawingHorizontalLine: (value) {
             return FlLine(
               color: Colors.grey[200],
@@ -613,7 +634,7 @@ class _HomeViewState extends State<HomeView> with TickerProviderStateMixin {
                   ),
                 );
               },
-              interval: 300,
+              interval: interval,
             ),
           ),
           bottomTitles: AxisTitles(
@@ -674,5 +695,36 @@ class _HomeViewState extends State<HomeView> with TickerProviderStateMixin {
         ),
       ),
     );
+  }
+
+  /// Calculates smart interval for Y-axis based on sales range
+  /// This ensures the graph looks pleasant with appropriate spacing
+  double _calculateSmartInterval(double salesRange, double maxSales) {
+    // If all sales are 0, use a small default interval
+    if (maxSales == 0) return 100;
+    
+    // If sales range is very small, use a small interval
+    if (salesRange <= 200) return 100;
+    
+    // For small ranges (200-500), use 200 interval
+    if (salesRange <= 500) return 200;
+    
+    // For medium ranges (500-1000), use 300 interval
+    if (salesRange <= 1000) return 300;
+    
+    // For larger ranges (1000-2000), use 500 interval
+    if (salesRange <= 2000) return 500;
+    
+    // For even larger ranges (2000-5000), use 1000 interval
+    if (salesRange <= 5000) return 1000;
+    
+    // For very large ranges (5000-10000), use 2000 interval
+    if (salesRange <= 10000) return 2000;
+    
+    // For extremely large ranges (10000+), use 5000 interval
+    if (salesRange <= 50000) return 5000;
+    
+    // For massive ranges (50000+), use 10000 interval
+    return 10000;
   }
 }

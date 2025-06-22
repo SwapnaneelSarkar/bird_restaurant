@@ -13,7 +13,6 @@ class AttributeBloc extends Bloc<AttributeEvent, AttributeState> {
     on<AddAttributeEvent>(_onAddAttribute);
     on<AddValueToNewAttributeEvent>(_onAddValueToNewAttribute);
     on<ClearNewAttributeValuesEvent>(_onClearNewAttributeValues);
-    on<ToggleAttributeActiveEvent>(_onToggleAttributeActive);
     on<EditAttributeValuesEvent>(_onEditAttributeValues);
     on<DeleteAttributeValueEvent>(_onDeleteAttributeValue);
     on<DeleteAttributeEvent>(_onDeleteAttribute);
@@ -28,10 +27,10 @@ class AttributeBloc extends Bloc<AttributeEvent, AttributeState> {
     try {
       final response = await AttributeService.getAttributes(event.menuId);
       
-      if (response.status == 'SUCCESS' && response.data != null) {
-        final attributes = response.data!
-            .map((attributeGroup) => attributeGroup.toAttribute())
-            .toList();
+      if (response.status == 'SUCCESS') {
+        final attributes = response.data != null
+            ? response.data!.map((attributeGroup) => attributeGroup.toAttribute()).toList()
+            : <Attribute>[];
         
         emit(AttributeLoaded(
           attributes: attributes,
@@ -126,44 +125,6 @@ class AttributeBloc extends Bloc<AttributeEvent, AttributeState> {
     final currentState = state;
     if (currentState is AttributeLoaded) {
       emit(currentState.copyWith(newAttributeValues: const []));
-    }
-  }
-
-  void _onToggleAttributeActive(ToggleAttributeActiveEvent event, Emitter<AttributeState> emit) async {
-    final currentState = state;
-    if (currentState is AttributeLoaded) {
-      emit(const AttributeOperationInProgress(operation: 'Updating attribute status...'));
-      try {
-        final attribute = currentState.attributes.firstWhere((a) => a.attributeId == event.attributeId);
-        final success = await AttributeService.updateAttributeStatus(
-          menuId: event.menuId,
-          attributeId: event.attributeId,
-          name: attribute.name,
-          type: attribute.type ?? 'radio',
-          isRequired: event.isActive,
-        );
-        if (success) {
-          // Update the local state
-          final updatedAttributes = currentState.attributes.map((attribute) {
-            if (attribute.attributeId == event.attributeId) {
-              return attribute.copyWith(isActive: event.isActive);
-            }
-            return attribute;
-          }).toList();
-          emit(currentState.copyWith(attributes: updatedAttributes));
-        } else {
-          emit(const AttributeError(message: 'Failed to update attribute status'));
-        }
-      } catch (e) {
-        debugPrint('Error toggling attribute status: $e');
-        if (e is UnauthorizedException) {
-          emit(const AttributeError(message: 'Please login again'));
-        } else if (e is ApiException) {
-          emit(AttributeError(message: e.message));
-        } else {
-          emit(const AttributeError(message: 'Failed to update attribute status'));
-        }
-      }
     }
   }
 

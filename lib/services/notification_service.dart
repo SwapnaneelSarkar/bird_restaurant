@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:http/http.dart' as http;
+import 'package:audioplayers/audioplayers.dart';
 import '../constants/api_constants.dart';
 import 'token_service.dart';
 
@@ -17,6 +18,42 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   debugPrint('Title: ${message.notification?.title}');
   debugPrint('Body: ${message.notification?.body}');
   debugPrint('Data: ${message.data}');
+  
+  // Initialize local notifications for background messages
+  final FlutterLocalNotificationsPlugin localNotifications = FlutterLocalNotificationsPlugin();
+  
+  // For background messages, use custom sound from raw resources
+  // This will work even when the app is in the background
+  const androidDetails = AndroidNotificationDetails(
+    'bird_partner_channel',
+    'Bird Partner Notifications',
+    channelDescription: 'Notifications for Bird Partner app',
+    importance: Importance.high,
+    priority: Priority.high,
+    icon: '@mipmap/ic_launcher',
+    playSound: true,
+    sound: RawResourceAndroidNotificationSound('notification_ringtone'),
+  );
+
+  const iosDetails = DarwinNotificationDetails(
+    presentAlert: true,
+    presentBadge: true,
+    presentSound: true,
+    sound: 'notification_ringtone.ogg',
+  );
+
+  const notificationDetails = NotificationDetails(
+    android: androidDetails,
+    iOS: iosDetails,
+  );
+
+  await localNotifications.show(
+    message.hashCode,
+    message.notification?.title ?? 'Bird Partner',
+    message.notification?.body ?? 'You have a new notification',
+    notificationDetails,
+    payload: jsonEncode(message.data),
+  );
 }
 
 class NotificationService {
@@ -26,9 +63,11 @@ class NotificationService {
 
   final FirebaseMessaging _messaging = FirebaseMessaging.instance;
   final FlutterLocalNotificationsPlugin _localNotifications = FlutterLocalNotificationsPlugin();
+  final AudioPlayer _audioPlayer = AudioPlayer();
   
   String? _fcmToken;
   bool _isInitialized = false;
+  bool _isPlayingRingtone = false;
 
   // Getters
   String? get fcmToken => _fcmToken;
@@ -180,25 +219,9 @@ class NotificationService {
   /// Show local notification for foreground messages
   Future<void> _showLocalNotification(RemoteMessage message) async {
     try {
-      const androidDetails = AndroidNotificationDetails(
-        'bird_partner_channel',
-        'Bird Partner Notifications',
-        channelDescription: 'Notifications for Bird Partner app',
-        importance: Importance.high,
-        priority: Priority.high,
-        icon: '@mipmap/ic_launcher',
-      );
-
-      const iosDetails = DarwinNotificationDetails(
-        presentAlert: true,
-        presentBadge: true,
-        presentSound: true,
-      );
-
-      const notificationDetails = NotificationDetails(
-        android: androidDetails,
-        iOS: iosDetails,
-      );
+      // Use system notification sound (brief)
+      // Custom ringtone will be handled by AudioPlayer for extended playback
+      final notificationDetails = _createNotificationDetails();
 
       await _localNotifications.show(
         message.hashCode,
@@ -207,6 +230,9 @@ class NotificationService {
         notificationDetails,
         payload: jsonEncode(message.data),
       );
+
+      // Play custom ringtone for incoming notifications (extended playback)
+      await _playCustomRingtone();
     } catch (e) {
       debugPrint('❌ Error showing local notification: $e');
     }
@@ -388,11 +414,169 @@ class NotificationService {
   /// Dispose resources
   Future<void> dispose() async {
     try {
+      // Stop any playing audio
+      await _stopCustomRingtone();
+      await _audioPlayer.dispose();
+      
       // Cancel any ongoing operations
       _isInitialized = false;
       debugPrint('🔔 NotificationService disposed');
     } catch (e) {
       debugPrint('❌ Error disposing NotificationService: $e');
     }
+  }
+
+  /// Play custom ringtone for incoming notifications
+  Future<void> _playCustomRingtone({int durationSeconds = 15}) async {
+    if (_isPlayingRingtone) {
+      debugPrint('🔔 Ringtone already playing, skipping...');
+      return;
+    }
+
+    try {
+      _isPlayingRingtone = true;
+      debugPrint('🔔 Playing custom ringtone for $durationSeconds seconds...');
+
+      // Try to set audio source to the custom ringtone file
+      try {
+        await _audioPlayer.setSource(AssetSource('audio/notification_ringtone.ogg'));
+        debugPrint('✅ Custom audio file loaded successfully');
+      } catch (audioError) {
+        debugPrint('⚠️ Custom audio file not available or invalid: $audioError');
+        debugPrint('🔔 Using system notification sound only (no extended ringtone)');
+        _isPlayingRingtone = false;
+        return; // Exit early, system notification sound will still play
+      }
+      
+      // Set volume and loop settings
+      await _audioPlayer.setVolume(1.0);
+      debugPrint('🔊 Volume set to maximum (1.0)');
+      
+      await _audioPlayer.setReleaseMode(ReleaseMode.loop);
+      debugPrint('🔄 Loop mode enabled');
+      
+      // Play the ringtone
+      await _audioPlayer.resume();
+      debugPrint('▶️ Audio playback started');
+      
+      // Add state listener to monitor playback
+      _audioPlayer.onPlayerStateChanged.listen((state) {
+        debugPrint('🎵 Audio player state changed: $state');
+      });
+      
+      _audioPlayer.onPlayerComplete.listen((event) {
+        debugPrint('✅ Audio playback completed');
+      });
+      
+      // Stop after specified duration
+      Future.delayed(Duration(seconds: durationSeconds), () {
+        debugPrint('⏰ Duration reached, stopping ringtone...');
+        _stopCustomRingtone();
+      });
+
+      debugPrint('✅ Custom ringtone started playing');
+    } catch (e) {
+      debugPrint('❌ Error playing custom ringtone: $e');
+      debugPrint('🔔 Falling back to system notification sound only');
+      _isPlayingRingtone = false;
+    }
+  }
+
+  /// Play custom ringtone with custom duration (public method)
+  Future<void> playCustomRingtone({int durationSeconds = 15}) async {
+    await _playCustomRingtone(durationSeconds: durationSeconds);
+  }
+
+  /// Stop custom ringtone
+  Future<void> _stopCustomRingtone() async {
+    if (!_isPlayingRingtone) {
+      return;
+    }
+
+    try {
+      await _audioPlayer.stop();
+      _isPlayingRingtone = false;
+      debugPrint('🔔 Custom ringtone stopped');
+    } catch (e) {
+      debugPrint('❌ Error stopping custom ringtone: $e');
+      _isPlayingRingtone = false;
+    }
+  }
+
+  /// Check if ringtone is currently playing
+  bool get isPlayingRingtone => _isPlayingRingtone;
+
+  /// Manually stop ringtone (public method)
+  Future<void> stopRingtone() async {
+    await _stopCustomRingtone();
+  }
+
+  /// Test notification method (public)
+  Future<void> testNotification() async {
+    try {
+      final testMessage = RemoteMessage(
+        notification: RemoteNotification(
+          title: 'Test Notification',
+          body: 'This is a test notification with custom ringtone',
+        ),
+        data: {'type': 'test'},
+      );
+      
+      await _showLocalNotification(testMessage);
+    } catch (e) {
+      debugPrint('❌ Error testing notification: $e');
+    }
+  }
+
+  /// Test audio playback with different settings (public)
+  Future<void> testAudioPlayback() async {
+    try {
+      debugPrint('🧪 Testing audio playback...');
+      
+      // Test with maximum volume
+      await _audioPlayer.setVolume(1.0);
+      await _audioPlayer.setSource(AssetSource('audio/notification_ringtone.ogg'));
+      await _audioPlayer.setReleaseMode(ReleaseMode.loop);
+      
+      debugPrint('🔊 Testing with maximum volume (1.0)');
+      await _audioPlayer.resume();
+      
+      // Stop after 5 seconds
+      Future.delayed(const Duration(seconds: 5), () async {
+        await _audioPlayer.stop();
+        debugPrint('🛑 Test audio stopped');
+      });
+      
+    } catch (e) {
+      debugPrint('❌ Error testing audio playback: $e');
+    }
+  }
+
+  /// Create notification details with optional custom sound
+  NotificationDetails _createNotificationDetails({bool useCustomSound = false}) {
+    // Use custom sound from raw resources for both foreground and background
+    // AudioPlayer will handle extended playback for foreground notifications
+    const androidDetails = AndroidNotificationDetails(
+      'bird_partner_channel',
+      'Bird Partner Notifications',
+      channelDescription: 'Notifications for Bird Partner app',
+      importance: Importance.high,
+      priority: Priority.high,
+      icon: '@mipmap/ic_launcher',
+      playSound: true,
+      sound: RawResourceAndroidNotificationSound('notification_ringtone'),
+    );
+
+    const iosDetails = DarwinNotificationDetails(
+      presentAlert: true,
+      presentBadge: true,
+      presentSound: true,
+      sound: 'notification_ringtone.ogg',
+    );
+
+    return const NotificationDetails(
+      android: androidDetails,
+      iOS: iosDetails,
+    );
   }
 }

@@ -10,6 +10,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../../constants/api_constants.dart';
 import '../../../services/api_service.dart';
 import '../../../services/token_service.dart';
+import '../../../services/profile_update_service.dart';
 import '../resturant_details_2/state.dart';
 import 'event.dart';
 import 'state.dart';
@@ -684,6 +685,40 @@ class RestaurantProfileBloc
           ));
           
           debugPrint('Profile update success: $message');
+          
+          // Notify profile update service for real-time updates
+          if (status == 'SUCCESS') {
+            final profileUpdateService = ProfileUpdateService();
+            
+            // Notify restaurant details update
+            profileUpdateService.notifyRestaurantDetailsUpdated({
+              'restaurant_name': state.restaurantName,
+              'owner_name': state.ownerName,
+              'address': state.ownerAddress,
+              'email': state.ownerEmail,
+              'description': state.description,
+              'cooking_time': state.cookingTime,
+              'delivery_radius': state.deliveryRadius,
+              'latitude': state.latitude,
+              'longitude': state.longitude,
+              'restaurant_type': state.selectedRestaurantType?['name'],
+            });
+            
+            // Notify operational hours update
+            profileUpdateService.notifyOperationalHoursUpdated(operationalHours);
+            
+            // Notify restaurant type update
+            if (state.selectedRestaurantType != null) {
+              profileUpdateService.notifyRestaurantTypeUpdated(state.selectedRestaurantType!['name']);
+            }
+            
+            // Notify image update if image was changed
+            if (state.imagePath != null) {
+              profileUpdateService.notifyRestaurantImageUpdated(state.imagePath);
+            }
+            
+            debugPrint('🔄 ProfileUpdateService: Notified all profile updates');
+          }
         } else {
           throw Exception('API returned error: ${response.statusCode}');
         }

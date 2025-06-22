@@ -4,6 +4,7 @@ import 'dart:async';
 
 import '../../../ui_components/edit_item_card.dart';
 import '../../../ui_components/universal_widget/topbar.dart';
+import '../../../ui_components/shimmer_loading.dart';
 import '../add_product/view.dart';
 import '../edit_item/view.dart';
 // Remove this import
@@ -339,11 +340,7 @@ class _EditMenuViewState extends State<EditMenuView> {
   // New function to handle error state with fallback to last loaded data
   Widget _buildBodyWithLastLoaded(BuildContext context, MenuItemsState state) {
     if (state is MenuItemsLoading) {
-      return const Center(
-        child: CircularProgressIndicator(
-          valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFE67E22)),
-        ),
-      );
+      return const ShimmerProductsContent();
     } else if (state is MenuItemsLoaded) {
       return _buildBody(context, state);
     } else if (state is MenuItemsError) {
@@ -402,18 +399,14 @@ class _EditMenuViewState extends State<EditMenuView> {
         );
       }
     } else {
-      // Fallback: show loading
-      return const Center(child: CircularProgressIndicator());
+      // Fallback: show shimmer loading
+      return const ShimmerProductsContent();
     }
   }
 
   Widget _buildBody(BuildContext context, MenuItemsState state) {
     if (state is MenuItemsLoading) {
-      return const Center(
-        child: CircularProgressIndicator(
-          valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFE67E22)),
-        ),
-      );
+      return const ShimmerProductsContent();
     } else if (state is MenuItemsLoaded) {
       if (state.menuItems.isEmpty) {
         return RefreshIndicator(

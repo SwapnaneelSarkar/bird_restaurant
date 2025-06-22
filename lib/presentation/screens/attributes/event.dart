@@ -58,22 +58,6 @@ class AddValueToNewAttributeEvent extends AttributeEvent {
 // Clear new attribute values
 class ClearNewAttributeValuesEvent extends AttributeEvent {}
 
-// Toggle attribute active status
-class ToggleAttributeActiveEvent extends AttributeEvent {
-  final String menuId;
-  final String attributeId;
-  final bool isActive;
-
-  const ToggleAttributeActiveEvent({
-    required this.menuId,
-    required this.attributeId,
-    required this.isActive,
-  });
-
-  @override
-  List<Object?> get props => [menuId, attributeId, isActive];
-}
-
 // Edit attribute values
 class EditAttributeValuesEvent extends AttributeEvent {
   final String menuId;

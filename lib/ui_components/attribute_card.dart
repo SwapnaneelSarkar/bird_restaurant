@@ -6,17 +6,13 @@ import '../presentation/resources/font.dart';
 class AttributeCard extends StatelessWidget {
   final String title;
   final String values;
-  final bool isActive;
   final Function() onEditValues;
-  final Function(bool) onToggleSwitch;
 
   const AttributeCard({
     Key? key,
     required this.title,
     required this.values,
-    required this.isActive,
     required this.onEditValues,
-    required this.onToggleSwitch,
   }) : super(key: key);
 
   @override
@@ -48,19 +44,6 @@ class AttributeCard extends StatelessWidget {
                   fontSize: FontSize.s16,
                   fontWeight: FontWeightManager.semiBold,
                   color: ColorManager.black,
-                ),
-              ),
-              // Custom switch that matches the UI in the image
-              Transform.scale(
-                scale: 0.8, // Making the switch slightly smaller to match the design
-                child: Switch(
-                  value: isActive,
-                  onChanged: onToggleSwitch,
-                  activeColor: Colors.white,
-                  activeTrackColor: const Color(0xFF5D5FEF), // Indigo color from the image
-                  inactiveThumbColor: Colors.white,
-                  inactiveTrackColor: const Color(0xFFD9D9D9), // Light gray color for inactive
-                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
               ),
             ],

@@ -125,25 +125,51 @@ class MenuItemsBloc extends Bloc<MenuItemsEvent, MenuItemsState> {
     if (state is MenuItemsLoaded) {
       final currentState = state as MenuItemsLoaded;
       
-      // Emit a state indicating that availability is being updated
-      emit(ItemAvailabilityUpdating(event.menuItem));
+      // OPTIMISTIC UPDATE: Immediately update the UI state
+      final updatedItems = currentState.menuItems.map((item) {
+        if (item.menuId == event.menuItem.menuId) {
+          return MenuItem(
+            menuId: item.menuId,
+            name: item.name,
+            price: item.price,
+            available: event.isAvailable, // Update immediately
+            imageUrl: item.imageUrl,
+            description: item.description,
+            category: item.category,
+            isVeg: item.isVeg,
+            isTaxIncluded: item.isTaxIncluded,
+            isCancellable: item.isCancellable,
+            tags: item.tags,
+          );
+        }
+        return item;
+      }).toList();
       
+      // Emit the updated state immediately for smooth UI
+      emit(MenuItemsLoaded(
+        menuItems: updatedItems,
+        restaurantData: currentState.restaurantData,
+        isFiltered: currentState.isFiltered,
+        filterType: currentState.filterType,
+        searchQuery: currentState.searchQuery,
+      ));
+      
+      // Now make the API call in the background
       try {
-        // Call the API to update availability - pass the complete menu item
         final response = await _updateMenuItemAvailability(
           event.menuItem,
           event.isAvailable
         );
         
-        if (response.status == 'SUCCESS') {
-          // Update the local state with the new availability
-          final updatedItems = currentState.menuItems.map((item) {
+        if (response.status != 'SUCCESS') {
+          // If API call failed, revert the optimistic update
+          final revertedItems = currentState.menuItems.map((item) {
             if (item.menuId == event.menuItem.menuId) {
               return MenuItem(
                 menuId: item.menuId,
                 name: item.name,
                 price: item.price,
-                available: event.isAvailable,
+                available: !event.isAvailable, // Revert to original state
                 imageUrl: item.imageUrl,
                 description: item.description,
                 category: item.category,
@@ -156,27 +182,54 @@ class MenuItemsBloc extends Bloc<MenuItemsEvent, MenuItemsState> {
             return item;
           }).toList();
           
-          // Update cached data
-          if (_cachedRestaurantData != null) {
-            _cachedRestaurantData = null;
-          }
-          
           emit(MenuItemsLoaded(
-            menuItems: updatedItems,
+            menuItems: revertedItems,
             restaurantData: currentState.restaurantData,
             isFiltered: currentState.isFiltered,
             filterType: currentState.filterType,
             searchQuery: currentState.searchQuery,
           ));
-        } else {
-          // Do NOT emit MenuItemsError here to avoid flicker
-          emit(currentState);
+          
           // Optionally: handle error notification elsewhere (e.g., Snackbar in UI)
+          debugPrint('Failed to update availability: ${response.message}');
+        } else {
+          // API call successful, update cached data
+          if (_cachedRestaurantData != null) {
+            _cachedRestaurantData = null;
+          }
+          debugPrint('Successfully updated availability to: ${event.isAvailable}');
         }
       } catch (e) {
-        // Do NOT emit MenuItemsError here to avoid flicker
-        emit(currentState);
+        // If API call failed, revert the optimistic update
+        final revertedItems = currentState.menuItems.map((item) {
+          if (item.menuId == event.menuItem.menuId) {
+            return MenuItem(
+              menuId: item.menuId,
+              name: item.name,
+              price: item.price,
+              available: !event.isAvailable, // Revert to original state
+              imageUrl: item.imageUrl,
+              description: item.description,
+              category: item.category,
+              isVeg: item.isVeg,
+              isTaxIncluded: item.isTaxIncluded,
+              isCancellable: item.isCancellable,
+              tags: item.tags,
+            );
+          }
+          return item;
+        }).toList();
+        
+        emit(MenuItemsLoaded(
+          menuItems: revertedItems,
+          restaurantData: currentState.restaurantData,
+          isFiltered: currentState.isFiltered,
+          filterType: currentState.filterType,
+          searchQuery: currentState.searchQuery,
+        ));
+        
         // Optionally: handle error notification elsewhere (e.g., Snackbar in UI)
+        debugPrint('Error updating availability: $e');
       }
     }
   }

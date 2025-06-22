@@ -16,6 +16,7 @@ import 'state.dart';
 import '../../../services/currency_service.dart';
 import '../../../services/attribute_service.dart';
 import '../../../models/attribute_model.dart';
+import '../../../services/restaurant_info_service.dart';
 
 class AttributesScreen extends StatefulWidget {
   const AttributesScreen({Key? key}) : super(key: key);
@@ -34,15 +35,25 @@ class _AttributesScreenState extends State<AttributesScreen> {
   MenuItem? _selectedMenuItem;
 
   late Future<String> _currencySymbolFuture;
+  late VoidCallback _attributeNameListener;
 
   @override
   void initState() {
     super.initState();
     _currencySymbolFuture = CurrencyService().getCurrencySymbol();
+    
+    // Add listener to attribute name controller to trigger UI updates
+    _attributeNameListener = () {
+      if (mounted) {
+        setState(() {});
+      }
+    };
+    _attributeNameController.addListener(_attributeNameListener);
   }
 
   @override
   void dispose() {
+    _attributeNameController.removeListener(_attributeNameListener);
     _attributeNameController.dispose();
     _valueController.dispose();
     _priceController.dispose();
@@ -52,8 +63,17 @@ class _AttributesScreenState extends State<AttributesScreen> {
   void _openSidebar() {
     Navigator.of(context).push(
       PageRouteBuilder(
-        pageBuilder: (context, animation, secondaryAnimation) => const SidebarDrawer(
-          activePage: 'add_attributes',
+        pageBuilder: (context, animation, secondaryAnimation) => FutureBuilder<Map<String, String>>(
+          future: RestaurantInfoService.getRestaurantInfo(),
+          builder: (context, snapshot) {
+            final info = snapshot.data ?? {};
+            return SidebarDrawer(
+              activePage: 'add_attributes',
+              restaurantName: info['name'],
+              restaurantSlogan: info['slogan'],
+              restaurantImageUrl: info['imageUrl'],
+            );
+          },
         ),
         transitionDuration: Duration.zero,
         reverseTransitionDuration: Duration.zero,
@@ -467,32 +487,6 @@ class _AttributesScreenState extends State<AttributesScreen> {
             ),
           ),
           
-          // Required Switch
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  "Required Attribute",
-                  style: TextStyle(
-                    fontSize: FontSize.s14,
-                    fontWeight: FontWeightManager.medium,
-                    color: Colors.grey[700],
-                  ),
-                ),
-              ),
-              Switch(
-                value: _isRequired,
-                onChanged: isLoading ? null : (value) {
-                  setState(() {
-                    _isRequired = value;
-                  });
-                },
-                activeColor: const Color(0xFFCD6E32),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          
           // Values Section
           _buildFormField(
             "Attribute Values",
@@ -883,22 +877,6 @@ class _AttributesScreenState extends State<AttributesScreen> {
                     ),
                     tooltip: 'Delete attribute',
                   ),
-                  Switch(
-                    value: attribute.isActive,
-                    onChanged: (value) {
-                      if (attribute.attributeId != null && _selectedMenuItem != null) {
-                        HapticFeedback.lightImpact();
-                        context.read<AttributeBloc>().add(
-                          ToggleAttributeActiveEvent(
-                            menuId: _selectedMenuItem!.menuId,
-                            attributeId: attribute.attributeId!,
-                            isActive: value,
-                          ),
-                        );
-                      }
-                    },
-                    activeColor: const Color(0xFFCD6E32),
-                  ),
                 ],
               ),
             ],
@@ -912,23 +890,17 @@ class _AttributesScreenState extends State<AttributesScreen> {
                 return Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   decoration: BoxDecoration(
-                    color: attribute.isActive
-                        ? const Color(0xFFCD6E32).withOpacity(0.1)
-                        : Colors.grey[100],
+                    color: const Color(0xFFCD6E32).withOpacity(0.1),
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(
-                      color: attribute.isActive
-                          ? const Color(0xFFCD6E32).withOpacity(0.3)
-                          : Colors.grey[300]!,
+                      color: const Color(0xFFCD6E32).withOpacity(0.3),
                     ),
                   ),
                   child: Text(
                     value,
                     style: TextStyle(
                       fontSize: 12,
-                      color: attribute.isActive
-                          ? const Color(0xFFCD6E32)
-                          : Colors.grey[600],
+                      color: const Color(0xFFCD6E32),
                       fontWeight: FontWeight.w500,
                     ),
                   ),
@@ -980,9 +952,11 @@ class _AttributesScreenState extends State<AttributesScreen> {
   }
 
   bool _isFormValid(AttributeLoaded? state) {
-    return _attributeNameController.text.trim().isNotEmpty && 
-           state?.newAttributeValues.isNotEmpty == true &&
-           _selectedMenuItem != null;
+    final hasName = _attributeNameController.text.trim().isNotEmpty;
+    final hasValues = state?.newAttributeValues.isNotEmpty == true;
+    final hasMenuItem = _selectedMenuItem != null;
+    
+    return hasName && hasValues && hasMenuItem;
   }
 
   void showEditDialog(BuildContext parentContext, Attribute attribute, {Future<AttributeGroup?>? testFuture}) {

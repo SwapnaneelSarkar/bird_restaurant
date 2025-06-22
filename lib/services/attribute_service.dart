@@ -170,56 +170,6 @@ class AttributeService {
     }
   }
 
-  // Update attribute status (activate/deactivate)
-  static Future<bool> updateAttributeStatus({
-    required String menuId,
-    required String attributeId,
-    required String name,
-    required String type,
-    required bool isRequired,
-  }) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('token');
-      if (token == null) {
-        throw UnauthorizedException('No token found. Please login again.');
-      }
-      final url = Uri.parse('${ApiConstants.baseUrl}$_attributesEndpoint/$menuId/attributes/$attributeId');
-      final requestBody = {
-        'name': name,
-        'type': type,
-        'is_required': isRequired,
-      };
-      debugPrint('Updating attribute status at: $url');
-      debugPrint('Request body: ${jsonEncode(requestBody)}');
-      final response = await http.put(
-        url,
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-        body: jsonEncode(requestBody),
-      );
-      debugPrint('Update Attribute Status Response:');
-      debugPrint('Status Code: ${response.statusCode}');
-      debugPrint('Body: ${response.body}');
-      if (response.statusCode == 200) {
-        return true;
-      } else if (response.statusCode == 401) {
-        throw UnauthorizedException('Unauthorized access. Please login again.');
-      } else {
-        final responseData = jsonDecode(response.body);
-        throw ApiException(responseData['message'] ?? 'Failed to update attribute status');
-      }
-    } catch (e) {
-      if (e is UnauthorizedException || e is ApiException) {
-        rethrow;
-      }
-      debugPrint('Error updating attribute status: $e');
-      throw ApiException('Failed to update attribute status: $e');
-    }
-  }
-
   // Delete attribute value
   static Future<bool> deleteAttributeValue({
     required String menuId,

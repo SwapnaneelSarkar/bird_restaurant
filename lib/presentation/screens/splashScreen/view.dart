@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:google_fonts/google_fonts.dart';
+import 'dart:developer' as developer;
 import '../../resources/colors.dart';
 
 import '../../resources/router/router.dart';
@@ -20,11 +21,10 @@ class SplashView extends StatefulWidget {
 }
 
 class _SplashViewState extends State<SplashView> with TickerProviderStateMixin {
-  // Animation controllers
+  // Animation controllers - reduced complexity
   late final AnimationController _logoAnimationController;
   late final AnimationController _textAnimationController;
   late final AnimationController _loadingAnimationController;
-  late final AnimationController _backgroundAnimationController;
   late final AnimationController _gradientController;
   late final Animation<Color?> _gradientColor1;
   late final Animation<Color?> _gradientColor2;
@@ -43,240 +43,279 @@ class _SplashViewState extends State<SplashView> with TickerProviderStateMixin {
   late Animation<double> _textOpacityAnimation;
   late Animation<Offset> _textSlideAnimation;
   late Animation<double> _loadingOpacityAnimation;
-  late Animation<double> _backgroundAnimation;
   
-  // Particle animation variables
-  final List<ParticleModel> _particles = [];
-  final Random _random = Random();
-  late Timer _particleTimer;
+  // Performance monitoring
+  late Timer _performanceTimer;
+  int _frameCount = 0;
+  DateTime _startTime = DateTime.now();
+  bool _isDisposed = false;
 
   @override
   void initState() {
     super.initState();
     
-    // Set status bar color
-    SystemChrome.setSystemUIOverlayStyle(
-      const SystemUiOverlayStyle(
-        statusBarColor: Colors.transparent,
-        statusBarIconBrightness: Brightness.light,
-      ),
-    );
+    developer.log('🎬 SplashView initState started', name: 'BirdRestaurant');
     
-    // Initialize logo animation
-    _logoAnimationController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1500),
-    );
-    
-    _logoScaleAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _logoAnimationController,
-        curve: Curves.elasticOut,
-      ),
-    );
-    
-    _logoOpacityAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _logoAnimationController,
-        curve: const Interval(0.0, 0.5, curve: Curves.easeIn),
-      ),
-    );
-    
-    // Initialize text animation
-    _textAnimationController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1200),
-    );
-    
-    _textOpacityAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _textAnimationController,
-        curve: const Interval(0.2, 0.8, curve: Curves.easeIn),
-      ),
-    );
-    
-    _textSlideAnimation = Tween<Offset>(
-      begin: const Offset(0, 0.5),
-      end: Offset.zero,
-    ).animate(
-      CurvedAnimation(
-        parent: _textAnimationController,
-        curve: const Interval(0.2, 0.8, curve: Curves.easeOutCubic),
-      ),
-    );
-    
-    // Initialize loading animation
-    _loadingAnimationController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 800),
-    );
-    
-    _loadingOpacityAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _loadingAnimationController,
-        curve: Curves.easeIn,
-      ),
-    );
-    
-    // Initialize background animation
-    _backgroundAnimationController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 2000),
-    );
-    
-    _backgroundAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _backgroundAnimationController,
-        curve: Curves.easeOut,
-      ),
-    );
-    
-    // Animated gradient background
-    _gradientController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 3),
-    )..repeat(reverse: true);
-    _gradientColor1 = ColorTween(
-      begin: ColorManager.primary.withOpacity(0.10),
-      end: ColorManager.primary.withOpacity(0.18),
-    ).animate(CurvedAnimation(parent: _gradientController, curve: Curves.easeInOut));
-    _gradientColor2 = ColorTween(
-      begin: Colors.orange.withOpacity(0.06),
-      end: Colors.deepOrange.withOpacity(0.10),
-    ).animate(CurvedAnimation(parent: _gradientController, curve: Curves.easeInOut));
-    // Glowing logo
-    _glowController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1200),
-    )..repeat(reverse: true);
-    _glowAnimation = Tween<double>(begin: 0.08, end: 0.18).animate(CurvedAnimation(parent: _glowController, curve: Curves.easeInOut));
-    // Typewriter effect for app name
-    _typewriterController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1200),
-    );
-    _typewriterController.addListener(() {
-      setState(() {
-        _typewriterLength = (_typewriterController.value * 'BIRD PARTNER'.length).clamp(0, 'BIRD PARTNER'.length).toInt();
-      });
-    });
-    _typewriterController.forward();
-    // Animated underline for slogan
-    _underlineController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 900),
-    );
-    _underlineAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(CurvedAnimation(parent: _underlineController, curve: Curves.easeOutCubic));
-    Future.delayed(const Duration(milliseconds: 900), () => _underlineController.forward());
-    // Version animation
-    _versionController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 700),
-    );
-    _versionOffset = Tween<Offset>(begin: const Offset(0, 0.5), end: Offset.zero).animate(CurvedAnimation(parent: _versionController, curve: Curves.easeOut));
-    Future.delayed(const Duration(milliseconds: 1800), () => _versionController.forward());
-    
-    // Generate initial particles
-    _generateParticles();
-    
-    // Start animation sequence
-    _startAnimationSequence();
-    
-    // Start particle animation timer
-    _particleTimer = Timer.periodic(const Duration(milliseconds: 50), (_) {
-      _updateParticles();
-      if (mounted) setState(() {});
-    });
-    
-    // Check authentication after animations
-    Future.delayed(const Duration(milliseconds: 3500), () {
-      _checkAuthentication();
-    });
-  }
-  
-  void _generateParticles() {
-    for (int i = 0; i < 25; i++) {
-      _particles.add(ParticleModel(
-        position: Offset(
-          _random.nextDouble() * 400 - 200,
-          _random.nextDouble() * 400 - 200,
+    try {
+      // Set status bar color
+      SystemChrome.setSystemUIOverlayStyle(
+        const SystemUiOverlayStyle(
+          statusBarColor: Colors.transparent,
+          statusBarIconBrightness: Brightness.light,
         ),
-        size: _random.nextDouble() * 10 + 5,
-        opacity: _random.nextDouble() * 0.7 + 0.3,
-        speed: _random.nextDouble() * 1.5 + 0.5,
-        angle: _random.nextDouble() * 2 * pi,
-      ));
+      );
+      
+      _initializeAnimations();
+      _startPerformanceMonitoring();
+      
+      // Check authentication after animations with better timing
+      Future.delayed(const Duration(milliseconds: 4000), () {
+        if (!_isDisposed) {
+          _checkAuthentication();
+        }
+      });
+      
+      developer.log('✅ SplashView initState completed', name: 'BirdRestaurant');
+    } catch (e, stackTrace) {
+      developer.log('❌ Error in SplashView initState: $e', name: 'BirdRestaurant');
+      developer.log('📚 Stack trace: $stackTrace', name: 'BirdRestaurant');
+      // Continue with basic functionality
     }
   }
   
-  void _updateParticles() {
-    for (var particle in _particles) {
-      particle.position = Offset(
-        particle.position.dx + cos(particle.angle) * particle.speed,
-        particle.position.dy + sin(particle.angle) * particle.speed,
+  void _initializeAnimations() {
+    try {
+      // Initialize logo animation
+      _logoAnimationController = AnimationController(
+        vsync: this,
+        duration: const Duration(milliseconds: 1500),
       );
       
-      // Reset particles that go too far
-      if (particle.position.dx.abs() > 220 || particle.position.dy.abs() > 220) {
-        particle.position = Offset(
-          _random.nextDouble() * 100 - 50,
-          _random.nextDouble() * 100 - 50,
-        );
-        particle.angle = _random.nextDouble() * 2 * pi;
-      }
+      _logoScaleAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+        CurvedAnimation(
+          parent: _logoAnimationController,
+          curve: Curves.elasticOut,
+        ),
+      );
       
-      // Slightly vary opacity for twinkling effect
-      particle.opacity = max(0.2, min(0.8, particle.opacity + (_random.nextDouble() * 0.1 - 0.05)));
+      _logoOpacityAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+        CurvedAnimation(
+          parent: _logoAnimationController,
+          curve: const Interval(0.0, 0.5, curve: Curves.easeIn),
+        ),
+      );
+      
+      // Initialize text animation
+      _textAnimationController = AnimationController(
+        vsync: this,
+        duration: const Duration(milliseconds: 1200),
+      );
+      
+      _textOpacityAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+        CurvedAnimation(
+          parent: _textAnimationController,
+          curve: const Interval(0.2, 0.8, curve: Curves.easeIn),
+        ),
+      );
+      
+      _textSlideAnimation = Tween<Offset>(
+        begin: const Offset(0, 0.5),
+        end: Offset.zero,
+      ).animate(
+        CurvedAnimation(
+          parent: _textAnimationController,
+          curve: const Interval(0.2, 0.8, curve: Curves.easeOutCubic),
+        ),
+      );
+      
+      // Initialize loading animation
+      _loadingAnimationController = AnimationController(
+        vsync: this,
+        duration: const Duration(milliseconds: 800),
+      );
+      
+      _loadingOpacityAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+        CurvedAnimation(
+          parent: _loadingAnimationController,
+          curve: Curves.easeIn,
+        ),
+      );
+      
+      // Animated gradient background
+      _gradientController = AnimationController(
+        vsync: this,
+        duration: const Duration(seconds: 3),
+      )..repeat(reverse: true);
+      
+      _gradientColor1 = ColorTween(
+        begin: ColorManager.primary.withOpacity(0.10),
+        end: ColorManager.primary.withOpacity(0.18),
+      ).animate(CurvedAnimation(parent: _gradientController, curve: Curves.easeInOut));
+      
+      _gradientColor2 = ColorTween(
+        begin: Colors.orange.withOpacity(0.06),
+        end: Colors.deepOrange.withOpacity(0.10),
+      ).animate(CurvedAnimation(parent: _gradientController, curve: Curves.easeInOut));
+      
+      // Glowing logo
+      _glowController = AnimationController(
+        vsync: this,
+        duration: const Duration(milliseconds: 1200),
+      )..repeat(reverse: true);
+      
+      _glowAnimation = Tween<double>(begin: 0.08, end: 0.18).animate(
+        CurvedAnimation(parent: _glowController, curve: Curves.easeInOut)
+      );
+      
+      // Typewriter effect for app name
+      _typewriterController = AnimationController(
+        vsync: this,
+        duration: const Duration(milliseconds: 1200),
+      );
+      
+      _typewriterController.addListener(() {
+        if (mounted && !_isDisposed) {
+          setState(() {
+            _typewriterLength = (_typewriterController.value * 'BIRD PARTNER'.length)
+                .clamp(0, 'BIRD PARTNER'.length).toInt();
+          });
+        }
+      });
+      
+      _typewriterController.forward();
+      
+      // Animated underline for slogan
+      _underlineController = AnimationController(
+        vsync: this,
+        duration: const Duration(milliseconds: 900),
+      );
+      
+      _underlineAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+        CurvedAnimation(parent: _underlineController, curve: Curves.easeOutCubic)
+      );
+      
+      Future.delayed(const Duration(milliseconds: 900), () {
+        if (!_isDisposed) {
+          _underlineController.forward();
+        }
+      });
+      
+      // Version animation
+      _versionController = AnimationController(
+        vsync: this,
+        duration: const Duration(milliseconds: 700),
+      );
+      
+      _versionOffset = Tween<Offset>(begin: const Offset(0, 0.5), end: Offset.zero)
+          .animate(CurvedAnimation(parent: _versionController, curve: Curves.easeOut));
+      
+      Future.delayed(const Duration(milliseconds: 1800), () {
+        if (!_isDisposed) {
+          _versionController.forward();
+        }
+      });
+      
+      // Start animation sequence
+      _startAnimationSequence();
+      
+      developer.log('✅ Animations initialized successfully', name: 'BirdRestaurant');
+    } catch (e, stackTrace) {
+      developer.log('❌ Error initializing animations: $e', name: 'BirdRestaurant');
+      developer.log('📚 Stack trace: $stackTrace', name: 'BirdRestaurant');
+    }
+  }
+  
+  void _startPerformanceMonitoring() {
+    _performanceTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
+      if (!_isDisposed) {
+        final elapsed = DateTime.now().difference(_startTime).inSeconds;
+        developer.log('📊 Performance check - Elapsed: ${elapsed}s, Frames: $_frameCount', name: 'BirdRestaurant');
+        
+        // If we've been running for more than 20 seconds, something might be wrong
+        if (elapsed > 20) {
+          developer.log('⚠️ Splash screen running for too long, forcing navigation', name: 'BirdRestaurant');
+          _forceNavigation();
+        }
+      }
+    });
+  }
+  
+  void _forceNavigation() {
+    try {
+      if (!_isDisposed && mounted) {
+        developer.log('🔄 Forcing navigation to signin', name: 'BirdRestaurant');
+        Navigator.of(context).pushReplacementNamed(Routes.signin);
+      }
+    } catch (e) {
+      developer.log('❌ Error in force navigation: $e', name: 'BirdRestaurant');
     }
   }
   
   void _startAnimationSequence() {
-    // Start background animation
-    _backgroundAnimationController.forward();
-    
-    // Start logo animation after a short delay
-    Future.delayed(const Duration(milliseconds: 200), () {
-      _logoAnimationController.forward();
-    });
-    
-    // Start text animation after logo
-    Future.delayed(const Duration(milliseconds: 700), () {
-      _textAnimationController.forward();
-    });
-    
-    // Start loading animation after text
-    Future.delayed(const Duration(milliseconds: 1400), () {
-      _loadingAnimationController.forward();
-    });
+    try {
+      // Start logo animation after a short delay
+      Future.delayed(const Duration(milliseconds: 200), () {
+        if (!_isDisposed) {
+          _logoAnimationController.forward();
+        }
+      });
+      
+      // Start text animation after logo
+      Future.delayed(const Duration(milliseconds: 700), () {
+        if (!_isDisposed) {
+          _textAnimationController.forward();
+        }
+      });
+      
+      // Start loading animation after text
+      Future.delayed(const Duration(milliseconds: 1400), () {
+        if (!_isDisposed) {
+          _loadingAnimationController.forward();
+        }
+      });
+    } catch (e) {
+      developer.log('❌ Error in animation sequence: $e', name: 'BirdRestaurant');
+    }
   }
 
   @override
   void dispose() {
-    _logoAnimationController.dispose();
-    _textAnimationController.dispose();
-    _loadingAnimationController.dispose();
-    _backgroundAnimationController.dispose();
-    _particleTimer.cancel();
-    _gradientController.dispose();
-    _glowController.dispose();
-    _typewriterController.dispose();
-    _underlineController.dispose();
-    _versionController.dispose();
+    developer.log('🗑️ SplashView dispose called', name: 'BirdRestaurant');
+    _isDisposed = true;
+    
+    try {
+      _logoAnimationController.dispose();
+      _textAnimationController.dispose();
+      _loadingAnimationController.dispose();
+      _gradientController.dispose();
+      _glowController.dispose();
+      _typewriterController.dispose();
+      _underlineController.dispose();
+      _versionController.dispose();
+      _performanceTimer.cancel();
+    } catch (e) {
+      developer.log('❌ Error disposing animations: $e', name: 'BirdRestaurant');
+    }
+    
     super.dispose();
   }
 
   Future<void> _checkAuthentication() async {
+    if (_isDisposed) return;
+    
+    developer.log('🔐 Starting authentication check', name: 'BirdRestaurant');
+    
     try {
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('token');
       final mobileNumber = prefs.getString('mobile');
       
-      debugPrint('Token: ${token != null ? 'exists' : 'null'}');
-      debugPrint('Mobile: $mobileNumber');
+      developer.log('Token: ${token != null ? 'exists' : 'null'}', name: 'BirdRestaurant');
+      developer.log('Mobile: $mobileNumber', name: 'BirdRestaurant');
       
       // If no token or mobile number, go to login
       if (token == null || token.isEmpty || mobileNumber == null || mobileNumber.isEmpty) {
-        debugPrint('No token or mobile, going to sign in');
+        developer.log('No token or mobile, going to sign in', name: 'BirdRestaurant');
         _navigateToLoginScreen();
         return;
       }
@@ -287,16 +326,18 @@ class _SplashViewState extends State<SplashView> with TickerProviderStateMixin {
         'Authorization': 'Bearer $token',
       };
 
-      // Call API to check application status
+      // Call API to check application status with timeout
       final uri = Uri.parse('https://api.bird.delivery/api/partner/getDetailsByMobile?mobile=$mobileNumber');
-      debugPrint('Calling API: $uri');
+      developer.log('Calling API: $uri', name: 'BirdRestaurant');
       
-      final response = await http.get(uri, headers: headers);
-      debugPrint('Response status: ${response.statusCode}');
+      final response = await http.get(uri, headers: headers)
+          .timeout(const Duration(seconds: 10));
+      
+      developer.log('Response status: ${response.statusCode}', name: 'BirdRestaurant');
 
       // If unauthorized, go to login
       if (response.statusCode == 401) {
-        debugPrint('Unauthorized, going to sign in');
+        developer.log('Unauthorized, going to sign in', name: 'BirdRestaurant');
         _navigateToLoginScreen();
         return;
       }
@@ -304,28 +345,28 @@ class _SplashViewState extends State<SplashView> with TickerProviderStateMixin {
       // If successful response, check the status
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        debugPrint('Response data: $data');
+        developer.log('Response data: $data', name: 'BirdRestaurant');
         
         if (data['status'] == 'SUCCESS') {
           final restaurantData = data['data'];
           final status = restaurantData['status'];
-          debugPrint('Application status: $status');
+          developer.log('Application status: $status', name: 'BirdRestaurant');
           
           // If approved (status = 1), go to home
           if (status == 1) {
-            debugPrint('Approved, going to home');
+            developer.log('Approved, going to home', name: 'BirdRestaurant');
             _navigateToHomeScreen();
             return;
           }
           // If pending (status = 2) or rejected (status = 7), go to application status
           else if (status == 2 || status == 7) {
-            debugPrint('Pending/Rejected, going to application status');
+            developer.log('Pending/Rejected, going to application status', name: 'BirdRestaurant');
             _navigateToHomeScreen();
             return;
           }
           // For any other status, go to application status
           else {
-            debugPrint('Other status, going to application status');
+            developer.log('Other status, going to application status', name: 'BirdRestaurant');
             _navigateToApplicationStatusScreen(mobileNumber);
             return;
           }
@@ -333,34 +374,57 @@ class _SplashViewState extends State<SplashView> with TickerProviderStateMixin {
       }
       
       // For any other case, go to sign in
-      debugPrint('Default case, going to sign in');
+      developer.log('Default case, going to sign in', name: 'BirdRestaurant');
       _navigateToLoginScreen();
       
     } catch (e, stackTrace) {
-      debugPrint('Error checking authentication: $e');
-      debugPrint('Stack trace: $stackTrace');
+      developer.log('❌ Error checking authentication: $e', name: 'BirdRestaurant');
+      developer.log('📚 Stack trace: $stackTrace', name: 'BirdRestaurant');
       // If there's any error, default to sign in
       _navigateToLoginScreen();
     }
   }
 
   void _navigateToLoginScreen() {
-    Navigator.of(context).pushReplacementNamed(Routes.signin);
+    if (_isDisposed || !mounted) return;
+    
+    try {
+      developer.log('🔄 Navigating to login screen', name: 'BirdRestaurant');
+      Navigator.of(context).pushReplacementNamed(Routes.signin);
+    } catch (e) {
+      developer.log('❌ Error navigating to login: $e', name: 'BirdRestaurant');
+    }
   }
 
   void _navigateToHomeScreen() {
-    Navigator.of(context).pushReplacementNamed(Routes.homePage);
+    if (_isDisposed || !mounted) return;
+    
+    try {
+      developer.log('🔄 Navigating to home screen', name: 'BirdRestaurant');
+      Navigator.of(context).pushReplacementNamed(Routes.homePage);
+    } catch (e) {
+      developer.log('❌ Error navigating to home: $e', name: 'BirdRestaurant');
+    }
   }
 
   void _navigateToApplicationStatusScreen(String mobileNumber) {
-    Navigator.of(context).pushReplacementNamed(
-      Routes.applicationStatus,
-      arguments: mobileNumber,
-    );
+    if (_isDisposed || !mounted) return;
+    
+    try {
+      developer.log('🔄 Navigating to application status screen', name: 'BirdRestaurant');
+      Navigator.of(context).pushReplacementNamed(
+        Routes.applicationStatus,
+        arguments: mobileNumber,
+      );
+    } catch (e) {
+      developer.log('❌ Error navigating to application status: $e', name: 'BirdRestaurant');
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    _frameCount++;
+    
     final size = MediaQuery.of(context).size;
     
     return Scaffold(
@@ -435,6 +499,22 @@ class _SplashViewState extends State<SplashView> with TickerProviderStateMixin {
                               'assets/images/logo.png',
                               fit: BoxFit.contain,
                               semanticLabel: 'Bird Partner Logo',
+                              errorBuilder: (context, error, stackTrace) {
+                                developer.log('❌ Error loading logo image: $error', name: 'BirdRestaurant');
+                                return Container(
+                                  width: size.width * 0.3,
+                                  height: size.width * 0.3,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: ColorManager.primary.withOpacity(0.1),
+                                  ),
+                                  child: Icon(
+                                    Icons.restaurant,
+                                    size: size.width * 0.15,
+                                    color: ColorManager.primary,
+                                  ),
+                                );
+                              },
                             ),
                           ),
                         );
