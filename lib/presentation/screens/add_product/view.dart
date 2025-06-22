@@ -27,6 +27,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
   final TextEditingController _descriptionController = TextEditingController();
   final TextEditingController _priceController = TextEditingController();
   final TextEditingController _tagsController = TextEditingController();
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   
   // Validation error text
   String? _nameError;
@@ -39,6 +40,17 @@ class _AddProductScreenState extends State<AddProductScreen> {
   final int _descriptionMaxLength = 100;
   final int _tagsMaxLength = 100;
   final double _maxPrice = 9999.99;
+  
+  // Restaurant info state
+  Map<String, String>? _restaurantInfo;
+  bool _isRestaurantInfoLoaded = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Load restaurant info
+    _loadRestaurantInfo();
+  }
 
   @override
   void dispose() {
@@ -49,25 +61,25 @@ class _AddProductScreenState extends State<AddProductScreen> {
     super.dispose();
   }
 
+  Future<void> _loadRestaurantInfo() async {
+    try {
+      // Force refresh from API to get the latest restaurant info
+      final info = await RestaurantInfoService.refreshRestaurantInfo();
+      if (mounted) {
+        setState(() {
+          _restaurantInfo = info;
+          _isRestaurantInfoLoaded = true;
+        });
+        debugPrint('🔄 AddProductPage: Loaded restaurant info - Name: ${info['name']}, Slogan: ${info['slogan']}, Image: ${info['imageUrl']}');
+      }
+    } catch (e) {
+      debugPrint('Error loading restaurant info: $e');
+    }
+  }
+
   void _openSidebar() {
-    Navigator.of(context).push(
-      PageRouteBuilder(
-        pageBuilder: (context, animation, secondaryAnimation) => FutureBuilder<Map<String, String>>(
-          future: RestaurantInfoService.getRestaurantInfo(),
-          builder: (context, snapshot) {
-            final info = snapshot.data ?? {};
-            return SidebarDrawer(
-              activePage: 'addProduct',
-              restaurantName: info['name'],
-              restaurantSlogan: info['slogan'],
-              restaurantImageUrl: info['imageUrl'],
-            );
-          },
-        ),
-        transitionDuration: Duration.zero,
-        reverseTransitionDuration: Duration.zero,
-      ),
-    );
+    // Use the scaffold's built-in drawer instead of pushing a new route
+    _scaffoldKey.currentState?.openDrawer();
   }
 
   @override
@@ -99,7 +111,14 @@ class _AddProductScreenState extends State<AddProductScreen> {
         builder: (context, state) {
           if (state is AddProductFormState) {
             return Scaffold(
+              key: _scaffoldKey,
               backgroundColor: ColorManager.background,
+              drawer: SidebarDrawer(
+                activePage: 'addProduct',
+                restaurantName: _restaurantInfo?['name'] ?? 'Restaurant',
+                restaurantSlogan: _restaurantInfo?['slogan'] ?? 'Add new product',
+                restaurantImageUrl: _restaurantInfo?['imageUrl'],
+              ),
               body: SafeArea(
                 child: Column(
                   children: [

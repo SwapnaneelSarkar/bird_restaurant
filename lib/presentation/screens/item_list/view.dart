@@ -22,21 +22,29 @@ class EditMenuView extends StatefulWidget {
 }
 
 class _EditMenuViewState extends State<EditMenuView> {
-  late MenuItemsBloc _menuItemsBloc;
+  final MenuItemsBloc _menuItemsBloc = MenuItemsBloc();
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   final GlobalKey<RefreshIndicatorState> _refreshIndicatorKey = GlobalKey<RefreshIndicatorState>();
   final TextEditingController _searchController = TextEditingController();
   Timer? _debounce;
 
   // Track the last loaded state
   MenuItemsLoaded? _lastLoadedState;
+  
+  // Restaurant info state
+  Map<String, String>? _restaurantInfo;
+  bool _isRestaurantInfoLoaded = false;
 
   @override
   void initState() {
     super.initState();
-    _menuItemsBloc = MenuItemsBloc()..add(const LoadMenuItemsEvent());
+    _menuItemsBloc.add(const LoadMenuItemsEvent());
     
     // Add listener for search
     _searchController.addListener(_onSearchChanged);
+    
+    // Load restaurant info
+    _loadRestaurantInfo();
   }
 
   @override
@@ -44,6 +52,7 @@ class _EditMenuViewState extends State<EditMenuView> {
     _searchController.removeListener(_onSearchChanged);
     _searchController.dispose();
     _debounce?.cancel();
+    _menuItemsBloc.close();
     super.dispose();
   }
 
@@ -63,24 +72,24 @@ class _EditMenuViewState extends State<EditMenuView> {
   }
 
   void _openSidebar() {
-    Navigator.of(context).push(
-      PageRouteBuilder(
-        pageBuilder: (context, animation, secondaryAnimation) => FutureBuilder<Map<String, String>>(
-          future: RestaurantInfoService.getRestaurantInfo(),
-          builder: (context, snapshot) {
-            final info = snapshot.data ?? {};
-            return SidebarDrawer(
-              activePage: 'products',
-              restaurantName: info['name'],
-              restaurantSlogan: info['slogan'],
-              restaurantImageUrl: info['imageUrl'],
-            );
-          },
-        ),
-        transitionDuration: Duration.zero,
-        reverseTransitionDuration: Duration.zero,
-      ),
-    );
+    // Use the scaffold's built-in drawer instead of pushing a new route
+    _scaffoldKey.currentState?.openDrawer();
+  }
+
+  Future<void> _loadRestaurantInfo() async {
+    try {
+      // Force refresh from API to get the latest restaurant info
+      final info = await RestaurantInfoService.refreshRestaurantInfo();
+      if (mounted) {
+        setState(() {
+          _restaurantInfo = info;
+          _isRestaurantInfoLoaded = true;
+        });
+        debugPrint('🔄 ItemListPage: Loaded restaurant info - Name: ${info['name']}, Slogan: ${info['slogan']}, Image: ${info['imageUrl']}');
+      }
+    } catch (e) {
+      debugPrint('Error loading restaurant info: $e');
+    }
   }
 
   @override
@@ -130,7 +139,14 @@ class _EditMenuViewState extends State<EditMenuView> {
             _lastLoadedState = state;
           }
           return Scaffold(
+            key: _scaffoldKey,
             backgroundColor: Colors.grey[100],
+            drawer: SidebarDrawer(
+              activePage: 'products',
+              restaurantName: _restaurantInfo?['name'] ?? 'Products',
+              restaurantSlogan: _restaurantInfo?['slogan'] ?? 'Manage your menu',
+              restaurantImageUrl: _restaurantInfo?['imageUrl'],
+            ),
             body: SafeArea(
               child: Column(
                 children: [

@@ -8,6 +8,7 @@ import 'package:fl_chart/fl_chart.dart';
 import '../../../constants/api_constants.dart';
 import '../../../ui_components/universal_widget/nav_bar.dart';
 import '../../../ui_components/shimmer_loading.dart';
+import '../../../ui_components/subscription_reminder_dialog.dart';
 import '../../resources/colors.dart';
 import '../../resources/router/router.dart';
 import '../chat/view.dart';
@@ -21,6 +22,8 @@ import 'sidebar/sidebar_drawer.dart';
 import 'state.dart';
 import '../../../models/partner_summary_model.dart';
 import '../../../services/restaurant_info_service.dart';
+import '../../../services/subscription_plans_service.dart';
+import '../../../services/token_service.dart';
 
 class HomeView extends StatefulWidget {
   const HomeView({Key? key}) : super(key: key);
@@ -35,6 +38,14 @@ class _HomeViewState extends State<HomeView> with TickerProviderStateMixin {
   late final AnimationController _pageTransitionController;
   late final PageController _pageController;
   late final HomeBloc _homeBloc;
+  
+  // Restaurant info state
+  Map<String, String>? _restaurantInfo;
+  bool _isRestaurantInfoLoaded = false;
+  
+  // Subscription state
+  bool _hasCheckedSubscription = false;
+  bool _hasShownSubscriptionDialog = false;
 
   @override
   void initState() {
@@ -51,6 +62,8 @@ class _HomeViewState extends State<HomeView> with TickerProviderStateMixin {
     // Load data only once when the screen initializes
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _homeBloc.add(LoadHomeData());
+      _loadRestaurantInfo();
+      _checkSubscriptionStatus();
     });
   }
 
@@ -146,6 +159,73 @@ class _HomeViewState extends State<HomeView> with TickerProviderStateMixin {
     }
   }
 
+  Future<void> _loadRestaurantInfo() async {
+    try {
+      // Force refresh from API to get the latest restaurant info
+      final info = await RestaurantInfoService.refreshRestaurantInfo();
+      if (mounted) {
+        setState(() {
+          _restaurantInfo = info;
+          _isRestaurantInfoLoaded = true;
+        });
+        debugPrint('🔄 HomePage: Loaded restaurant info - Name: ${info['name']}, Slogan: ${info['slogan']}, Image: ${info['imageUrl']}');
+      }
+    } catch (e) {
+      debugPrint('Error loading restaurant info: $e');
+    }
+  }
+
+  Future<void> _checkSubscriptionStatus() async {
+    try {
+      final subscriptionStatus = await SubscriptionPlansService.getSubscriptionStatusForReminder();
+      
+      if (mounted && subscriptionStatus != null) {
+        final hasExpiredPlan = subscriptionStatus['hasExpiredPlan'] as bool;
+        final expiredPlanName = subscriptionStatus['expiredPlanName'] as String?;
+        
+        // Show dialog if user has no valid subscription or has expired plan
+        if (!hasExpiredPlan || expiredPlanName != null) {
+          _showSubscriptionReminderDialog(hasExpiredPlan, expiredPlanName);
+        }
+        
+        setState(() {
+          _hasCheckedSubscription = true;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error checking subscription status: $e');
+      setState(() {
+        _hasCheckedSubscription = true;
+      });
+    }
+  }
+
+  void _showSubscriptionReminderDialog(bool hasExpiredPlan, String? expiredPlanName) {
+    if (_hasShownSubscriptionDialog) return;
+    
+    _hasShownSubscriptionDialog = true;
+    
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => SubscriptionReminderDialog(
+            hasExpiredPlan: hasExpiredPlan,
+            expiredPlanName: expiredPlanName,
+            onGoToPlans: () {
+              Navigator.of(context).pop();
+              Navigator.of(context).pushNamed(Routes.plan);
+            },
+            onSkip: () {
+              Navigator.of(context).pop();
+            },
+          ),
+        );
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocProvider.value(
@@ -153,17 +233,11 @@ class _HomeViewState extends State<HomeView> with TickerProviderStateMixin {
       child: Scaffold(
         key: _scaffoldKey,
         backgroundColor: Colors.grey[50],
-        drawer: FutureBuilder<Map<String, String>>(
-          future: RestaurantInfoService.getRestaurantInfo(),
-          builder: (context, snapshot) {
-            final info = snapshot.data ?? {};
-            return SidebarDrawer(
-              activePage: 'home',
-              restaurantName: info['name'],
-              restaurantSlogan: info['slogan'],
-              restaurantImageUrl: info['imageUrl'],
-            );
-          },
+        drawer: SidebarDrawer(
+          activePage: 'home',
+          restaurantName: _restaurantInfo?['name'] ?? 'Restaurant',
+          restaurantSlogan: _restaurantInfo?['slogan'] ?? 'Fine Dining',
+          restaurantImageUrl: _restaurantInfo?['imageUrl'],
         ),
         appBar: _selectedIndex == 0 ? AppBar(
           backgroundColor: Colors.white,

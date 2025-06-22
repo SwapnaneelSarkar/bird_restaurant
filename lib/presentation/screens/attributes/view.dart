@@ -29,6 +29,7 @@ class _AttributesScreenState extends State<AttributesScreen> {
   final TextEditingController _attributeNameController = TextEditingController();
   final TextEditingController _valueController = TextEditingController();
   final TextEditingController _priceController = TextEditingController();
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   
   String _selectedType = 'radio';
   bool _isRequired = true;
@@ -36,6 +37,10 @@ class _AttributesScreenState extends State<AttributesScreen> {
 
   late Future<String> _currencySymbolFuture;
   late VoidCallback _attributeNameListener;
+  
+  // Restaurant info state
+  Map<String, String>? _restaurantInfo;
+  bool _isRestaurantInfoLoaded = false;
 
   @override
   void initState() {
@@ -49,6 +54,9 @@ class _AttributesScreenState extends State<AttributesScreen> {
       }
     };
     _attributeNameController.addListener(_attributeNameListener);
+    
+    // Load restaurant info
+    _loadRestaurantInfo();
   }
 
   @override
@@ -60,25 +68,25 @@ class _AttributesScreenState extends State<AttributesScreen> {
     super.dispose();
   }
 
+  Future<void> _loadRestaurantInfo() async {
+    try {
+      // Force refresh from API to get the latest restaurant info
+      final info = await RestaurantInfoService.refreshRestaurantInfo();
+      if (mounted) {
+        setState(() {
+          _restaurantInfo = info;
+          _isRestaurantInfoLoaded = true;
+        });
+        debugPrint('🔄 AttributesPage: Loaded restaurant info - Name: ${info['name']}, Slogan: ${info['slogan']}, Image: ${info['imageUrl']}');
+      }
+    } catch (e) {
+      debugPrint('Error loading restaurant info: $e');
+    }
+  }
+
   void _openSidebar() {
-    Navigator.of(context).push(
-      PageRouteBuilder(
-        pageBuilder: (context, animation, secondaryAnimation) => FutureBuilder<Map<String, String>>(
-          future: RestaurantInfoService.getRestaurantInfo(),
-          builder: (context, snapshot) {
-            final info = snapshot.data ?? {};
-            return SidebarDrawer(
-              activePage: 'add_attributes',
-              restaurantName: info['name'],
-              restaurantSlogan: info['slogan'],
-              restaurantImageUrl: info['imageUrl'],
-            );
-          },
-        ),
-        transitionDuration: Duration.zero,
-        reverseTransitionDuration: Duration.zero,
-      ),
-    );
+    // Use the scaffold's built-in drawer instead of pushing a new route
+    _scaffoldKey.currentState?.openDrawer();
   }
 
   @override
@@ -93,7 +101,14 @@ class _AttributesScreenState extends State<AttributesScreen> {
         ),
       ],
       child: Scaffold(
+        key: _scaffoldKey,
         backgroundColor: ColorManager.background,
+        drawer: SidebarDrawer(
+          activePage: 'add_attributes',
+          restaurantName: _restaurantInfo?['name'] ?? 'Restaurant',
+          restaurantSlogan: _restaurantInfo?['slogan'] ?? 'Manage your attributes',
+          restaurantImageUrl: _restaurantInfo?['imageUrl'],
+        ),
         body: SafeArea(
           child: Column(
             children: [

@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:ui';
 import 'dart:math';
+import '../../../../services/restaurant_info_service.dart';
 
 class SidebarDrawer extends StatefulWidget {
   final String? activePage;
@@ -21,6 +22,19 @@ class SidebarDrawer extends StatefulWidget {
     this.restaurantImageUrl,
   }) : super(key: key);
 
+  // Static method to create sidebar with cached restaurant info
+  static Widget createWithCachedInfo({
+    required String? activePage,
+    Map<String, String>? cachedInfo,
+  }) {
+    return SidebarDrawer(
+      activePage: activePage,
+      restaurantName: cachedInfo?['name'] ?? '',
+      restaurantSlogan: cachedInfo?['slogan'] ?? '',
+      restaurantImageUrl: cachedInfo?['imageUrl'] ?? '',
+    );
+  }
+
   @override
   State<SidebarDrawer> createState() => _SidebarDrawerState();
 }
@@ -34,7 +48,7 @@ class _SidebarDrawerState extends State<SidebarDrawer> with SingleTickerProvider
   
   // For menu item staggered animation
   late List<Animation<double>> _menuItemAnimations;
-  final int _menuItemCount = 11; // Total number of menu items including logout
+  final int _menuItemCount = 12; // Total number of menu items including logout (increased by 1 for plan)
 
   @override
   void initState() {
@@ -126,29 +140,31 @@ class _SidebarDrawerState extends State<SidebarDrawer> with SingleTickerProvider
   void _navigateToPage(String routeName) {
     _closeDrawer();
     
-    // Small delay to let drawer close animation complete
-    Future.delayed(const Duration(milliseconds: 100), () {
+    // Use a single, safe navigation approach
+    WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        if (routeName == '/home') {
-          // If navigating to home, clear all routes and go to home
-          Navigator.of(context).pushNamedAndRemoveUntil(
-            '/home',
-            (route) => false,
-          );
-        } else {
-          // For other pages, ensure home is always in the stack as the base
-          // First navigate to home (if not already there), then to the target page
-          Navigator.of(context).pushNamedAndRemoveUntil(
-            '/home',
-            (route) => false,
-          );
-          
-          // Then navigate to the target page
-          Future.delayed(const Duration(milliseconds: 50), () {
-            if (mounted) {
-              Navigator.of(context).pushNamed(routeName);
-            }
-          });
+        try {
+          if (routeName == '/home') {
+            // If navigating to home, clear all routes and go to home
+            Navigator.of(context).pushNamedAndRemoveUntil(
+              '/home',
+              (route) => false,
+            );
+          } else {
+            // For other pages, use a simple push replacement to avoid stack issues
+            Navigator.of(context).pushReplacementNamed(routeName);
+          }
+        } catch (e) {
+          debugPrint('Navigation error: $e');
+          // Fallback to home if navigation fails
+          try {
+            Navigator.of(context).pushNamedAndRemoveUntil(
+              '/home',
+              (route) => false,
+            );
+          } catch (fallbackError) {
+            debugPrint('Fallback navigation also failed: $fallbackError');
+          }
         }
       }
     });
@@ -214,6 +230,9 @@ class _SidebarDrawerState extends State<SidebarDrawer> with SingleTickerProvider
   }
   
   Widget _buildAnimatedSidebar() {
+    // Debug logging to see what data is being passed
+    debugPrint('🔄 SidebarDrawer: Building sidebar with - Name: "${widget.restaurantName}", Slogan: "${widget.restaurantSlogan}", Image: "${widget.restaurantImageUrl}"');
+    
     return AnimatedSidebarContent(
       animations: _menuItemAnimations,
       onClose: _closeDrawer,
@@ -320,6 +339,13 @@ class AnimatedSidebarContent extends StatelessWidget {
                       onTap: () => onNavigate('/profile'),
                     ),
                     _buildAnimatedMenuItem(
+                      animations[7],
+                      icon: Icons.subscriptions_outlined,
+                      title: 'Subscription Plans',
+                      isActive: activePage == 'plan',
+                      onTap: () => onNavigate('/plan'),
+                    ),
+                    _buildAnimatedMenuItem(
                       animations[8],
                       icon: Icons.description_outlined,
                       title: 'Terms & Conditions',
@@ -419,6 +445,8 @@ class AnimatedSidebarContent extends StatelessWidget {
   Widget _buildRestaurantImage() {
     final String? imageUrl = restaurantImageUrl;
     
+    debugPrint('🔄 SidebarDrawer: Building restaurant image with URL: "$imageUrl"');
+    
     if (imageUrl != null && imageUrl.isNotEmpty) {
       // If we have a valid restaurant image URL, load it
       return ClipRRect(
@@ -430,7 +458,7 @@ class AnimatedSidebarContent extends StatelessWidget {
           fit: BoxFit.cover,
           // Add error handling to fall back to the local asset if network image fails
           errorBuilder: (context, error, stackTrace) {
-            debugPrint('Error loading restaurant image: $error');
+            debugPrint('❌ SidebarDrawer: Error loading restaurant image: $error');
             return Image.asset(
               'assets/images/logo.png',
               height: 64,
@@ -457,6 +485,7 @@ class AnimatedSidebarContent extends StatelessWidget {
       );
     } else {
       // Fallback to default image
+      debugPrint('🔄 SidebarDrawer: Using fallback logo image');
       return Image.asset(
         'assets/images/logo.png',
         height: 64,
@@ -618,6 +647,9 @@ class AnimatedSidebarContent extends StatelessWidget {
       
       debugPrint('Logout: Starting logout process...');
       
+      // Clear restaurant info cache first
+      RestaurantInfoService.clearCache();
+      
       // Clear authentication data
       final prefs = await SharedPreferences.getInstance();
       await prefs.clear();
@@ -632,12 +664,12 @@ class AnimatedSidebarContent extends StatelessWidget {
         );
         debugPrint('Logout: Navigated to sign in screen');
       }
-      
     } catch (e) {
       debugPrint('Logout: Error during logout: $e');
       
       // Even if there's an error, try to force clear auth data and navigate
       try {
+        RestaurantInfoService.clearCache();
         final prefs = await SharedPreferences.getInstance();
         await prefs.clear();
         debugPrint('Logout: Force cleared auth data after error');

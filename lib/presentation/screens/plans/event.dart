@@ -18,3 +18,18 @@ class SelectPlanEvent extends PlanSelectionEvent {
   @override
   List<Object> get props => [planId];
 }
+
+class CreateSubscriptionEvent extends PlanSelectionEvent {
+  final String planId;
+  final double amount;
+  final String paymentMethod;
+
+  const CreateSubscriptionEvent({
+    required this.planId,
+    required this.amount,
+    required this.paymentMethod,
+  });
+
+  @override
+  List<Object> get props => [planId, amount, paymentMethod];
+}

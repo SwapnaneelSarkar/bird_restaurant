@@ -14,6 +14,7 @@ import '../../../services/profile_update_service.dart';
 import '../resturant_details_2/state.dart';
 import 'event.dart';
 import 'state.dart';
+import '../../../services/restaurant_info_service.dart';
 
 class RestaurantProfileBloc
     extends Bloc<RestaurantProfileEvent, RestaurantProfileState> {
@@ -689,6 +690,13 @@ class RestaurantProfileBloc
           // Notify profile update service for real-time updates
           if (status == 'SUCCESS') {
             final profileUpdateService = ProfileUpdateService();
+            
+            // Update restaurant info service immediately
+            RestaurantInfoService.updateRestaurantInfo(
+              name: state.restaurantName,
+              slogan: state.ownerAddress,
+              imageUrl: state.imagePath,
+            );
             
             // Notify restaurant details update
             profileUpdateService.notifyRestaurantDetailsUpdated({

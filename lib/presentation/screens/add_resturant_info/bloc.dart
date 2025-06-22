@@ -8,6 +8,7 @@ import 'package:http/http.dart' as http;
 import '../../../constants/api_constants.dart';
 import 'event.dart';
 import 'state.dart';
+import '../../../services/restaurant_info_service.dart';
 
 class RestaurantDetailsBloc
     extends Bloc<RestaurantDetailsEvent, RestaurantDetailsState> {
@@ -370,6 +371,12 @@ class RestaurantDetailsBloc
       await prefs.setInt('restaurant_type_id', state.selectedRestaurantType!['id']);
       await prefs.setString('restaurant_type_name', state.selectedRestaurantType!['name']);
     }
+    
+    // Update restaurant info service cache
+    RestaurantInfoService.updateRestaurantInfo(
+      name: state.name,
+      slogan: state.address,
+    );
     
     debugPrint('Saved restaurant data to SharedPreferences');
     debugPrint('Latitude: ${state.latitude}, Longitude: ${state.longitude}');

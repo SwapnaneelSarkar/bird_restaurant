@@ -44,3 +44,46 @@ class PlanSelectionError extends PlanSelectionState {
   @override
   List<Object> get props => [message];
 }
+
+class SubscriptionCreating extends PlanSelectionState {
+  final List<PlanModel> plans;
+  final String? selectedPlanId;
+
+  const SubscriptionCreating({
+    required this.plans,
+    this.selectedPlanId,
+  });
+
+  @override
+  List<Object?> get props => [plans, selectedPlanId];
+}
+
+class SubscriptionCreated extends PlanSelectionState {
+  final Map<String, dynamic> subscriptionData;
+  final List<PlanModel> plans;
+  final String? selectedPlanId;
+
+  const SubscriptionCreated({
+    required this.subscriptionData,
+    required this.plans,
+    this.selectedPlanId,
+  });
+
+  @override
+  List<Object?> get props => [subscriptionData, plans, selectedPlanId];
+}
+
+class SubscriptionError extends PlanSelectionState {
+  final String message;
+  final List<PlanModel> plans;
+  final String? selectedPlanId;
+
+  const SubscriptionError({
+    required this.message,
+    required this.plans,
+    this.selectedPlanId,
+  });
+
+  @override
+  List<Object?> get props => [message, plans, selectedPlanId];
+}

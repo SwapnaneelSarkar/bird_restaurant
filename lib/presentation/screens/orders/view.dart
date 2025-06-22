@@ -33,40 +33,54 @@ class OrdersView extends StatefulWidget {
 }
 
 class _OrdersViewState extends State<OrdersView> {
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  
+  // Restaurant info state
+  Map<String, String>? _restaurantInfo;
+  bool _isRestaurantInfoLoaded = false;
+
   @override
   void initState() {
     super.initState();
     // Load orders after the widget is built
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<OrdersBloc>().add(const LoadOrdersEvent());
+      _loadRestaurantInfo();
     });
   }
 
+  Future<void> _loadRestaurantInfo() async {
+    try {
+      // Force refresh from API to get the latest restaurant info
+      final info = await RestaurantInfoService.refreshRestaurantInfo();
+      if (mounted) {
+        setState(() {
+          _restaurantInfo = info;
+          _isRestaurantInfoLoaded = true;
+        });
+        debugPrint('🔄 OrdersPage: Loaded restaurant info - Name: ${info['name']}, Slogan: ${info['slogan']}, Image: ${info['imageUrl']}');
+      }
+    } catch (e) {
+      debugPrint('Error loading restaurant info: $e');
+    }
+  }
+
   void _openSidebar() {
-    Navigator.of(context).push(
-      PageRouteBuilder(
-        pageBuilder: (context, animation, secondaryAnimation) => FutureBuilder<Map<String, String>>(
-          future: RestaurantInfoService.getRestaurantInfo(),
-          builder: (context, snapshot) {
-            final info = snapshot.data ?? {};
-            return SidebarDrawer(
-              activePage: 'orders',
-              restaurantName: info['name'],
-              restaurantSlogan: info['slogan'],
-              restaurantImageUrl: info['imageUrl'],
-            );
-          },
-        ),
-        transitionDuration: Duration.zero,
-        reverseTransitionDuration: Duration.zero,
-      ),
-    );
+    // Use the scaffold's built-in drawer instead of pushing a new route
+    _scaffoldKey.currentState?.openDrawer();
   }
 
 @override
 Widget build(BuildContext context) {
   return Scaffold(
+    key: _scaffoldKey,
     backgroundColor: ColorManager.background,
+    drawer: SidebarDrawer(
+      activePage: 'orders',
+      restaurantName: _restaurantInfo?['name'] ?? 'Restaurant',
+      restaurantSlogan: _restaurantInfo?['slogan'] ?? 'Manage your orders',
+      restaurantImageUrl: _restaurantInfo?['imageUrl'],
+    ),
     appBar: AppBar(
       elevation: 0,
       backgroundColor: Colors.white,

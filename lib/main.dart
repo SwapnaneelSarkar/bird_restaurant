@@ -7,11 +7,13 @@ import 'package:flutter_svg/svg.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'dart:developer' as developer;
 import 'dart:ui';
+import 'dart:async';
 
 import 'presentation/resources/router/router.dart';
 import 'presentation/screens/reviewPage/bloc.dart';
 import 'presentation/screens/signin/bloc.dart';
 import 'presentation/screens/chat/bloc.dart'; // Add this import
+import 'services/restaurant_info_service.dart';
 
 // Global error handler
 void _handleError(Object error, StackTrace stackTrace) {
@@ -21,6 +23,14 @@ void _handleError(Object error, StackTrace stackTrace) {
   // Log to console for debugging
   debugPrint('🚨 GLOBAL ERROR: $error');
   debugPrint('📚 Stack trace: $stackTrace');
+  
+  // Check if it's a navigation-related error
+  if (error.toString().contains('Navigator') || 
+      error.toString().contains('context') ||
+      error.toString().contains('mounted')) {
+    developer.log('🚨 NAVIGATION ERROR DETECTED', name: 'BirdRestaurant');
+    debugPrint('🚨 NAVIGATION ERROR DETECTED');
+  }
 }
 
 void main() async {
@@ -30,20 +40,45 @@ void main() async {
     developer.log('📚 Stack trace: ${details.stack}', name: 'BirdRestaurant');
     debugPrint('🚨 FLUTTER ERROR: ${details.exception}');
     debugPrint('📚 Stack trace: ${details.stack}');
+    
+    // Check if it's a navigation-related error
+    if (details.exception.toString().contains('Navigator') || 
+        details.exception.toString().contains('context') ||
+        details.exception.toString().contains('mounted')) {
+      developer.log('🚨 NAVIGATION ERROR DETECTED', name: 'BirdRestaurant');
+      debugPrint('🚨 NAVIGATION ERROR DETECTED');
+    }
   };
 
-  // Set up unhandled exception handler
+  // Handle errors that occur during zone execution
   PlatformDispatcher.instance.onError = (error, stack) {
+    developer.log('🚨 PLATFORM ERROR: $error', name: 'BirdRestaurant');
+    developer.log('📚 Stack trace: $stack', name: 'BirdRestaurant');
     _handleError(error, stack);
     return true;
   };
+  
+  // Set up periodic health check
+  Timer.periodic(const Duration(seconds: 5), (timer) {
+    developer.log('🏥 App health check - Running for ${timer.tick * 5} seconds', name: 'BirdRestaurant');
+    
+    // If app has been running for more than 10 seconds, log a warning
+    if (timer.tick * 5 > 10) {
+      developer.log('⚠️ App has been running for ${timer.tick * 5} seconds', name: 'BirdRestaurant');
+    }
+  });
 
   try {
     developer.log('🚀 Starting Bird Restaurant app...', name: 'BirdRestaurant');
     debugPrint('🚀 Starting Bird Restaurant app...');
     
+    // Ensure Flutter is initialized
     WidgetsFlutterBinding.ensureInitialized();
     developer.log('✅ WidgetsFlutterBinding initialized', name: 'BirdRestaurant');
+    
+    // Clear restaurant info cache to ensure fresh data
+    RestaurantInfoService.clearCache();
+    developer.log('🔄 Cleared restaurant info cache on app startup', name: 'BirdRestaurant');
     
     // Initialize Firebase with error handling
     try {

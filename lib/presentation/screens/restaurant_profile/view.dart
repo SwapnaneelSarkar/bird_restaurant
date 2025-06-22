@@ -22,40 +22,17 @@ import '../../../services/restaurant_info_service.dart';
 class RestaurantProfileView extends StatelessWidget {
   const RestaurantProfileView({Key? key}) : super(key: key);
 
-  void _openSidebar(BuildContext context) {
-    Navigator.of(context).push(
-      PageRouteBuilder(
-        pageBuilder: (context, animation, secondaryAnimation) => FutureBuilder<Map<String, String>>(
-          future: RestaurantInfoService.getRestaurantInfo(),
-          builder: (context, snapshot) {
-            final info = snapshot.data ?? {};
-            return SidebarDrawer(
-              activePage: 'profile',
-              restaurantName: info['name'],
-              restaurantSlogan: info['slogan'],
-              restaurantImageUrl: info['imageUrl'],
-            );
-          },
-        ),
-        transitionDuration: Duration.zero,
-        reverseTransitionDuration: Duration.zero,
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
       create: (_) => RestaurantProfileBloc(),
-      child: _Body(openSidebar: () => _openSidebar(context)),
+      child: const _Body(),
     );
   }
 }
 
 class _Body extends StatefulWidget {
-  final VoidCallback openSidebar;
-  
-  const _Body({required this.openSidebar});
+  const _Body();
 
   @override
   State<_Body> createState() => _BodyState();
@@ -70,9 +47,14 @@ class _BodyState extends State<_Body> {
   late final TextEditingController _descriptionCtrl;
   late final TextEditingController _cookTimeCtrl;
   late final TextEditingController _deliveryRadiusCtrl; // 👈 NEW CONTROLLER ADDED
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
   // We'll store address info from the location picker
   String _selectedAddress = '';
+  
+  // Restaurant info state
+  Map<String, String>? _restaurantInfo;
+  bool _isRestaurantInfoLoaded = false;
   
   @override
   void initState() {
@@ -88,6 +70,25 @@ class _BodyState extends State<_Body> {
     
     // Load mobile number from shared preferences
     _loadMobileNumber();
+    
+    // Load restaurant info
+    _loadRestaurantInfo();
+  }
+
+  Future<void> _loadRestaurantInfo() async {
+    try {
+      // Force refresh from API to get the latest restaurant info
+      final info = await RestaurantInfoService.refreshRestaurantInfo();
+      if (mounted) {
+        setState(() {
+          _restaurantInfo = info;
+          _isRestaurantInfoLoaded = true;
+        });
+        debugPrint('🔄 RestaurantProfilePage: Loaded restaurant info - Name: ${info['name']}, Slogan: ${info['slogan']}, Image: ${info['imageUrl']}');
+      }
+    } catch (e) {
+      debugPrint('Error loading restaurant info: $e');
+    }
   }
 
   Future<void> _loadMobileNumber() async {
@@ -202,7 +203,14 @@ class _BodyState extends State<_Body> {
     final vert = h * 0.02;
 
     return Scaffold(
+      key: _scaffoldKey,
       backgroundColor: ColorManager.background,
+      drawer: SidebarDrawer(
+        activePage: 'profile',
+        restaurantName: _restaurantInfo?['name'] ?? 'Restaurant',
+        restaurantSlogan: _restaurantInfo?['slogan'] ?? 'Manage your profile',
+        restaurantImageUrl: _restaurantInfo?['imageUrl'],
+      ),
       appBar: AppBar(
         leading: null,
         automaticallyImplyLeading: false,
@@ -212,7 +220,7 @@ class _BodyState extends State<_Body> {
           children: [
             InkWell(
               borderRadius: BorderRadius.circular(40),
-              onTap: widget.openSidebar,
+              onTap: _openSidebar,
               child: const Padding(
                 padding: EdgeInsets.all(8.0),
                 child: Icon(
@@ -761,4 +769,9 @@ class _BodyState extends State<_Body> {
           ),
         ),
       );
+
+  void _openSidebar() {
+    // Use the scaffold's built-in drawer instead of pushing a new route
+    _scaffoldKey.currentState?.openDrawer();
+  }
 }
