@@ -230,9 +230,6 @@ class _SidebarDrawerState extends State<SidebarDrawer> with SingleTickerProvider
   }
   
   Widget _buildAnimatedSidebar() {
-    // Debug logging to see what data is being passed
-    debugPrint('🔄 SidebarDrawer: Building sidebar with - Name: "${widget.restaurantName}", Slogan: "${widget.restaurantSlogan}", Image: "${widget.restaurantImageUrl}"');
-    
     return AnimatedSidebarContent(
       animations: _menuItemAnimations,
       onClose: _closeDrawer,
@@ -445,8 +442,6 @@ class AnimatedSidebarContent extends StatelessWidget {
   Widget _buildRestaurantImage() {
     final String? imageUrl = restaurantImageUrl;
     
-    debugPrint('🔄 SidebarDrawer: Building restaurant image with URL: "$imageUrl"');
-    
     if (imageUrl != null && imageUrl.isNotEmpty) {
       // If we have a valid restaurant image URL, load it
       return ClipRRect(
@@ -458,7 +453,6 @@ class AnimatedSidebarContent extends StatelessWidget {
           fit: BoxFit.cover,
           // Add error handling to fall back to the local asset if network image fails
           errorBuilder: (context, error, stackTrace) {
-            debugPrint('❌ SidebarDrawer: Error loading restaurant image: $error');
             return Image.asset(
               'assets/images/logo.png',
               height: 64,
@@ -485,7 +479,6 @@ class AnimatedSidebarContent extends StatelessWidget {
       );
     } else {
       // Fallback to default image
-      debugPrint('🔄 SidebarDrawer: Using fallback logo image');
       return Image.asset(
         'assets/images/logo.png',
         height: 64,

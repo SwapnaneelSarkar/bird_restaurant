@@ -31,6 +31,22 @@ void _handleError(Object error, StackTrace stackTrace) {
     developer.log('🚨 NAVIGATION ERROR DETECTED', name: 'BirdRestaurant');
     debugPrint('🚨 NAVIGATION ERROR DETECTED');
   }
+  
+  // Check if it's a subscription-related error
+  if (error.toString().contains('subscription') || 
+      error.toString().contains('plan') ||
+      error.toString().contains('payment')) {
+    developer.log('🚨 SUBSCRIPTION ERROR DETECTED', name: 'BirdRestaurant');
+    debugPrint('🚨 SUBSCRIPTION ERROR DETECTED');
+  }
+  
+  // Check if it's a network-related error
+  if (error.toString().contains('network') || 
+      error.toString().contains('http') ||
+      error.toString().contains('timeout')) {
+    developer.log('🚨 NETWORK ERROR DETECTED', name: 'BirdRestaurant');
+    debugPrint('🚨 NETWORK ERROR DETECTED');
+  }
 }
 
 void main() async {

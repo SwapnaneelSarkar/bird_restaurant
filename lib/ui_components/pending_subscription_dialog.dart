@@ -2,21 +2,13 @@ import 'package:flutter/material.dart';
 import '../presentation/resources/colors.dart';
 import '../presentation/resources/font.dart';
 
-class ActivePlanDialog extends StatelessWidget {
+class PendingSubscriptionDialog extends StatelessWidget {
   final String planName;
-  final String planDescription;
-  final String endDate;
-  final String dialogTitle;
-  final String dialogMessage;
   final VoidCallback onGoToHome;
 
-  const ActivePlanDialog({
+  const PendingSubscriptionDialog({
     Key? key,
     required this.planName,
-    required this.planDescription,
-    required this.endDate,
-    this.dialogTitle = 'Active Plan Found!',
-    this.dialogMessage = 'You already have an active subscription plan.',
     required this.onGoToHome,
   }) : super(key: key);
 
@@ -40,7 +32,7 @@ class ActivePlanDialog extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Info Icon
+              // Pending Icon
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
@@ -48,7 +40,7 @@ class ActivePlanDialog extends StatelessWidget {
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
-                  Icons.info_outline,
+                  Icons.pending_actions,
                   color: ColorManager.primary,
                   size: 48,
                 ),
@@ -58,7 +50,7 @@ class ActivePlanDialog extends StatelessWidget {
               
               // Title
               Text(
-                dialogTitle,
+                'Payment Pending',
                 style: TextStyle(
                   fontSize: FontSize.s20,
                   fontWeight: FontWeightManager.bold,
@@ -71,7 +63,7 @@ class ActivePlanDialog extends StatelessWidget {
               
               // Message
               Text(
-                dialogMessage,
+                'Your $planName subscription is pending payment confirmation. You will be notified once the payment is processed and your subscription is activated.',
                 style: TextStyle(
                   fontSize: FontSize.s14,
                   color: ColorManager.textGrey,
@@ -82,23 +74,23 @@ class ActivePlanDialog extends StatelessWidget {
               
               const SizedBox(height: 24),
               
-              // Plan Details
+              // Status Info
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: ColorManager.primary.withOpacity(0.05),
+                  color: Colors.blue.withOpacity(0.05),
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
-                    color: ColorManager.primary.withOpacity(0.1),
+                    color: Colors.blue.withOpacity(0.1),
                   ),
                 ),
                 child: Column(
                   children: [
-                    _buildDetailRow('Plan Name', planName),
+                    _buildStatusRow('Status', 'Pending Confirmation'),
                     const SizedBox(height: 8),
-                    _buildDetailRow('Description', planDescription),
+                    _buildStatusRow('Plan', planName),
                     const SizedBox(height: 8),
-                    _buildDetailRow('Valid Until', endDate),
+                    _buildStatusRow('Next Step', 'Wait for payment confirmation'),
                   ],
                 ),
               ),
@@ -118,7 +110,7 @@ class ActivePlanDialog extends StatelessWidget {
                     ),
                   ),
                   child: Text(
-                    'Go to Home',
+                    'OK',
                     style: TextStyle(
                       fontSize: FontSize.s16,
                       fontWeight: FontWeightManager.semiBold,
@@ -134,7 +126,7 @@ class ActivePlanDialog extends StatelessWidget {
     );
   }
 
-  Widget _buildDetailRow(String label, String value) {
+  Widget _buildStatusRow(String label, String value) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [

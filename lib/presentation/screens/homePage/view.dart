@@ -9,6 +9,7 @@ import '../../../constants/api_constants.dart';
 import '../../../ui_components/universal_widget/nav_bar.dart';
 import '../../../ui_components/shimmer_loading.dart';
 import '../../../ui_components/subscription_reminder_dialog.dart';
+import '../../../ui_components/pending_subscription_dialog.dart';
 import '../../resources/colors.dart';
 import '../../resources/router/router.dart';
 import '../chat/view.dart';
@@ -182,9 +183,18 @@ class _HomeViewState extends State<HomeView> with TickerProviderStateMixin {
       if (mounted && subscriptionStatus != null) {
         final hasExpiredPlan = subscriptionStatus['hasExpiredPlan'] as bool;
         final expiredPlanName = subscriptionStatus['expiredPlanName'] as String?;
+        final hasPendingSubscription = subscriptionStatus['hasPendingSubscription'] as bool? ?? false;
+        final pendingPlanName = subscriptionStatus['pendingPlanName'] as String?;
         
-        // Show dialog if user has no valid subscription or has expired plan
-        if (!hasExpiredPlan || expiredPlanName != null) {
+        // Show appropriate dialog based on subscription status
+        if (hasPendingSubscription) {
+          // Show pending subscription dialog
+          _showPendingSubscriptionDialog(pendingPlanName);
+        } else if (hasExpiredPlan) {
+          // Show expired plan dialog
+          _showSubscriptionReminderDialog(hasExpiredPlan, expiredPlanName);
+        } else if (expiredPlanName == null) {
+          // Show no plan dialog
           _showSubscriptionReminderDialog(hasExpiredPlan, expiredPlanName);
         }
         
@@ -218,6 +228,27 @@ class _HomeViewState extends State<HomeView> with TickerProviderStateMixin {
               Navigator.of(context).pushNamed(Routes.plan);
             },
             onSkip: () {
+              Navigator.of(context).pop();
+            },
+          ),
+        );
+      }
+    });
+  }
+
+  void _showPendingSubscriptionDialog(String? pendingPlanName) {
+    if (_hasShownSubscriptionDialog) return;
+    
+    _hasShownSubscriptionDialog = true;
+    
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => PendingSubscriptionDialog(
+            planName: pendingPlanName ?? 'Subscription',
+            onGoToHome: () {
               Navigator.of(context).pop();
             },
           ),
@@ -321,9 +352,45 @@ class _HomeViewState extends State<HomeView> with TickerProviderStateMixin {
   }
 
   Widget _buildHomeContent(BuildContext context, HomeLoaded state) {
-    // Get partner ID and restaurant name for navigation
-    final String? partnerId = state.restaurantData?['partner_id'] as String?;
-    final String? restaurantName = state.restaurantData?['restaurant_name'] as String?;
+    // Get partner ID and restaurant name for navigation with null safety
+    final String? partnerId = state.restaurantData?['partner_id']?.toString();
+    final String? restaurantName = state.restaurantData?['restaurant_name']?.toString();
+
+    // Validate critical data
+    if (state.restaurantData == null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.error_outline, size: 64, color: Colors.red[300]),
+            const SizedBox(height: 16),
+            Text(
+              'Restaurant data not available',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: Colors.red[700],
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Please try refreshing the page',
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey[600],
+              ),
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: () {
+                _homeBloc.add(LoadHomeData());
+              },
+              child: const Text('Refresh'),
+            ),
+          ],
+        ),
+      );
+    }
 
     return SingleChildScrollView(
       child: Padding(

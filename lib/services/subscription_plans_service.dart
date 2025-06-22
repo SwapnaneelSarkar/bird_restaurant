@@ -232,14 +232,25 @@ class SubscriptionPlansService {
         final startDateStr = subscription['start_date']?.toString();
         final endDateStr = subscription['end_date']?.toString();
 
-        if (status == 'ACTIVE' && startDateStr != null && endDateStr != null) {
+        // Check for both ACTIVE and PENDING subscriptions
+        if ((status == 'ACTIVE' || status == 'PENDING') && startDateStr != null && endDateStr != null) {
           try {
             final startDate = DateTime.parse(startDateStr);
             final endDate = DateTime.parse(endDateStr);
 
-            // Check if subscription is still valid (end date is in the future)
-            if (endDate.isAfter(now)) {
-              // Check if this is the most recent active subscription
+            // For PENDING subscriptions, check if start date is in the future or today
+            // For ACTIVE subscriptions, check if subscription is still valid (end date is in the future)
+            bool isValid = false;
+            if (status == 'PENDING') {
+              // PENDING subscriptions are valid if start date is today or in the future
+              isValid = startDate.isAfter(now.subtract(const Duration(days: 1)));
+            } else {
+              // ACTIVE subscriptions are valid if end date is in the future
+              isValid = endDate.isAfter(now);
+            }
+
+            if (isValid) {
+              // Check if this is the most recent subscription
               if (mostRecentActive == null || 
                   startDate.isAfter(mostRecentStartDate!) ||
                   (startDate.isAtSameMomentAs(mostRecentStartDate!) && endDate.isAfter(farthestEndDate!))) {
@@ -255,10 +266,10 @@ class SubscriptionPlansService {
       }
 
       if (mostRecentActive != null) {
-        debugPrint('Found active subscription: ${mostRecentActive['plan_name']} (ID: ${mostRecentActive['subscription_id']})');
+        debugPrint('Found active/pending subscription: ${mostRecentActive['plan_name']} (ID: ${mostRecentActive['subscription_id']}) - Status: ${mostRecentActive['status']}');
         debugPrint('Start date: ${mostRecentActive['start_date']}, End date: ${mostRecentActive['end_date']}');
       } else {
-        debugPrint('No active subscription found for partner: $partnerId');
+        debugPrint('No active or pending subscription found for partner: $partnerId');
       }
 
       return mostRecentActive;
@@ -290,29 +301,53 @@ class SubscriptionPlansService {
     try {
       final partnerId = await TokenService.getUserId();
       if (partnerId == null) {
-        return null;
+        return {'hasExpiredPlan': false, 'expiredPlanName': null, 'hasPendingSubscription': false};
       }
 
       final subscriptions = await fetchVendorSubscriptions(partnerId);
       
       if (subscriptions.isEmpty) {
-        return {'hasExpiredPlan': false, 'expiredPlanName': null};
+        return {'hasExpiredPlan': false, 'expiredPlanName': null, 'hasPendingSubscription': false};
       }
 
       final now = DateTime.now();
+      bool hasActiveSubscription = false;
+      bool hasPendingSubscription = false;
       Map<String, dynamic>? mostRecentExpired = null;
       DateTime? mostRecentExpiredDate;
+      Map<String, dynamic>? mostRecentPending = null;
 
       for (final subscription in subscriptions) {
         final status = subscription['status']?.toString().toUpperCase();
+        final startDateStr = subscription['start_date']?.toString();
         final endDateStr = subscription['end_date']?.toString();
+
+        if (status == 'PENDING' && startDateStr != null) {
+          try {
+            final startDate = DateTime.parse(startDateStr);
+            // PENDING subscriptions are valid if start date is today or in the future
+            if (startDate.isAfter(now.subtract(const Duration(days: 1)))) {
+              hasPendingSubscription = true;
+              // Keep track of the most recent pending subscription
+              if (mostRecentPending == null || startDate.isAfter(DateTime.parse(mostRecentPending['start_date']!))) {
+                mostRecentPending = subscription;
+              }
+            }
+          } catch (e) {
+            debugPrint('Error parsing start date for pending subscription ${subscription['subscription_id']}: $e');
+          }
+          continue; // Skip pending subscriptions for other logic
+        }
 
         if (status == 'ACTIVE' && endDateStr != null) {
           try {
             final endDate = DateTime.parse(endDateStr);
             
-            // Check if subscription has expired
-            if (endDate.isBefore(now)) {
+            // Check if subscription is still valid (end date is in the future)
+            if (endDate.isAfter(now)) {
+              hasActiveSubscription = true;
+              break; // Found an active subscription, no need to check further
+            } else {
               // Check if this is the most recent expired subscription
               if (mostRecentExpired == null || endDate.isAfter(mostRecentExpiredDate!)) {
                 mostRecentExpired = subscription;
@@ -325,14 +360,32 @@ class SubscriptionPlansService {
         }
       }
 
+      // If user has active subscription, don't show reminder
+      if (hasActiveSubscription) {
+        return {'hasExpiredPlan': false, 'expiredPlanName': null, 'hasPendingSubscription': false};
+      }
+
+      // If user has pending subscription, return pending status
+      if (hasPendingSubscription) {
+        return {
+          'hasExpiredPlan': false, 
+          'expiredPlanName': null, 
+          'hasPendingSubscription': true,
+          'pendingPlanName': mostRecentPending?['plan_name']?.toString(),
+        };
+      }
+
+      // If user has expired plan, show reminder
       if (mostRecentExpired != null) {
         return {
           'hasExpiredPlan': true,
           'expiredPlanName': mostRecentExpired['plan_name']?.toString(),
+          'hasPendingSubscription': false,
         };
-      } else {
-        return {'hasExpiredPlan': false, 'expiredPlanName': null};
       }
+
+      // No active, pending, or expired plans found
+      return {'hasExpiredPlan': false, 'expiredPlanName': null, 'hasPendingSubscription': false};
     } catch (e) {
       debugPrint('Error getting subscription status for reminder: $e');
       return null;

@@ -99,6 +99,7 @@ class _PlanSelectionScreenState extends State<PlanSelectionScreen> {
     final planName = activeSubscription['plan_name']?.toString() ?? 'Unknown Plan';
     final planDescription = activeSubscription['plan_description']?.toString() ?? 'No description available';
     final endDate = activeSubscription['end_date']?.toString() ?? 'Unknown';
+    final status = activeSubscription['status']?.toString().toUpperCase() ?? 'UNKNOWN';
     
     // Format the end date for display
     String formattedEndDate = endDate;
@@ -109,6 +110,18 @@ class _PlanSelectionScreenState extends State<PlanSelectionScreen> {
       debugPrint('Error parsing end date: $e');
     }
 
+    // Determine dialog title and message based on status
+    String dialogTitle;
+    String dialogMessage;
+    
+    if (status == 'PENDING') {
+      dialogTitle = 'Subscription Pending';
+      dialogMessage = 'Your subscription is currently pending approval. You will be notified once it is activated.';
+    } else {
+      dialogTitle = 'Active Subscription';
+      dialogMessage = 'You already have an active subscription.';
+    }
+
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -116,6 +129,8 @@ class _PlanSelectionScreenState extends State<PlanSelectionScreen> {
         planName: planName,
         planDescription: planDescription,
         endDate: formattedEndDate,
+        dialogTitle: dialogTitle,
+        dialogMessage: dialogMessage,
         onGoToHome: () {
           Navigator.of(context).pushNamedAndRemoveUntil('/home', (route) => false);
         },
@@ -433,6 +448,24 @@ class _PlanSelectionScreenState extends State<PlanSelectionScreen> {
                         // Plans list
                         ...plans.map((plan) {
                           try {
+                            // Validate plan data before rendering
+                            if (plan.id.isEmpty || plan.title.isEmpty) {
+                              debugPrint('PlanSelectionView: Invalid plan data detected: ${plan.id} - ${plan.title}');
+                              return Container(
+                                padding: const EdgeInsets.all(16),
+                                margin: const EdgeInsets.only(bottom: 16),
+                                decoration: BoxDecoration(
+                                  color: Colors.orange.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(color: Colors.orange.withOpacity(0.3)),
+                                ),
+                                child: Text(
+                                  'Invalid plan data',
+                                  style: TextStyle(color: Colors.orange[700]),
+                                ),
+                              );
+                            }
+                            
                             return PlanCard(
                               plan: plan,
                               isSelected: selectedPlanId == plan.id,
