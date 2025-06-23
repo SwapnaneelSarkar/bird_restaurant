@@ -16,11 +16,13 @@ import '../services/order_service.dart';
 class OrderStatusBottomSheet extends StatefulWidget {
   final String orderId;
   final OrderStatus currentStatus;
+  final OrdersBloc ordersBloc;
 
   const OrderStatusBottomSheet({
     Key? key,
     required this.orderId,
     required this.currentStatus,
+    required this.ordersBloc,
   }) : super(key: key);
 
   @override
@@ -36,15 +38,17 @@ class _OrderStatusBottomSheetState extends State<OrderStatusBottomSheet> {
   void initState() {
     super.initState();
     
-    // Check if OrdersBloc is available before setting up the listener
+    // Use the passed OrdersBloc instance
     try {
-      final ordersBloc = context.read<OrdersBloc>();
-      
       // Listen to OrdersBloc state changes directly
-      _stateSubscription = ordersBloc.stream.listen((state) {
-        if (!mounted || !_isUpdating) return;
-        
+      _stateSubscription = widget.ordersBloc.stream.listen((state) {
         debugPrint('OrderStatusBottomSheet: Stream listener - State: ${state.runtimeType}');
+        debugPrint('OrderStatusBottomSheet: _isUpdating: $_isUpdating, mounted: $mounted');
+        
+        if (!mounted || !_isUpdating) {
+          debugPrint('OrderStatusBottomSheet: Ignoring state change - not updating or not mounted');
+          return;
+        }
         
         if (state is OrderStatusUpdateSuccess) {
           debugPrint('OrderStatusBottomSheet: Success detected - ${state.message}');
@@ -60,6 +64,8 @@ class _OrderStatusBottomSheetState extends State<OrderStatusBottomSheet> {
             // Just close the bottom sheet
             _closeBottomSheet();
           }
+        } else {
+          debugPrint('OrderStatusBottomSheet: Received other state: ${state.runtimeType}');
         }
       });
     } catch (e) {
@@ -254,6 +260,28 @@ class _OrderStatusBottomSheetState extends State<OrderStatusBottomSheet> {
           )),
           
           const SizedBox(height: 20),
+          
+          // Debug close button (only show when updating)
+          if (_isUpdating) ...[
+            Container(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () {
+                  debugPrint('OrderStatusBottomSheet: Manual close button pressed');
+                  _handleError('Manually cancelled');
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+                child: const Text(
+                  'Cancel Update (Debug)',
+                  style: TextStyle(color: Colors.white),
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+          ],
         ],
       ),
     );
@@ -395,31 +423,48 @@ class _OrderStatusBottomSheetState extends State<OrderStatusBottomSheet> {
   Future<void> _updateOrderStatus(OrderStatus newStatus) async {
     if (_isUpdating) return;
     
+    debugPrint('OrderStatusBottomSheet: Starting status update...');
+    debugPrint('OrderStatusBottomSheet: Order ID: ${widget.orderId}');
+    debugPrint('OrderStatusBottomSheet: New Status: ${newStatus.apiValue}');
+    
     setState(() {
       _isUpdating = true;
     });
 
     // Set timeout timer
     _timeoutTimer = Timer(const Duration(seconds: 8), _handleTimeout);
+    
+    // Set a fallback timer to close the bottom sheet if no state changes are received
+    Timer(const Duration(seconds: 10), () {
+      if (_isUpdating && mounted) {
+        debugPrint('OrderStatusBottomSheet: ⚠️ Fallback timer triggered - no state changes received');
+        _handleError('Request timed out. Please try again.');
+      }
+    });
 
     try {
       debugPrint('OrderStatusBottomSheet: Triggering UpdateOrderStatusEvent');
       debugPrint('OrderStatusBottomSheet: Order ID: ${widget.orderId}');
       debugPrint('OrderStatusBottomSheet: New Status: ${newStatus.apiValue}');
       
-      // Check if OrdersBloc is available before using it
-      final ordersBloc = context.read<OrdersBloc>();
+      // Use the passed OrdersBloc instance
+      debugPrint('OrderStatusBottomSheet: OrdersBloc found: ${widget.ordersBloc != null}');
+      debugPrint('OrderStatusBottomSheet: OrdersBloc current state: ${widget.ordersBloc.state.runtimeType}');
       
       // Use OrdersBloc to update status
-      ordersBloc.add(UpdateOrderStatusEvent(
+      widget.ordersBloc.add(UpdateOrderStatusEvent(
         orderId: widget.orderId,
         newStatus: newStatus,
       ));
+      
+      debugPrint('OrderStatusBottomSheet: UpdateOrderStatusEvent added to OrdersBloc');
+      debugPrint('OrderStatusBottomSheet: Waiting for state changes...');
 
       // The stream listener will handle the response
       
     } catch (e) {
       debugPrint('OrderStatusBottomSheet: Error in _updateOrderStatus: $e');
+      debugPrint('OrderStatusBottomSheet: Error stack trace: ${StackTrace.current}');
       _handleError('Failed to update order status. Please try again.');
     }
   }

@@ -3,8 +3,11 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:flutter/foundation.dart';
 import '../presentation/screens/chat/state.dart';
-import 'token_service.dart';
+import '../constants/api_constants.dart';
+import '../services/token_service.dart';
+import '../utils/time_utils.dart';
 
 class OrderService {
   static const String baseUrl = 'https://api.bird.delivery/api';
@@ -88,7 +91,7 @@ class OrderService {
     
     final requestBody = {
       'status': newStatus.toUpperCase(),
-      'updated_at': DateTime.now().toIso8601String(),
+      'updated_at': TimeUtils.toIsoStringForAPI(TimeUtils.getCurrentIST()),
     };
     
     final response = await http.put(

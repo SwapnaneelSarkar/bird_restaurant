@@ -601,6 +601,7 @@ Widget _buildMessageBubble(chat_state.ChatMessage message) {
   debugPrint('ChatView: 🎯 Rendering message:');
   debugPrint('  - Content: ${message.message}');
   debugPrint('  - isUserMessage: ${message.isUserMessage}');
+  debugPrint('  - isRead: ${message.isRead}'); // NEW: Log read status
   debugPrint('  - Should appear on: ${message.isUserMessage ? 'RIGHT (Partner)' : 'LEFT (Customer)'}');
   
   final screenWidth = MediaQuery.of(context).size.width;
@@ -608,8 +609,8 @@ Widget _buildMessageBubble(chat_state.ChatMessage message) {
   return Padding(
     padding: EdgeInsets.only(
       bottom: 8.0,
-      left: 16.0, // Standard left padding
-      right: 16.0, // Standard right padding
+      left: 16.0,
+      right: 16.0,
     ),
     child: Row(
       mainAxisAlignment: message.isUserMessage 
@@ -687,7 +688,7 @@ Widget _buildMessageBubble(chat_state.ChatMessage message) {
                 ),
               ),
               const SizedBox(height: 4),
-              // Time and delivery status
+              // Time and delivery status with READ TICKS
               Padding(
                 padding: EdgeInsets.only(
                   left: message.isUserMessage ? 0 : 8,
@@ -705,13 +706,16 @@ Widget _buildMessageBubble(chat_state.ChatMessage message) {
                         fontFamily: FontFamily.Montserrat,
                       ),
                     ),
-                    // Show delivery status only for partner messages
+                    // Show delivery status only for partner messages (sent by current user)
                     if (message.isUserMessage) ...[
                       const SizedBox(width: 4),
                       Icon(
-                        Icons.done_all, // Double check mark for delivered
+                        Icons.done_all, // Double check mark for all messages
                         size: 14,
-                        color: Colors.grey.shade500,
+                        // BLUE tick if read, GREY tick if not read
+                        color: message.isRead 
+                            ? Colors.blue          // BLUE = Read by recipient
+                            : Colors.grey.shade500, // GREY = Not read yet
                       ),
                     ],
                   ],

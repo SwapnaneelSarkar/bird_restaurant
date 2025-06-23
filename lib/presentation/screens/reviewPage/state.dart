@@ -1,6 +1,7 @@
 // lib/presentation/screens/reviews/state.dart
 
 import 'package:equatable/equatable.dart';
+import '../../../utils/time_utils.dart';
 
 abstract class ReviewState extends Equatable {
   const ReviewState();
@@ -108,7 +109,7 @@ class Review {
       reviewId: json['review_id'] ?? '',
       rating: json['rating'] ?? 0,
       reviewText: json['review_text'] ?? '',
-      createdAt: DateTime.parse(json['created_at'] ?? DateTime.now().toIso8601String()),
+      createdAt: TimeUtils.parseToIST(json['created_at'] ?? DateTime.now().toIso8601String()),
       orderId: json['order_id'] ?? '',
       userName: json['user_name'] ?? 'Anonymous',
       userId: json['user_id'] ?? '',
@@ -117,33 +118,11 @@ class Review {
 
   // Helper method to get time ago
   String get timeAgo {
-    final now = DateTime.now();
-    final difference = now.difference(createdAt);
-
-    if (difference.inDays > 365) {
-      final years = (difference.inDays / 365).floor();
-      return '$years year${years > 1 ? 's' : ''} ago';
-    } else if (difference.inDays > 30) {
-      final months = (difference.inDays / 30).floor();
-      return '$months month${months > 1 ? 's' : ''} ago';
-    } else if (difference.inDays > 0) {
-      return '${difference.inDays} day${difference.inDays > 1 ? 's' : ''} ago';
-    } else if (difference.inHours > 0) {
-      return '${difference.inHours} hour${difference.inHours > 1 ? 's' : ''} ago';
-    } else if (difference.inMinutes > 0) {
-      return '${difference.inMinutes} minute${difference.inMinutes > 1 ? 's' : ''} ago';
-    } else {
-      return 'Just now';
-    }
+    return TimeUtils.getTimeAgo(createdAt);
   }
 
   // Helper method for formatted date
   String get formattedDate {
-    final months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
-    ];
-    
-    return '${months[createdAt.month - 1]} ${createdAt.day}, ${createdAt.year}';
+    return TimeUtils.formatReviewDate(createdAt);
   }
 }

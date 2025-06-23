@@ -5,6 +5,7 @@ import '../../../services/api_service.dart';
 import '../../../services/token_service.dart';
 import '../../../services/profile_update_service.dart';
 import '../../../models/partner_summary_model.dart';
+import '../../../utils/time_utils.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'event.dart';
@@ -145,20 +146,10 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
   }
 
   String _formatDateToDay(String dateString) {
-    try {
-      final date = DateTime.parse(dateString);
-      final weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-      return weekdays[date.weekday - 1];
-    } catch (e) {
-      return 'Day';
-    }
+    return TimeUtils.formatDateToDay(dateString);
   }
 
   DateTime _parseDate(String dateString) {
-    try {
-      return DateTime.parse(dateString);
-    } catch (e) {
-      return DateTime.now();
-    }
+    return TimeUtils.parseToIST(dateString);
   }
 } 

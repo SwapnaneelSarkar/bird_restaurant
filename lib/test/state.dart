@@ -16,39 +16,51 @@ enum ChatStatus {
 class ChatState extends Equatable {
   final ChatStatus status;
   final List<ChatMessage> messages;
-  final ChatRoom? chatRoom;
+  final List<ChatRoom> chatRooms;
+  final ChatRoom? currentChatRoom;
+  final String? currentRoomId;
   final bool isSocketConnected;
   final String? error;
   final bool isLoadingHistory;
   final bool isSendingMessage;
+  final bool isLoadingRooms;
 
   const ChatState({
     this.status = ChatStatus.initial,
     this.messages = const [],
-    this.chatRoom,
+    this.chatRooms = const [],
+    this.currentChatRoom,
+    this.currentRoomId,
     this.isSocketConnected = false,
     this.error,
     this.isLoadingHistory = false,
     this.isSendingMessage = false,
+    this.isLoadingRooms = false,
   });
 
   ChatState copyWith({
     ChatStatus? status,
     List<ChatMessage>? messages,
-    ChatRoom? chatRoom,
+    List<ChatRoom>? chatRooms,
+    ChatRoom? currentChatRoom,
+    String? currentRoomId,
     bool? isSocketConnected,
     String? error,
     bool? isLoadingHistory,
     bool? isSendingMessage,
+    bool? isLoadingRooms,
   }) {
     return ChatState(
       status: status ?? this.status,
       messages: messages ?? this.messages,
-      chatRoom: chatRoom ?? this.chatRoom,
+      chatRooms: chatRooms ?? this.chatRooms,
+      currentChatRoom: currentChatRoom ?? this.currentChatRoom,
+      currentRoomId: currentRoomId ?? this.currentRoomId,
       isSocketConnected: isSocketConnected ?? this.isSocketConnected,
       error: error,
       isLoadingHistory: isLoadingHistory ?? this.isLoadingHistory,
       isSendingMessage: isSendingMessage ?? this.isSendingMessage,
+      isLoadingRooms: isLoadingRooms ?? this.isLoadingRooms,
     );
   }
 
@@ -56,10 +68,13 @@ class ChatState extends Equatable {
   List<Object?> get props => [
         status,
         messages,
-        chatRoom,
+        chatRooms,
+        currentChatRoom,
+        currentRoomId,
         isSocketConnected,
         error,
         isLoadingHistory,
         isSendingMessage,
+        isLoadingRooms,
       ];
 }

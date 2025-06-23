@@ -42,8 +42,8 @@ class ChatRoom {
           ?.map((p) => Participant.fromJson(p))
           .toList() ?? [],
       lastMessage: json['lastMessage'] ?? '',
-      lastMessageTime: DateTime.parse(json['lastMessageTime'] ?? DateTime.now().toIso8601String()),
-      createdAt: DateTime.parse(json['createdAt'] ?? DateTime.now().toIso8601String()),
+      lastMessageTime: TimeUtils.parseToIST(json['lastMessageTime'] ?? DateTime.now().toIso8601String()),
+      createdAt: TimeUtils.parseToIST(json['createdAt'] ?? DateTime.now().toIso8601String()),
     );
   }
 

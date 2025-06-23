@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:ui';
 import 'dart:math';
 import '../../../../services/restaurant_info_service.dart';
+import '../../../../services/subscription_lock_service.dart';
 
 class SidebarDrawer extends StatefulWidget {
   final String? activePage;
@@ -136,9 +137,27 @@ class _SidebarDrawerState extends State<SidebarDrawer> with SingleTickerProvider
     });
   }
 
-  // Updated navigation method with proper stack management
-  void _navigateToPage(String routeName) {
+  // Updated navigation method with subscription checks
+  void _navigateToPage(String routeName) async {
     _closeDrawer();
+    
+    // Check if the page requires subscription
+    if (SubscriptionLockService.requiresSubscription(routeName)) {
+      try {
+        final canAccess = await SubscriptionLockService.canAccessPage(routeName);
+        
+        if (!canAccess) {
+          // Show snackbar instead of dialog for better UX
+          _showSubscriptionSnackbar(routeName);
+          return;
+        }
+      } catch (e) {
+        debugPrint('Error checking subscription for navigation: $e');
+        // Show snackbar as fallback
+        _showSubscriptionSnackbar(routeName);
+        return;
+      }
+    }
     
     // Use a single, safe navigation approach
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -168,6 +187,89 @@ class _SidebarDrawerState extends State<SidebarDrawer> with SingleTickerProvider
         }
       }
     });
+  }
+
+  void _showSubscriptionSnackbar(String routeName) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (mounted) {
+        try {
+          final subscriptionStatus = await SubscriptionLockService.getSubscriptionStatus();
+          final pageName = _getPageDisplayName(routeName);
+          
+          String message;
+          if (subscriptionStatus['status'] == 'PENDING') {
+            message = 'Your subscription is pending approval. Please wait for activation.';
+          } else {
+            message = 'Subscription required to access $pageName';
+          }
+          
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Row(
+                children: [
+                  Icon(
+                    subscriptionStatus['status'] == 'PENDING' 
+                        ? Icons.schedule_outlined 
+                        : Icons.lock_outline,
+                    color: Colors.white,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      message,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              backgroundColor: subscriptionStatus['status'] == 'PENDING' 
+                  ? Colors.orange 
+                  : const Color(0xFFE17A47),
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+              duration: const Duration(seconds: 4),
+            ),
+          );
+        } catch (e) {
+          debugPrint('Error showing subscription snackbar: $e');
+          // Fallback snackbar
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Subscription required to access ${_getPageDisplayName(routeName)}'),
+              backgroundColor: const Color(0xFFE17A47),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      }
+    });
+  }
+
+  String _getPageDisplayName(String routeName) {
+    switch (routeName) {
+      case '/orders':
+        return 'Orders Management';
+      case '/editMenu':
+        return 'Products Management';
+      case '/addProduct':
+        return 'Add Product';
+      case '/attributes':
+        return 'Attributes Management';
+      case '/chat':
+        return 'Chat';
+      case '/chatList':
+        return 'Chat List';
+      case '/reviews':
+        return 'Reviews';
+      default:
+        return 'This Feature';
+    }
   }
 
   @override
@@ -211,7 +313,6 @@ class _SidebarDrawerState extends State<SidebarDrawer> with SingleTickerProvider
                 ),
                 child: Transform.scale(
                   scale: _scaleAnimation.value,
-                  alignment: Alignment.centerLeft,
                   child: Opacity(
                     opacity: _fadeAnimation.value,
                     child: child,
@@ -273,7 +374,6 @@ class AnimatedSidebarContent extends StatelessWidget {
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.2),
-            blurRadius: 10,
             spreadRadius: 1,
             offset: const Offset(0, 3),
           ),

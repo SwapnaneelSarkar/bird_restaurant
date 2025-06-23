@@ -58,3 +58,38 @@ class MessageSendingFailed extends ChatEvent {
   @override
   List<Object?> get props => [error];
 }
+
+// New events for additional functionality
+
+class LoadChatRooms extends ChatEvent {}
+
+class MarkAsRead extends ChatEvent {
+  final String roomId;
+
+  const MarkAsRead(this.roomId);
+
+  @override
+  List<Object?> get props => [roomId];
+}
+
+class LoadMessageHistoryForRoom extends ChatEvent {
+  final String roomId;
+
+  const LoadMessageHistoryForRoom(this.roomId);
+
+  @override
+  List<Object?> get props => [roomId];
+}
+
+class SwitchToRoom extends ChatEvent {
+  final String roomId;
+  final String orderId;
+
+  const SwitchToRoom({
+    required this.roomId,
+    required this.orderId,
+  });
+
+  @override
+  List<Object?> get props => [roomId, orderId];
+}

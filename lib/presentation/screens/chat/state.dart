@@ -1,4 +1,4 @@
-// lib/presentation/screens/chat/state.dart - ENHANCED WITH STATUS UPDATE TRACKING
+// lib/presentation/screens/chat/state.dart - ENHANCED WITH READ STATUS
 
 import 'package:equatable/equatable.dart';
 import '../../../services/menu_item_service.dart';
@@ -23,10 +23,10 @@ class ChatLoaded extends ChatState {
   final OrderDetails? orderDetails;
   final bool isLoadingOrderDetails;
   final Map<String, MenuItem> menuItems;
-  final bool isUpdatingOrderStatus; // ADD THIS FIELD
-  final bool? lastUpdateSuccess; // ADD THIS FIELD
-  final String? lastUpdateMessage; // ADD THIS FIELD
-  final DateTime? lastUpdateTimestamp; // ADD THIS FIELD
+  final bool isUpdatingOrderStatus;
+  final bool? lastUpdateSuccess;
+  final String? lastUpdateMessage;
+  final DateTime? lastUpdateTimestamp;
 
   const ChatLoaded({
     required this.orderInfo,
@@ -37,10 +37,10 @@ class ChatLoaded extends ChatState {
     this.orderDetails,
     this.isLoadingOrderDetails = false,
     this.menuItems = const {},
-    this.isUpdatingOrderStatus = false, // ADD THIS
-    this.lastUpdateSuccess, // ADD THIS
-    this.lastUpdateMessage, // ADD THIS
-    this.lastUpdateTimestamp, // ADD THIS
+    this.isUpdatingOrderStatus = false,
+    this.lastUpdateSuccess,
+    this.lastUpdateMessage,
+    this.lastUpdateTimestamp,
   });
 
   ChatLoaded copyWith({
@@ -52,10 +52,10 @@ class ChatLoaded extends ChatState {
     OrderDetails? orderDetails,
     bool? isLoadingOrderDetails,
     Map<String, MenuItem>? menuItems,
-    bool? isUpdatingOrderStatus, // ADD THIS
-    bool? lastUpdateSuccess, // ADD THIS
-    String? lastUpdateMessage, // ADD THIS
-    DateTime? lastUpdateTimestamp, // ADD THIS
+    bool? isUpdatingOrderStatus,
+    bool? lastUpdateSuccess,
+    String? lastUpdateMessage,
+    DateTime? lastUpdateTimestamp,
   }) {
     return ChatLoaded(
       orderInfo: orderInfo ?? this.orderInfo,
@@ -66,10 +66,10 @@ class ChatLoaded extends ChatState {
       orderDetails: orderDetails ?? this.orderDetails,
       isLoadingOrderDetails: isLoadingOrderDetails ?? this.isLoadingOrderDetails,
       menuItems: menuItems ?? this.menuItems,
-      isUpdatingOrderStatus: isUpdatingOrderStatus ?? this.isUpdatingOrderStatus, // ADD THIS
-      lastUpdateSuccess: lastUpdateSuccess ?? this.lastUpdateSuccess, // ADD THIS
-      lastUpdateMessage: lastUpdateMessage ?? this.lastUpdateMessage, // ADD THIS
-      lastUpdateTimestamp: lastUpdateTimestamp ?? this.lastUpdateTimestamp, // ADD THIS
+      isUpdatingOrderStatus: isUpdatingOrderStatus ?? this.isUpdatingOrderStatus,
+      lastUpdateSuccess: lastUpdateSuccess ?? this.lastUpdateSuccess,
+      lastUpdateMessage: lastUpdateMessage ?? this.lastUpdateMessage,
+      lastUpdateTimestamp: lastUpdateTimestamp ?? this.lastUpdateTimestamp,
     );
   }
 
@@ -83,10 +83,10 @@ class ChatLoaded extends ChatState {
         orderDetails,
         isLoadingOrderDetails,
         menuItems,
-        isUpdatingOrderStatus, // ADD THIS
-        lastUpdateSuccess, // ADD THIS
-        lastUpdateMessage, // ADD THIS
-        lastUpdateTimestamp, // ADD THIS
+        isUpdatingOrderStatus,
+        lastUpdateSuccess,
+        lastUpdateMessage,
+        lastUpdateTimestamp,
       ];
 }
 
@@ -99,7 +99,7 @@ class ChatError extends ChatState {
   List<Object> get props => [message];
 }
 
-// NEW: Order-related states
+// Order-related states
 class OrderOptionsVisible extends ChatState {
   final String orderId;
   final String partnerId;
@@ -162,18 +162,37 @@ class ChatOrderInfo {
   }
 }
 
+// ENHANCED: ChatMessage with read status
 class ChatMessage {
   final String id;
   final String message;
   final bool isUserMessage;
   final String time;
+  final bool isRead; // NEW: Read status for blue/grey ticks
 
   const ChatMessage({
     required this.id,
     required this.message,
     required this.isUserMessage,
     required this.time,
+    this.isRead = false, // Default to false (grey tick)
   });
+
+  ChatMessage copyWith({
+    String? id,
+    String? message,
+    bool? isUserMessage,
+    String? time,
+    bool? isRead,
+  }) {
+    return ChatMessage(
+      id: id ?? this.id,
+      message: message ?? this.message,
+      isUserMessage: isUserMessage ?? this.isUserMessage,
+      time: time ?? this.time,
+      isRead: isRead ?? this.isRead,
+    );
+  }
 }
 
 class OrderDetails {
@@ -203,13 +222,12 @@ class OrderDetails {
       items: (json['items'] as List<dynamic>?)
           ?.map((item) => OrderItem.fromJson(item))
           .toList() ?? [],
-      totalAmount: _parseAmount(json['total_amount']),
+      totalAmount: _parseAmount(json['total_price']),
       deliveryFees: _parseAmount(json['delivery_fees']),
       orderStatus: json['order_status'] ?? 'UNKNOWN',
     );
   }
 
-  // ADD THIS COPYWITH METHOD FOR STATUS UPDATES
   OrderDetails copyWith({
     String? orderId,
     String? userId,
@@ -226,11 +244,10 @@ class OrderDetails {
       items: items ?? this.items,
       totalAmount: totalAmount ?? this.totalAmount,
       deliveryFees: deliveryFees ?? this.deliveryFees,
-      orderStatus: orderStatus ?? this.orderStatus, // This is the key update
+      orderStatus: orderStatus ?? this.orderStatus,
     );
   }
 
-  // FIXED: Helper method to parse amount from string or number
   static String _parseAmount(dynamic amount) {
     if (amount == null) return '0.00';
     
@@ -241,7 +258,6 @@ class OrderDetails {
     return amount.toString();
   }
 
-  // Calculate subtotal from items, not from API field
   double get subtotal => items.fold(0.0, (sum, item) => sum + (item.itemPrice * item.quantity));
   double get deliveryFeesDouble => double.tryParse(deliveryFees) ?? 0.0;
   double get grandTotal => subtotal + deliveryFeesDouble;
@@ -250,7 +266,6 @@ class OrderDetails {
   String formattedDeliveryFees(String currencySymbol) => '$currencySymbol$deliveryFees';
   String formattedGrandTotal(String currencySymbol) => '$currencySymbol${grandTotal.toStringAsFixed(2)}';
 
-  // ENHANCED: Get all menu IDs from the order items
   List<String> get allMenuIds => items.map((item) => item.menuId).toList();
 }
 
@@ -276,7 +291,6 @@ class OrderItem {
     );
   }
 
-  // FIXED: Helper method to parse price from string or number
   static double _parsePrice(dynamic price) {
     if (price == null) return 0.0;
     
@@ -299,33 +313,28 @@ class OrderItem {
   String formattedPrice(String currencySymbol) => '$currencySymbol${itemPrice.toStringAsFixed(2)}';
   String formattedTotalPrice(String currencySymbol) => '$currencySymbol${totalPrice.toStringAsFixed(2)}';
 
-  // ENHANCED: Helper method to get menu item info
   MenuItem? getMenuItem(Map<String, MenuItem> menuItems) {
     return menuItems[menuId];
   }
 
-  // ENHANCED: Get display name (either from menu item or fallback to menu ID)
   String getDisplayName(Map<String, MenuItem> menuItems) {
     final menuItem = getMenuItem(menuItems);
     if (menuItem != null) {
       return menuItem.name;
     }
-    return 'Item ID: $menuId'; // Fallback to show menu ID
+    return 'Item ID: $menuId';
   }
 
-  // ENHANCED: Get display image URL
   String? getImageUrl(Map<String, MenuItem> menuItems) {
     final menuItem = getMenuItem(menuItems);
     return menuItem?.displayImageUrl;
   }
 
-  // ENHANCED: Get menu item description
   String? getDescription(Map<String, MenuItem> menuItems) {
     final menuItem = getMenuItem(menuItems);
     return menuItem?.description;
   }
 
-  // ENHANCED: Check if menu item is available
   bool? isAvailable(Map<String, MenuItem> menuItems) {
     final menuItem = getMenuItem(menuItems);
     return menuItem?.isAvailable;

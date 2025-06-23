@@ -15,6 +15,8 @@ import '../homePage/sidebar/sidebar_drawer.dart';
 import 'bloc.dart';
 import 'event.dart';
 import 'state.dart';
+import 'package:bird_restaurant/constants/api_constants.dart';
+import 'package:bird_restaurant/utils/time_utils.dart';
 
 class PlanSelectionView extends StatelessWidget {
   const PlanSelectionView({Key? key}) : super(key: key);
@@ -104,8 +106,8 @@ class _PlanSelectionScreenState extends State<PlanSelectionScreen> {
     // Format the end date for display
     String formattedEndDate = endDate;
     try {
-      final date = DateTime.parse(endDate);
-      formattedEndDate = '${date.day}/${date.month}/${date.year}';
+      final date = TimeUtils.parseToIST(endDate);
+      formattedEndDate = TimeUtils.formatPlanDate(date);
     } catch (e) {
       debugPrint('Error parsing end date: $e');
     }

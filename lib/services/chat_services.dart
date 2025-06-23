@@ -1,11 +1,32 @@
-// lib/services/chat_services.dart - SIMPLE SENDER ID COMPARISON
+// lib/services/chat_services.dart - FINAL VERSION WITH SOCKET.IO MARK AS READ
 
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:socket_io_client/socket_io_client.dart' as IO;
 import '../constants/api_constants.dart';
 import 'token_service.dart';
+
+class ReadByEntry {
+  final String userId;
+  final DateTime readAt;
+  final String id;
+
+  ReadByEntry({
+    required this.userId,
+    required this.readAt,
+    required this.id,
+  });
+
+  factory ReadByEntry.fromJson(Map<String, dynamic> json) {
+    return ReadByEntry(
+      userId: json['userId'] ?? '',
+      readAt: DateTime.parse(json['readAt']),
+      id: json['_id'] ?? '',
+    );
+  }
+}
 
 class ApiChatMessage {
   final String id;
@@ -14,7 +35,7 @@ class ApiChatMessage {
   final String senderType;
   final String content;
   final String messageType;
-  final List<String> readBy;
+  final List<ReadByEntry> readBy;
   final DateTime createdAt;
 
   ApiChatMessage({
@@ -36,26 +57,33 @@ class ApiChatMessage {
       senderType: json['senderType'] ?? '',
       content: json['content'] ?? json['message'] ?? '',
       messageType: json['messageType'] ?? 'text',
-      readBy: List<String>.from(json['readBy'] ?? []),
+      readBy: (json['readBy'] as List<dynamic>?)
+          ?.map((readEntry) => ReadByEntry.fromJson(readEntry))
+          .toList() ?? [],
       createdAt: json['createdAt'] != null 
           ? DateTime.parse(json['createdAt']) 
           : DateTime.now(),
     );
   }
 
-  // SIMPLE: Check if this message is from current user by comparing sender IDs
+  // Check if this message is from current user by comparing sender IDs
   bool isFromCurrentUser(String? currentUserId) {
     if (currentUserId == null || currentUserId.isEmpty) return false;
-    
-    final isMatch = senderId == currentUserId;
-    // debugPrint('ChatService: 🔍 Comparing sender IDs:');
-    // debugPrint('  - Message sender ID: "$senderId"');
-    // debugPrint('  - Current user ID: "$currentUserId"');
-    // debugPrint('  - Match: $isMatch');
-    // debugPrint('  - Message: "${content.length > 20 ? content.substring(0, 20) + '...' : content}"');
-    
-    return isMatch;
+    return senderId == currentUserId;
   }
+
+  // Check if message is read by a specific user
+  bool isReadByUser(String userId) {
+    return readBy.any((entry) => entry.userId == userId);
+  }
+
+  // Check if message is read by anyone other than sender (for tick status)
+  bool isReadByOthers(String senderId) {
+    return readBy.any((entry) => entry.userId != senderId);
+  }
+
+  // Get read status for UI (blue tick if read by others, grey if not)
+  bool get isRead => readBy.isNotEmpty && readBy.any((entry) => entry.userId != senderId);
 
   Map<String, dynamic> toJson() {
     return {
@@ -65,291 +93,443 @@ class ApiChatMessage {
       'senderType': senderType,
       'content': content,
       'messageType': messageType,
-      'readBy': readBy,
+      'readBy': readBy.map((entry) => {
+        'userId': entry.userId,
+        'readAt': entry.readAt.toIso8601String(),
+        '_id': entry.id,
+      }).toList(),
       'createdAt': createdAt.toIso8601String(),
     };
   }
 }
 
-class PollingChatService extends ChangeNotifier {
+class SocketChatService extends ChangeNotifier {
+  static const String baseUrl = 'https://api.bird.delivery/api/';
+  static const String wsUrl = 'https://api.bird.delivery/';
+  
+  IO.Socket? _socket;
   List<ApiChatMessage> _messages = [];
-  bool _isPolling = false;
+  bool _isConnected = false;
   String? _currentRoomId;
   String? _currentUserId;
-  Timer? _pollingTimer;
+  String? _token;
   Timer? _typingTimer;
-  Timer? _frequencyResetTimer;
+  Timer? _reconnectTimer;
   bool _isDisposed = false;
-  DateTime? _lastMessageTime;
-  int _pollIntervalMs = 3000; // Start with 3 seconds
-  int _consecutiveEmptyPolls = 0;
-  bool _isLoadingHistory = false;
-
+  int _reconnectAttempts = 0;
+  int _maxReconnectAttempts = 5;
+  
+  // Track sent messages to avoid duplicates
+  final Set<String> _sentMessageIds = <String>{};
+  
   // Stream controller for real-time message updates
   final StreamController<ApiChatMessage> _messageStreamController = 
       StreamController<ApiChatMessage>.broadcast();
   
   List<ApiChatMessage> get messages => List.unmodifiable(_messages);
-  bool get isConnected => _isPolling; // Use polling status as "connected"
+  bool get isConnected => _isConnected;
   String? get currentUserId => _currentUserId;
   
   Stream<ApiChatMessage> get messageStream => _messageStreamController.stream;
 
-  PollingChatService() {
+  SocketChatService() {
     _initializeService();
   }
 
   Future<void> _initializeService() async {
     try {
       _currentUserId = await TokenService.getUserId();
-      debugPrint('PollingChatService: 🆔 User ID retrieved: $_currentUserId');
+      _token = await TokenService.getToken();
+      debugPrint('SocketChatService: 🆔 User ID: $_currentUserId');
+      debugPrint('SocketChatService: 🔑 Token available: ${_token != null}');
     } catch (e) {
-      debugPrint('PollingChatService: ❌ Error getting user ID: $e');
+      debugPrint('SocketChatService: ❌ Error initializing service: $e');
     }
   }
 
-  Future<void> startPolling() async {
-    if (_isDisposed || _isPolling) return;
+  Future<void> _initializeSocket() async {
+    if (_isDisposed) return;
     
-    debugPrint('PollingChatService: 🔄 Starting polling with ${_pollIntervalMs}ms interval...');
-    _isPolling = true;
-    _consecutiveEmptyPolls = 0;
-    notifyListeners();
+    try {
+      // Ensure we have current credentials
+      if (_currentUserId == null || _token == null) {
+        await _initializeService();
+      }
+      
+      if (_currentUserId == null || _token == null) {
+        throw Exception('Missing user credentials');
+      }
+
+      debugPrint('SocketChatService: 🔌 Initializing socket connection...');
+      
+      _socket = IO.io(wsUrl, <String, dynamic>{
+        'transports': ['websocket'],
+        'autoConnect': false,
+        'query': {
+          'userId': _currentUserId,
+          'userType': 'partner', // Use partner as specified
+        },
+        'extraHeaders': {
+          'Authorization': 'Bearer $_token',
+        },
+        'timeout': 20000,
+        'reconnection': true,
+        'reconnectionAttempts': _maxReconnectAttempts,
+        'reconnectionDelay': 3000,
+      });
+
+      _setupSocketEventHandlers();
+      
+    } catch (e) {
+      debugPrint('SocketChatService: ❌ Error initializing socket: $e');
+    }
+  }
+
+  void _setupSocketEventHandlers() {
+    if (_socket == null || _isDisposed) return;
+
+    debugPrint('SocketChatService: 🔧 Setting up socket event handlers...');
+
+    // Connection events
+    _socket!.onConnect((_) {
+      debugPrint('SocketChatService: ✅ Socket connected successfully');
+      _isConnected = true;
+      _reconnectAttempts = 0;
+      notifyListeners();
+      
+      // Rejoin current room if we have one
+      if (_currentRoomId != null) {
+        _socket!.emit('join_room', _currentRoomId);
+        debugPrint('SocketChatService: 🏠 Rejoined room: $_currentRoomId');
+      }
+    });
+
+    _socket!.onDisconnect((_) {
+      debugPrint('SocketChatService: ❌ Socket disconnected');
+      _isConnected = false;
+      notifyListeners();
+      _handleReconnection();
+    });
+
+    _socket!.onConnectError((data) {
+      debugPrint('SocketChatService: ❌ Connection error: $data');
+      _isConnected = false;
+      notifyListeners();
+      _handleReconnection();
+    });
+
+    _socket!.onError((data) {
+      debugPrint('SocketChatService: ❌ Socket error: $data');
+    });
+
+    // Message events
+    _socket!.on('receive_message', (data) {
+      debugPrint('SocketChatService: 📥 Received message via socket: $data');
+      _handleReceivedMessage(data);
+    });
+
+    // NEW: Read status events
+    _socket!.on('message_read', (data) {
+      debugPrint('SocketChatService: 📖 Received message_read event: $data');
+      _handleMessageReadUpdate(data);
+    });
+
+    _socket!.on('messages_marked_read', (data) {
+      debugPrint('SocketChatService: 📖 Received messages_marked_read event: $data');
+      _handleMessagesMarkedRead(data);
+    });
+
+    // User events
+    _socket!.on('user_joined', (data) {
+      debugPrint('SocketChatService: 👋 User joined: $data');
+    });
+
+    _socket!.on('user_left', (data) {
+      debugPrint('SocketChatService: 👋 User left: $data');
+    });
+
+    // Typing events
+    _socket!.on('user_typing', (data) {
+      debugPrint('SocketChatService: ⌨️ User typing: $data');
+    });
+
+    _socket!.on('user_stop_typing', (data) {
+      debugPrint('SocketChatService: ⌨️ User stopped typing: $data');
+    });
+
+    debugPrint('SocketChatService: ✅ Socket event handlers set up successfully');
+  }
+
+  void _handleReceivedMessage(dynamic data) {
+    try {
+      debugPrint('SocketChatService: 📥 Processing received message...');
+      debugPrint('SocketChatService: Raw data: $data');
+      
+      Map<String, dynamic> messageData;
+      
+      if (data is String) {
+        messageData = jsonDecode(data);
+      } else if (data is Map<String, dynamic>) {
+        messageData = data;
+      } else {
+        debugPrint('SocketChatService: ❌ Invalid message format');
+        return;
+      }
+      
+      final message = ApiChatMessage.fromJson(messageData);
+      
+      // CRITICAL: Skip messages from current user to avoid duplicates
+      if (message.isFromCurrentUser(_currentUserId)) {
+        debugPrint('SocketChatService: 🔄 Skipping own message from socket: ${message.content}');
+        return;
+      }
+      
+      // Check if message already exists to avoid duplicates
+      final messageExists = _messages.any((m) => 
+        m.id == message.id ||
+        (m.content == message.content && 
+         m.senderId == message.senderId &&
+         m.createdAt.difference(message.createdAt).abs().inSeconds < 5));
+      
+      if (!messageExists) {
+        _messages.add(message);
+        _messages.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+        
+        debugPrint('SocketChatService: ✨ New message added from ${message.senderType}: "${message.content}"');
+        
+        // Emit to stream for immediate UI updates (only for other users' messages)
+        if (!_messageStreamController.isClosed) {
+          _messageStreamController.add(message);
+        }
+        
+        // AUTO mark as read for incoming messages via SOCKET
+        if (_currentRoomId != null) {
+          markAsReadViaSocket(_currentRoomId!);
+          debugPrint('SocketChatService: 📖 Auto-marked incoming message as read via socket');
+        }
+        
+        notifyListeners();
+      } else {
+        debugPrint('SocketChatService: 🔄 Message already exists, skipping duplicate');
+      }
+    } catch (e) {
+      debugPrint('SocketChatService: ❌ Error handling received message: $e');
+    }
+  }
+
+  // NEW: Handle individual message read update
+  void _handleMessageReadUpdate(dynamic data) {
+    try {
+      final readData = data is Map<String, dynamic> ? data : jsonDecode(data.toString());
+      final messageId = readData['messageId'];
+      final userId = readData['userId'];
+      final readAt = DateTime.parse(readData['readAt']);
+      
+      debugPrint('SocketChatService: 📖 Message $messageId read by $userId at $readAt');
+      
+      // Find and update the specific message
+      final messageIndex = _messages.indexWhere((msg) => msg.id == messageId);
+      if (messageIndex != -1) {
+        final message = _messages[messageIndex];
+        final updatedReadBy = List<ReadByEntry>.from(message.readBy);
+        
+        // Add new read entry if not already present
+        if (!updatedReadBy.any((entry) => entry.userId == userId)) {
+          updatedReadBy.add(ReadByEntry(
+            userId: userId,
+            readAt: readAt,
+            id: DateTime.now().millisecondsSinceEpoch.toString(),
+          ));
+          
+          // Create updated message
+          final updatedMessage = ApiChatMessage(
+            id: message.id,
+            roomId: message.roomId,
+            senderId: message.senderId,
+            senderType: message.senderType,
+            content: message.content,
+            messageType: message.messageType,
+            readBy: updatedReadBy,
+            createdAt: message.createdAt,
+          );
+          
+          _messages[messageIndex] = updatedMessage;
+          notifyListeners();
+          
+          debugPrint('SocketChatService: ✅ Updated read status for message: $messageId');
+        }
+      }
+    } catch (e) {
+      debugPrint('SocketChatService: ❌ Error handling message read update: $e');
+    }
+  }
+
+  // NEW: Handle bulk messages marked read
+  void _handleMessagesMarkedRead(dynamic data) {
+    try {
+      final readData = data is Map<String, dynamic> ? data : jsonDecode(data.toString());
+      final roomId = readData['roomId'];
+      final userId = readData['userId'];
+      final readAt = DateTime.parse(readData['readAt']);
+      
+      debugPrint('SocketChatService: 📖 All messages in room $roomId marked as read by $userId');
+      
+      // Update all messages in the room that aren't already read by this user
+      bool hasUpdates = false;
+      for (int i = 0; i < _messages.length; i++) {
+        final message = _messages[i];
+        if (message.roomId == roomId && !message.readBy.any((entry) => entry.userId == userId)) {
+          final updatedReadBy = List<ReadByEntry>.from(message.readBy);
+          updatedReadBy.add(ReadByEntry(
+            userId: userId,
+            readAt: readAt,
+            id: DateTime.now().millisecondsSinceEpoch.toString(),
+          ));
+          
+          _messages[i] = ApiChatMessage(
+            id: message.id,
+            roomId: message.roomId,
+            senderId: message.senderId,
+            senderType: message.senderType,
+            content: message.content,
+            messageType: message.messageType,
+            readBy: updatedReadBy,
+            createdAt: message.createdAt,
+          );
+          hasUpdates = true;
+        }
+      }
+      
+      if (hasUpdates) {
+        notifyListeners();
+        debugPrint('SocketChatService: ✅ Updated read status for all messages in room: $roomId');
+      }
+    } catch (e) {
+      debugPrint('SocketChatService: ❌ Error handling messages marked read: $e');
+    }
+  }
+
+  void _handleReconnection() {
+    if (_isDisposed || _reconnectAttempts >= _maxReconnectAttempts) return;
     
-    _pollingTimer = Timer.periodic(Duration(milliseconds: _pollIntervalMs), (timer) {
-      if (!_isDisposed && _currentRoomId != null && !_isLoadingHistory) {
-        _pollForNewMessages();
+    _reconnectTimer?.cancel();
+    _reconnectTimer = Timer(Duration(seconds: 3 * (_reconnectAttempts + 1)), () {
+      if (!_isDisposed && !_isConnected) {
+        _reconnectAttempts++;
+        debugPrint('SocketChatService: 🔄 Reconnection attempt $_reconnectAttempts/$_maxReconnectAttempts');
+        _socket?.connect();
       }
     });
   }
 
-  void stopPolling() {
-    debugPrint('PollingChatService: ⏹️ Stopping polling...');
-    _pollingTimer?.cancel();
-    _pollingTimer = null;
-    _frequencyResetTimer?.cancel();
-    _frequencyResetTimer = null;
-    _isPolling = false;
-    _consecutiveEmptyPolls = 0;
-    notifyListeners();
-  }
-
-  Future<void> _pollForNewMessages() async {
-    if (_isDisposed || _currentRoomId == null || _isLoadingHistory) return;
+  Future<void> connect() async {
+    if (_isDisposed || _isConnected) return;
     
     try {
-      final token = await TokenService.getToken();
-      if (token == null) {
-        debugPrint('PollingChatService: ❌ No token available for polling');
-        return;
+      if (_socket == null) {
+        await _initializeSocket();
       }
       
-      // Use a timestamp-based query to get only new messages
-      String url = '${ApiConstants.baseUrl}/chat/history/$_currentRoomId';
-      if (_lastMessageTime != null) {
-        // Add timestamp filter to get only messages after the last known message
-        final timestamp = _lastMessageTime!.millisecondsSinceEpoch;
-        url += '?after=$timestamp&limit=50'; // Limit to prevent large responses
-      } else {
-        url += '?limit=50'; // Get recent messages if no timestamp
-      }
-      
-      final response = await http.get(
-        Uri.parse(url),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-        },
-      ).timeout(const Duration(seconds: 8));
-
-      if (response.statusCode == 200) {
-        final List<dynamic> newMessagesData = jsonDecode(response.body);
-        
-        if (newMessagesData.isNotEmpty) {
-          debugPrint('PollingChatService: 📥 Polling found ${newMessagesData.length} messages');
-          
-          final newMessages = newMessagesData
-              .map((messageJson) => ApiChatMessage.fromJson(messageJson))
-              .where((msg) => !_messages.any((existing) => existing.id == msg.id))
-              .toList();
-          
-          if (newMessages.isNotEmpty) {
-            // Sort by creation time
-            newMessages.sort((a, b) => a.createdAt.compareTo(b.createdAt));
-            
-            bool hasNewIncomingMessages = false;
-            for (var newMessage in newMessages) {
-              _messages.add(newMessage);
-              
-              // Update last message time
-              if (_lastMessageTime == null || newMessage.createdAt.isAfter(_lastMessageTime!)) {
-                _lastMessageTime = newMessage.createdAt;
-              }
-              
-              // Only emit to stream if it's not from current user (incoming message)
-              if (!newMessage.isFromCurrentUser(_currentUserId)) {
-                hasNewIncomingMessages = true;
-                debugPrint('PollingChatService: ✨ New incoming message from ${newMessage.senderType}: "${newMessage.content}"');
-                
-                // Emit to stream for immediate UI updates
-                if (!_messageStreamController.isClosed) {
-                  _messageStreamController.add(newMessage);
-                }
-              }
-            }
-            
-            // Re-sort all messages
-            _messages.sort((a, b) => a.createdAt.compareTo(b.createdAt));
-            notifyListeners();
-            
-            // Reset consecutive empty polls counter
-            _consecutiveEmptyPolls = 0;
-            
-            // Increase polling frequency for active conversations
-            if (hasNewIncomingMessages) {
-              _adjustPollingFrequency(true);
-            }
-          } else {
-            _consecutiveEmptyPolls++;
-          }
-        } else {
-          _consecutiveEmptyPolls++;
-        }
-        
-        // Gradually decrease polling frequency if no new messages
-        _adjustPollingFrequencyForInactivity();
-        
-      } else if (response.statusCode == 404) {
-        // No messages found, this is normal
-        _consecutiveEmptyPolls++;
-        _adjustPollingFrequencyForInactivity();
-      } else {
-        debugPrint('PollingChatService: ⚠️ Polling response ${response.statusCode}: ${response.body}');
+      if (_socket != null) {
+        debugPrint('SocketChatService: 🔌 Connecting socket...');
+        _socket!.connect();
       }
     } catch (e) {
-      debugPrint('PollingChatService: ❌ Polling error: $e');
-      // Don't stop polling on errors, just continue with next cycle
+      debugPrint('SocketChatService: ❌ Error connecting: $e');
     }
   }
 
-  void _adjustPollingFrequency(bool isActive) {
-    if (isActive) {
-      // Speed up polling during active conversations
-      final oldInterval = _pollIntervalMs;
-      _pollIntervalMs = 1500; // 1.5 seconds for active chats
-      
-      if (oldInterval != _pollIntervalMs) {
-        debugPrint('PollingChatService: 📈 Increased polling frequency to ${_pollIntervalMs}ms');
-        _restartPollingWithNewInterval();
-      }
-      
-      // Reset to normal after 45 seconds of inactivity
-      _frequencyResetTimer?.cancel();
-      _frequencyResetTimer = Timer(const Duration(seconds: 45), () {
-        if (!_isDisposed) {
-          _pollIntervalMs = 3000; // Back to 3 seconds
-          debugPrint('PollingChatService: 📉 Reset polling frequency to ${_pollIntervalMs}ms');
-          _restartPollingWithNewInterval();
-        }
-      });
-    }
-  }
-
-  void _adjustPollingFrequencyForInactivity() {
-    // Gradually slow down polling if no new messages
-    if (_consecutiveEmptyPolls >= 10) {
-      final oldInterval = _pollIntervalMs;
-      if (_pollIntervalMs == 1500) {
-        _pollIntervalMs = 3000; // Slow to 3 seconds
-      } else if (_pollIntervalMs == 3000 && _consecutiveEmptyPolls >= 20) {
-        _pollIntervalMs = 5000; // Very slow after 20 empty polls
-      }
-      
-      if (oldInterval != _pollIntervalMs) {
-        debugPrint('PollingChatService: 🐌 Decreased polling frequency to ${_pollIntervalMs}ms (${_consecutiveEmptyPolls} empty polls)');
-        _restartPollingWithNewInterval();
-      }
-    }
-  }
-
-  void _restartPollingWithNewInterval() {
-    if (_isPolling && !_isDisposed) {
-      stopPolling();
-      Future.delayed(const Duration(milliseconds: 100), () {
-        if (!_isDisposed) {
-          startPolling();
-        }
-      });
-    }
+  void disconnect() {
+    debugPrint('SocketChatService: 🔌 Disconnecting socket...');
+    _reconnectTimer?.cancel();
+    _socket?.disconnect();
+    _isConnected = false;
+    notifyListeners();
   }
 
   Future<void> joinRoom(String roomId) async {
     if (_isDisposed) return;
     
     try {
-      debugPrint('PollingChatService: 🏠 Joining room: $roomId');
+      debugPrint('SocketChatService: 🏠 Joining room: $roomId');
       
       // Ensure we have current user ID
       if (_currentUserId == null) {
         _currentUserId = await TokenService.getUserId();
-        debugPrint('PollingChatService: 🆔 Retrieved user ID: $_currentUserId');
+        debugPrint('SocketChatService: 🆔 Retrieved user ID: $_currentUserId');
       }
       
-      // Stop any existing polling
-      if (_currentRoomId != null) {
+      // Leave current room if we have one
+      if (_currentRoomId != null && _currentRoomId != roomId) {
         leaveRoom(_currentRoomId!);
       }
       
       _currentRoomId = roomId;
-      _lastMessageTime = null;
-      _consecutiveEmptyPolls = 0;
       
-      // Load initial chat history
+      // Connect socket if not connected
+      if (!_isConnected) {
+        await connect();
+        // Wait for connection to establish
+        await Future.delayed(const Duration(milliseconds: 1000));
+      }
+      
+      // Join room via socket
+      if (_socket != null && _isConnected) {
+        _socket!.emit('join_room', roomId);
+        debugPrint('SocketChatService: 📤 Sent join_room event for: $roomId');
+      }
+      
+      // Load initial chat history via REST API
       await loadChatHistory(roomId);
       
-      // Start polling for new messages
-      await startPolling();
+      // Mark messages as read when joining room via SOCKET
+      markAsReadViaSocket(roomId);
+      debugPrint('SocketChatService: 📖 Auto-marked room messages as read via socket on join');
       
-      debugPrint('PollingChatService: ✅ Successfully joined room and started polling');
+      debugPrint('SocketChatService: ✅ Successfully joined room and loaded history');
       
     } catch (e) {
-      debugPrint('PollingChatService: ❌ Error joining room: $e');
+      debugPrint('SocketChatService: ❌ Error joining room: $e');
     }
   }
 
   void leaveRoom(String roomId) {
-    debugPrint('PollingChatService: 👋 Leaving room: $roomId');
-    stopPolling();
-    _currentRoomId = null;
-    _lastMessageTime = null;
-    _consecutiveEmptyPolls = 0;
+    debugPrint('SocketChatService: 👋 Leaving room: $roomId');
+    
+    if (_socket != null && _isConnected) {
+      _socket!.emit('leave_room', roomId);
+    }
+    
+    if (_currentRoomId == roomId) {
+      _currentRoomId = null;
+    }
   }
 
   Future<bool> sendMessage(String roomId, String content, {String messageType = 'text'}) async {
     if (_isDisposed) return false;
     
     try {
-      final token = await TokenService.getToken();
+      final token = _token ?? await TokenService.getToken();
       final userId = _currentUserId ?? await TokenService.getUserId();
       
       if (token == null || userId == null) {
-        debugPrint('PollingChatService: ❌ No token or user ID found');
+        debugPrint('SocketChatService: ❌ No token or user ID found');
         return false;
       }
 
       final messageData = {
         'roomId': roomId,
         'senderId': userId,
-        'senderType': 'partner',
+        'senderType': 'partner', // Use partner as specified
         'content': content,
         'messageType': messageType,
-        'timestamp': DateTime.now().toIso8601String(),
       };
 
-      debugPrint('PollingChatService: 📤 Sending message: "$content"');
-      debugPrint('PollingChatService: 🆔 Using sender ID: $userId');
+      debugPrint('SocketChatService: 📤 Sending message: "$content"');
+      debugPrint('SocketChatService: 🆔 Using sender ID: $userId');
 
-      final url = Uri.parse('${ApiConstants.baseUrl}/chat/message');
+      // Send via REST API for persistence
+      final url = Uri.parse('${baseUrl}chat/message');
       
       final response = await http.post(
         url,
@@ -360,88 +540,72 @@ class PollingChatService extends ChangeNotifier {
         body: jsonEncode(messageData),
       ).timeout(const Duration(seconds: 10));
 
-      debugPrint('PollingChatService: 📨 Send response: ${response.statusCode}');
+      debugPrint('SocketChatService: 📨 Send response: ${response.statusCode}');
+      debugPrint('SocketChatService: 📨 Send response body: ${response.body}');
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         try {
-          // Try to parse the response and add the sent message locally
+          // Parse the response but DON'T add to local messages yet
           final responseData = jsonDecode(response.body);
           
-          // Handle different response formats
-          ApiChatMessage sentMessage;
+          ApiChatMessage? sentMessage;
           if (responseData is Map<String, dynamic>) {
             if (responseData.containsKey('data') && responseData['data'] != null) {
               sentMessage = ApiChatMessage.fromJson(responseData['data']);
             } else {
               sentMessage = ApiChatMessage.fromJson(responseData);
             }
-          } else {
-            // Create message from sent data if response parsing fails
-            sentMessage = ApiChatMessage(
-              id: DateTime.now().millisecondsSinceEpoch.toString(),
-              roomId: roomId,
-              senderId: userId,
-              senderType: 'partner',
-              content: content,
-              messageType: messageType,
-              readBy: [],
-              createdAt: DateTime.now(),
-            );
           }
           
-          // Add to local messages if not already present
-          if (!_messages.any((msg) => msg.id == sentMessage.id)) {
-            _messages.add(sentMessage);
-            _messages.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+          // Track the sent message ID to avoid duplicates
+          if (sentMessage != null) {
+            _sentMessageIds.add(sentMessage.id);
+            debugPrint('SocketChatService: 📋 Tracking sent message ID: ${sentMessage.id}');
             
-            // Update last message time
-            if (_lastMessageTime == null || sentMessage.createdAt.isAfter(_lastMessageTime!)) {
-              _lastMessageTime = sentMessage.createdAt;
+            // Add to local messages only if it doesn't exist
+            if (!_messages.any((msg) => msg.id == sentMessage?.id)) {
+              _messages.add(sentMessage);
+              _messages.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+              notifyListeners();
+              debugPrint('SocketChatService: ✅ Added sent message to local messages');
             }
-            
-            notifyListeners();
           }
+          
+          // AUTO mark as read after sending message via SOCKET
+          markAsReadViaSocket(roomId);
+          debugPrint('SocketChatService: 📖 Auto-marked sent message as read via socket');
           
         } catch (parseError) {
-          debugPrint('PollingChatService: ⚠️ Response parsing error: $parseError');
-          // Still consider the send successful since we got 200/201
+          debugPrint('SocketChatService: ⚠️ Response parsing error: $parseError');
         }
         
-        // Speed up polling temporarily after sending
-        _adjustPollingFrequency(true);
-        
-        // Reset empty polls counter since we just sent a message
-        _consecutiveEmptyPolls = 0;
-        
-        debugPrint('PollingChatService: ✅ Message sent successfully');
+        debugPrint('SocketChatService: ✅ Message sent successfully via API');
         return true;
       } else {
-        debugPrint('PollingChatService: ❌ Send failed: ${response.statusCode} - ${response.body}');
+        debugPrint('SocketChatService: ❌ Send failed: ${response.statusCode} - ${response.body}');
         return false;
       }
       
     } catch (e) {
-      debugPrint('PollingChatService: ❌ Error sending message: $e');
+      debugPrint('SocketChatService: ❌ Error sending message: $e');
       return false;
     }
   }
 
   Future<void> loadChatHistory(String roomId) async {
-    if (_isDisposed || _isLoadingHistory) return;
-    
-    _isLoadingHistory = true;
+    if (_isDisposed) return;
     
     try {
-      final token = await TokenService.getToken();
+      final token = _token ?? await TokenService.getToken();
       
       if (token == null) {
-        debugPrint('PollingChatService: ❌ No token found for loading chat history');
+        debugPrint('SocketChatService: ❌ No token found for loading chat history');
         return;
       }
 
-      final url = Uri.parse('${ApiConstants.baseUrl}/chat/history/$roomId?limit=100');
+      final url = Uri.parse('${baseUrl}chat/history/$roomId?limit=100');
       
-      debugPrint('PollingChatService: 📚 Loading chat history from: $url');
+      debugPrint('SocketChatService: 📚 Loading chat history from: $url');
 
       final response = await http.get(
         url,
@@ -451,104 +615,260 @@ class PollingChatService extends ChangeNotifier {
         },
       ).timeout(const Duration(seconds: 15));
 
-      debugPrint('PollingChatService: 📊 Chat history response: ${response.statusCode}');
+      debugPrint('SocketChatService: 📊 Chat history response: ${response.statusCode}');
 
       if (response.statusCode == 200) {
-        final List<dynamic> historyData = jsonDecode(response.body);
-        
-        _messages = historyData
-            .map((messageJson) => ApiChatMessage.fromJson(messageJson))
-            .toList();
-        
-        _messages.sort((a, b) => a.createdAt.compareTo(b.createdAt));
-        
-        // Set the last message time to the most recent message
-        if (_messages.isNotEmpty) {
-          _lastMessageTime = _messages.last.createdAt;
-        }
-        
-        debugPrint('PollingChatService: ✅ Loaded ${_messages.length} messages from history');
-        
-        // Debug: Print all messages with sender comparison
-        for (int i = 0; i < _messages.length; i++) {
-          final msg = _messages[i];
-          final isFromCurrentUser = msg.isFromCurrentUser(_currentUserId);
-          debugPrint('PollingChatService: Message $i - "${msg.content}" - From current user: $isFromCurrentUser');
-        }
-        
-        if (!_isDisposed) {
-          notifyListeners();
+        try {
+          final responseBody = response.body;
+          debugPrint('SocketChatService: 📊 Raw response: $responseBody');
+          
+          final dynamic responseData = jsonDecode(responseBody);
+          
+          List<dynamic> historyData;
+          
+          // Handle different response formats
+          if (responseData is List) {
+            historyData = responseData;
+          } else if (responseData is Map<String, dynamic>) {
+            if (responseData.containsKey('data') && responseData['data'] is List) {
+              historyData = responseData['data'];
+            } else if (responseData.containsKey('messages') && responseData['messages'] is List) {
+              historyData = responseData['messages'];
+            } else {
+              debugPrint('SocketChatService: ❌ Unexpected response format: $responseData');
+              historyData = [];
+            }
+          } else {
+            debugPrint('SocketChatService: ❌ Unknown response type: ${responseData.runtimeType}');
+            historyData = [];
+          }
+          
+          _messages = historyData
+              .map((messageJson) {
+                try {
+                  return ApiChatMessage.fromJson(messageJson as Map<String, dynamic>);
+                } catch (e) {
+                  debugPrint('SocketChatService: ❌ Error parsing message: $e');
+                  debugPrint('SocketChatService: ❌ Message data: $messageJson');
+                  return null;
+                }
+              })
+              .where((message) => message != null)
+              .cast<ApiChatMessage>()
+              .toList();
+          
+          _messages.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+          
+          // Track all existing message IDs to avoid duplicates
+          for (final msg in _messages) {
+            if (msg.isFromCurrentUser(_currentUserId)) {
+              _sentMessageIds.add(msg.id);
+            }
+          }
+          
+          debugPrint('SocketChatService: ✅ Loaded ${_messages.length} messages from history');
+          debugPrint('SocketChatService: 📋 Tracking ${_sentMessageIds.length} sent message IDs');
+          
+          // Debug: Print read status for messages
+          for (int i = 0; i < _messages.length; i++) {
+            final msg = _messages[i];
+            final isFromCurrentUser = msg.isFromCurrentUser(_currentUserId);
+            final isRead = msg.isReadByOthers(msg.senderId);
+            debugPrint('SocketChatService: Message $i - "${msg.content}" - From current user: $isFromCurrentUser - Read: $isRead');
+          }
+          
+          if (!_isDisposed) {
+            notifyListeners();
+          }
+        } catch (parseError) {
+          debugPrint('SocketChatService: ❌ Error parsing chat history: $parseError');
+          debugPrint('SocketChatService: ❌ Response body: ${response.body}');
         }
       } else if (response.statusCode == 404) {
         // No chat history exists yet, start with empty list
         _messages = [];
-        _lastMessageTime = null;
-        debugPrint('PollingChatService: 📝 No chat history found, starting fresh');
+        _sentMessageIds.clear();
+        debugPrint('SocketChatService: 📝 No chat history found, starting fresh');
         if (!_isDisposed) {
           notifyListeners();
         }
       } else {
-        debugPrint('PollingChatService: ❌ Failed to load chat history: ${response.statusCode}');
+        debugPrint('SocketChatService: ❌ Failed to load chat history: ${response.statusCode}');
+        debugPrint('SocketChatService: ❌ Response body: ${response.body}');
         throw Exception('Failed to load chat history: ${response.statusCode}');
       }
     } catch (e) {
-      debugPrint('PollingChatService: ❌ Error loading chat history: $e');
-      // Don't rethrow, just log the error
-    } finally {
-      _isLoadingHistory = false;
+      debugPrint('SocketChatService: ❌ Error loading chat history: $e');
     }
   }
 
-  // Typing indicators (mock implementation since polling doesn't support real-time)
+  // Typing indicators
   void sendTyping(String roomId) {
-    // Could implement by sending a special API call if needed
-    debugPrint('PollingChatService: ⌨️ Typing indicator sent (mock)');
+    if (_socket != null && _isConnected) {
+      _socket!.emit('typing', {
+        'roomId': roomId,
+        'userId': _currentUserId,
+        'userType': 'partner',
+      });
+      debugPrint('SocketChatService: ⌨️ Typing indicator sent');
+    }
   }
 
   void sendStopTyping(String roomId) {
-    // Could implement by sending a special API call if needed
-    debugPrint('PollingChatService: ⌨️ Stop typing indicator sent (mock)');
+    if (_socket != null && _isConnected) {
+      _socket!.emit('stop_typing', {
+        'roomId': roomId,
+        'userId': _currentUserId,
+        'userType': 'partner',
+      });
+      debugPrint('SocketChatService: ⌨️ Stop typing indicator sent');
+    }
+  }
+
+  // NEW: Mark as read via Socket.IO (PRIMARY METHOD)
+  void markAsReadViaSocket(String roomId) {
+    if (_socket != null && _isConnected) {
+      final markAsReadData = {
+        'roomId': roomId,
+        'userId': _currentUserId,
+        'userType': 'partner',
+        'timestamp': DateTime.now().toIso8601String(),
+      };
+      
+      debugPrint('SocketChatService: 📖 Sending mark_as_read via socket: $markAsReadData');
+      _socket!.emit('mark_as_read', markAsReadData);
+    } else {
+      debugPrint('SocketChatService: ❌ Cannot mark as read via socket - not connected');
+    }
+  }
+
+  // HYBRID: Mark messages as read (Socket first, API fallback)
+  Future<bool> markAsRead(String roomId) async {
+    if (_isDisposed) return false;
+    
+    try {
+      // PRIMARY: Try socket first for real-time updates
+      if (_isConnected) {
+        markAsReadViaSocket(roomId);
+        debugPrint('SocketChatService: ✅ Mark as read sent via socket');
+        
+        // Also call API as backup for persistence
+        await _markAsReadViaAPI(roomId);
+        return true;
+      } else {
+        // FALLBACK: Use API if socket not connected
+        debugPrint('SocketChatService: 🔄 Socket not connected, using API fallback');
+        return await _markAsReadViaAPI(roomId);
+      }
+    } catch (e) {
+      debugPrint('SocketChatService: ❌ Error in mark as read: $e');
+      return false;
+    }
+  }
+
+  // API Fallback method
+  Future<bool> _markAsReadViaAPI(String roomId) async {
+    try {
+      final token = _token ?? await TokenService.getToken();
+      final userId = _currentUserId ?? await TokenService.getUserId();
+      
+      if (token == null || userId == null) {
+        debugPrint('SocketChatService: ❌ No token or user ID for mark as read API');
+        return false;
+      }
+
+      final url = Uri.parse('${baseUrl}chat/read');
+      
+      final requestBody = {
+        'roomId': roomId,
+        'userId': userId,
+      };
+      
+      debugPrint('SocketChatService: 📖 Marking messages as read via API...');
+      debugPrint('SocketChatService: 📖 Request body: $requestBody');
+      
+      final response = await http.post(
+        url,
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode(requestBody),
+      ).timeout(const Duration(seconds: 10));
+
+      debugPrint('SocketChatService: 📖 Mark as read API response: ${response.statusCode}');
+      debugPrint('SocketChatService: 📖 Mark as read API response body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final responseData = jsonDecode(response.body);
+        final success = responseData['success'] ?? false;
+        
+        if (success) {
+          debugPrint('SocketChatService: ✅ Messages marked as read via API');
+          return true;
+        }
+      }
+      
+      debugPrint('SocketChatService: ❌ Failed to mark messages as read via API: ${response.statusCode}');
+      return false;
+      
+    } catch (e) {
+      debugPrint('SocketChatService: ❌ Error marking messages as read via API: $e');
+      return false;
+    }
   }
 
   void clearMessages() {
     if (_isDisposed) return;
     
     _messages.clear();
-    _lastMessageTime = null;
-    _consecutiveEmptyPolls = 0;
+    _sentMessageIds.clear();
     notifyListeners();
   }
 
   // Force refresh messages manually
   Future<void> refreshMessages() async {
     if (_currentRoomId != null) {
-      debugPrint('PollingChatService: 🔄 Force refreshing messages...');
-      await _pollForNewMessages();
+      debugPrint('SocketChatService: 🔄 Force refreshing messages...');
+      await loadChatHistory(_currentRoomId!);
     }
   }
 
-  // Get polling status info for debugging
-  Map<String, dynamic> getPollingInfo() {
+  // Get connection status info for debugging
+  Map<String, dynamic> getConnectionInfo() {
     return {
-      'isPolling': _isPolling,
+      'isConnected': _isConnected,
       'currentRoomId': _currentRoomId,
       'currentUserId': _currentUserId,
-      'pollIntervalMs': _pollIntervalMs,
-      'consecutiveEmptyPolls': _consecutiveEmptyPolls,
+      'reconnectAttempts': _reconnectAttempts,
       'messageCount': _messages.length,
-      'lastMessageTime': _lastMessageTime?.toIso8601String(),
-      'isLoadingHistory': _isLoadingHistory,
+      'sentMessageIds': _sentMessageIds.length,
+      'socketConnected': _socket?.connected ?? false,
     };
   }
 
   @override
   void dispose() {
-    debugPrint('PollingChatService: 🗑️ Disposing service');
+    debugPrint('SocketChatService: 🗑️ Disposing service');
     _isDisposed = true;
-    stopPolling();
+    
+    // Cancel timers
     _typingTimer?.cancel();
-    _frequencyResetTimer?.cancel();
+    _reconnectTimer?.cancel();
+    
+    // Disconnect socket
+    _socket?.disconnect();
+    _socket?.dispose();
+    
+    // Close stream
     _messageStreamController.close();
+    
+    // Clear tracking
+    _sentMessageIds.clear();
+    
     super.dispose();
   }
 }
+
+// Alias for backward compatibility with your existing code
+typedef PollingChatService = SocketChatService;

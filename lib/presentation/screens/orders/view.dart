@@ -8,6 +8,8 @@ import '../../../ui_components/order_card.dart';
 import '../../../ui_components/order_stats_card.dart';
 // Remove this import
 import '../homePage/sidebar/sidebar_drawer.dart';
+import '../../../ui_components/subscription_lock_dialog.dart';
+import '../../../services/subscription_lock_service.dart';
 import 'bloc.dart';
 import 'event.dart';
 import 'state.dart';
@@ -38,15 +40,129 @@ class _OrdersViewState extends State<OrdersView> {
   // Restaurant info state
   Map<String, String>? _restaurantInfo;
   bool _isRestaurantInfoLoaded = false;
+  
+  // Subscription check state
+  bool _hasCheckedSubscription = false;
+  bool _hasValidSubscription = false;
+  bool _hasShownSubscriptionDialog = false;
 
   @override
   void initState() {
     super.initState();
-    // Load orders after the widget is built
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<OrdersBloc>().add(const LoadOrdersEvent());
-      _loadRestaurantInfo();
-    });
+    // Check subscription first, then load orders if valid
+    _checkSubscriptionAndLoadData();
+  }
+
+  Future<void> _checkSubscriptionAndLoadData() async {
+    try {
+      // Check if user can access orders page
+      final canAccess = await SubscriptionLockService.canAccessPage('/orders');
+      
+      if (mounted) {
+        setState(() {
+          _hasValidSubscription = canAccess;
+          _hasCheckedSubscription = true;
+        });
+        
+        if (canAccess) {
+          // User has valid subscription, load orders
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            context.read<OrdersBloc>().add(const LoadOrdersEvent());
+            _loadRestaurantInfo();
+          });
+        } else {
+          // User doesn't have valid subscription, show dialog
+          _showSubscriptionDialog();
+        }
+      }
+    } catch (e) {
+      debugPrint('Error checking subscription: $e');
+      if (mounted) {
+        setState(() {
+          _hasCheckedSubscription = true;
+          _hasValidSubscription = false;
+        });
+        _showSubscriptionDialog();
+      }
+    }
+  }
+
+  void _showSubscriptionDialog() async {
+    if (_hasShownSubscriptionDialog) return;
+    
+    _hasShownSubscriptionDialog = true;
+    
+    try {
+      final subscriptionStatus = await SubscriptionLockService.getSubscriptionStatus();
+      
+      if (mounted) {
+        if (subscriptionStatus['status'] == 'PENDING') {
+          // Show pending subscription dialog - NO ACCESS ALLOWED
+          showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder: (context) => PendingSubscriptionLockDialog(
+              pageName: 'Orders Management',
+              planName: subscriptionStatus['planName'] ?? 'Subscription',
+              endDate: subscriptionStatus['endDate'] ?? 'Unknown',
+              onGoBack: () {
+                Navigator.of(context).pushNamedAndRemoveUntil('/home', (route) => false);
+              },
+            ),
+          );
+        } else {
+          // Show subscription required dialog
+          showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder: (context) => SubscriptionLockDialog(
+              pageName: 'Orders Management',
+              onGoToPlans: () {
+                Navigator.of(context).pop();
+                // Use safe navigation
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (context.mounted) {
+                    try {
+                      Navigator.of(context).pushNamed('/plan');
+                    } catch (e) {
+                      debugPrint('Error navigating to plans from fallback dialog: $e');
+                      // Fallback navigation
+                      try {
+                        Navigator.of(context).pushNamedAndRemoveUntil('/plan', (route) => false);
+                      } catch (fallbackError) {
+                        debugPrint('Fallback navigation also failed: $fallbackError');
+                      }
+                    }
+                  }
+                });
+              },
+              onGoBack: () {
+                Navigator.of(context).pushNamedAndRemoveUntil('/home', (route) => false);
+              },
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('Error showing subscription dialog: $e');
+      // Fallback to basic subscription dialog
+      if (mounted) {
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => SubscriptionLockDialog(
+            pageName: 'Orders Management',
+            onGoToPlans: () {
+              Navigator.of(context).pop();
+              Navigator.of(context).pushNamed('/plan');
+            },
+            onGoBack: () {
+              Navigator.of(context).pushNamedAndRemoveUntil('/home', (route) => false);
+            },
+          ),
+        );
+      }
+    }
   }
 
   Future<void> _loadRestaurantInfo() async {
@@ -72,6 +188,153 @@ class _OrdersViewState extends State<OrdersView> {
 
 @override
 Widget build(BuildContext context) {
+  // Show loading while checking subscription
+  if (!_hasCheckedSubscription) {
+    return Scaffold(
+      backgroundColor: ColorManager.background,
+      appBar: AppBar(
+        elevation: 0,
+        backgroundColor: Colors.white,
+        toolbarHeight: 60,
+        automaticallyImplyLeading: false,
+        title: Row(
+          children: [
+            InkWell(
+              borderRadius: BorderRadius.circular(40),
+              onTap: _openSidebar,
+              child: const Padding(
+                padding: EdgeInsets.all(8.0),
+                child: Icon(
+                  Icons.menu_rounded,
+                  color: Colors.black87,
+                  size: 24.0,
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Text(
+              'Orders Management',
+              style: TextStyle(
+                fontFamily: FontFamily.Montserrat,
+                fontSize: FontSize.s18,
+                color: ColorManager.black,
+                fontWeight: FontWeightManager.bold,
+              ),
+            ),
+          ],
+        ),
+      ),
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(
+              color: ColorManager.primary,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Checking subscription status...',
+              style: TextStyle(
+                fontSize: FontSize.s16,
+                color: ColorManager.textGrey,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // If user doesn't have valid subscription, show a placeholder screen
+  if (!_hasValidSubscription) {
+    return Scaffold(
+      backgroundColor: ColorManager.background,
+      appBar: AppBar(
+        elevation: 0,
+        backgroundColor: Colors.white,
+        toolbarHeight: 60,
+        automaticallyImplyLeading: false,
+        title: Row(
+          children: [
+            InkWell(
+              borderRadius: BorderRadius.circular(40),
+              onTap: _openSidebar,
+              child: const Padding(
+                padding: EdgeInsets.all(8.0),
+                child: Icon(
+                  Icons.menu_rounded,
+                  color: Colors.black87,
+                  size: 24.0,
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Text(
+              'Orders Management',
+              style: TextStyle(
+                fontFamily: FontFamily.Montserrat,
+                fontSize: FontSize.s18,
+                color: ColorManager.black,
+                fontWeight: FontWeightManager.bold,
+              ),
+            ),
+          ],
+        ),
+      ),
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.lock_outline,
+              size: 64,
+              color: ColorManager.primary.withOpacity(0.6),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Subscription Required',
+              style: TextStyle(
+                fontSize: FontSize.s20,
+                fontWeight: FontWeightManager.bold,
+                color: ColorManager.black,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Please subscribe to access Orders Management',
+              style: TextStyle(
+                fontSize: FontSize.s16,
+                color: ColorManager.textGrey,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(context).pushNamed('/plan');
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: ColorManager.primary,
+                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: Text(
+                'Subscribe Now',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: FontSize.s16,
+                  fontWeight: FontWeightManager.medium,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   return Scaffold(
     key: _scaffoldKey,
     backgroundColor: ColorManager.background,

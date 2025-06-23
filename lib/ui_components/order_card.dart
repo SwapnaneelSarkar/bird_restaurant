@@ -188,24 +188,17 @@ class OrderCard extends StatelessWidget {
   }
 
   void _showOrderStatusBottomSheet(BuildContext context) async {
-    // Fetch partnerId from TokenService
-    final partnerId = await TokenService.getUserId();
-    if (partnerId == null || partnerId.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Unable to load order details. Please login again.'),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return;
-    }
+    // Get the OrdersBloc from the context
+    final ordersBloc = context.read<OrdersBloc>();
+    
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (bottomSheetContext) => OrderOptionsBottomSheet(
+      builder: (bottomSheetContext) => OrderStatusBottomSheet(
         orderId: orderId,
-        partnerId: partnerId,
+        currentStatus: status,
+        ordersBloc: ordersBloc, // Pass the OrdersBloc instance
       ),
     );
   }

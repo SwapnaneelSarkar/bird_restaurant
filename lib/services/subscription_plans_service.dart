@@ -5,6 +5,7 @@ import '../constants/api_constants.dart';
 import '../services/token_service.dart';
 import '../models/plan_model.dart';
 import 'api_exception.dart';
+import '../utils/time_utils.dart';
 
 class SubscriptionPlansService {
   static const String _plansEndpoint = '/subscription/plans';
@@ -222,7 +223,6 @@ class SubscriptionPlansService {
         return null;
       }
 
-      final now = DateTime.now();
       Map<String, dynamic>? mostRecentActive = null;
       DateTime? mostRecentStartDate;
       DateTime? farthestEndDate;
@@ -235,19 +235,11 @@ class SubscriptionPlansService {
         // Check for both ACTIVE and PENDING subscriptions
         if ((status == 'ACTIVE' || status == 'PENDING') && startDateStr != null && endDateStr != null) {
           try {
-            final startDate = DateTime.parse(startDateStr);
-            final endDate = DateTime.parse(endDateStr);
+            final startDate = TimeUtils.parseToIST(startDateStr);
+            final endDate = TimeUtils.parseToIST(endDateStr);
 
-            // For PENDING subscriptions, check if start date is in the future or today
-            // For ACTIVE subscriptions, check if subscription is still valid (end date is in the future)
-            bool isValid = false;
-            if (status == 'PENDING') {
-              // PENDING subscriptions are valid if start date is today or in the future
-              isValid = startDate.isAfter(now.subtract(const Duration(days: 1)));
-            } else {
-              // ACTIVE subscriptions are valid if end date is in the future
-              isValid = endDate.isAfter(now);
-            }
+            // Use IST validation
+            bool isValid = TimeUtils.isSubscriptionValid(startDate, endDate, status ?? '');
 
             if (isValid) {
               // Check if this is the most recent subscription
@@ -310,7 +302,6 @@ class SubscriptionPlansService {
         return {'hasExpiredPlan': false, 'expiredPlanName': null, 'hasPendingSubscription': false};
       }
 
-      final now = DateTime.now();
       bool hasActiveSubscription = false;
       bool hasPendingSubscription = false;
       Map<String, dynamic>? mostRecentExpired = null;
@@ -324,12 +315,12 @@ class SubscriptionPlansService {
 
         if (status == 'PENDING' && startDateStr != null) {
           try {
-            final startDate = DateTime.parse(startDateStr);
-            // PENDING subscriptions are valid if start date is today or in the future
-            if (startDate.isAfter(now.subtract(const Duration(days: 1)))) {
+            final startDate = TimeUtils.parseToIST(startDateStr);
+            // Use IST validation for pending subscriptions
+            if (TimeUtils.isSubscriptionValid(startDate, DateTime.now(), 'PENDING')) {
               hasPendingSubscription = true;
               // Keep track of the most recent pending subscription
-              if (mostRecentPending == null || startDate.isAfter(DateTime.parse(mostRecentPending['start_date']!))) {
+              if (mostRecentPending == null || startDate.isAfter(TimeUtils.parseToIST(mostRecentPending['start_date']!))) {
                 mostRecentPending = subscription;
               }
             }
@@ -341,10 +332,10 @@ class SubscriptionPlansService {
 
         if (status == 'ACTIVE' && endDateStr != null) {
           try {
-            final endDate = DateTime.parse(endDateStr);
+            final endDate = TimeUtils.parseToIST(endDateStr);
             
-            // Check if subscription is still valid (end date is in the future)
-            if (endDate.isAfter(now)) {
+            // Use IST validation for active subscriptions
+            if (TimeUtils.isSubscriptionValid(DateTime.now(), endDate, 'ACTIVE')) {
               hasActiveSubscription = true;
               break; // Found an active subscription, no need to check further
             } else {

@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import '../constants/api_constants.dart';
 import '../services/token_service.dart';
 import '../models/order_model.dart';
+import '../utils/time_utils.dart';
 
 class OrdersApiService {
   static const int timeoutSeconds = 10;
@@ -143,6 +144,10 @@ class OrdersApiService {
     required String newStatus,
   }) async {
     try {
+      debugPrint('OrdersApiService: 🎯 updateOrderStatus called');
+      debugPrint('OrdersApiService: 🎯 orderId: $orderId');
+      debugPrint('OrdersApiService: 🎯 newStatus: $newStatus');
+      
       final token = await TokenService.getToken();
       
       if (token == null) {
@@ -170,14 +175,19 @@ class OrdersApiService {
 
       if (response.statusCode == 200) {
         final responseData = json.decode(response.body);
-        return responseData['status'] == 'SUCCESS';
+        final success = responseData['status'] == 'SUCCESS';
+        debugPrint('OrdersApiService: ✅ API call successful, success: $success');
+        return success;
       } else if (response.statusCode == 401) {
+        debugPrint('OrdersApiService: ❌ Unauthorized error');
         throw Exception('Unauthorized. Please login again.');
       } else {
+        debugPrint('OrdersApiService: ❌ HTTP error: ${response.statusCode}');
         throw Exception('Failed to update order status. Status: ${response.statusCode}');
       }
     } catch (e) {
       debugPrint('OrdersApiService: ❌ Error updating order status: $e');
+      debugPrint('OrdersApiService: ❌ Error stack trace: ${StackTrace.current}');
       rethrow;
     }
   }
@@ -200,8 +210,8 @@ class OrdersApiService {
       }
 
       final queryParams = {
-        'start_date': startDate.toIso8601String().split('T')[0],
-        'end_date': endDate.toIso8601String().split('T')[0],
+        'start_date': TimeUtils.toIsoStringForAPI(startDate).split('T')[0],
+        'end_date': TimeUtils.toIsoStringForAPI(endDate).split('T')[0],
       };
       
       final url = Uri.parse('${ApiConstants.baseUrl}/partner/orders/history/$partnerId').replace(

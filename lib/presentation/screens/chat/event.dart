@@ -1,4 +1,4 @@
-// lib/presentation/screens/chat/event.dart - ENHANCED VERSION
+// lib/presentation/screens/chat/event.dart - ENHANCED VERSION WITH MARK AS READ
 
 import 'package:equatable/equatable.dart';
 
@@ -39,7 +39,17 @@ class StopTyping extends ChatEvent {
   const StopTyping();
 }
 
-// NEW: Order-related events
+// NEW: Mark messages as read event
+class MarkAsRead extends ChatEvent {
+  final String roomId;
+
+  const MarkAsRead(this.roomId);
+
+  @override
+  List<Object> get props => [roomId];
+}
+
+// Order-related events
 class ShowOrderOptions extends ChatEvent {
   final String orderId;
   final String partnerId;
@@ -90,7 +100,7 @@ class UpdateOrderStatus extends ChatEvent {
   List<Object> get props => [orderId, partnerId, newStatus];
 }
 
-// NEW: Force refresh menu items (useful for debugging/retry)
+// Force refresh menu items (useful for debugging/retry)
 class ForceRefreshMenuItems extends ChatEvent {
   const ForceRefreshMenuItems();
 }

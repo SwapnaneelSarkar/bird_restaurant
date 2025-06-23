@@ -1,6 +1,7 @@
 // ENHANCED DEBUG VERSION: lib/models/order_model.dart
 import '../constants/enums.dart';
 import 'package:flutter/foundation.dart';
+import '../utils/time_utils.dart';
 
 class OrderSummaryResponse {
   final String status;
@@ -143,7 +144,7 @@ class Order {
       customerName: json['customer_name'] ?? json['customerName'] ?? 'Unknown Customer',
       amount: double.tryParse(json['total_price']?.toString() ?? '0') ?? 
               double.tryParse(json['amount']?.toString() ?? '0') ?? 0.0,
-      date: DateTime.tryParse(json['created_at'] ?? json['date'] ?? '') ?? DateTime.now(),
+      date: TimeUtils.parseToIST(json['created_at'] ?? json['date'] ?? ''),
       status: orderStatus,
       customerPhone: json['customer_phone'] ?? json['phone'],
       deliveryAddress: json['delivery_address'] ?? json['address'],
@@ -163,7 +164,7 @@ class Order {
       'user_id': userId,
       'customer_name': customerName,
       'total_price': amount,
-      'created_at': date.toIso8601String(),
+      'created_at': TimeUtils.toIsoStringForAPI(date),
       'status': status,
       'customer_phone': customerPhone,
       'delivery_address': deliveryAddress,

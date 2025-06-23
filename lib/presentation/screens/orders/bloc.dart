@@ -147,6 +147,11 @@ class OrdersBloc extends Bloc<OrdersEvent, OrdersState> {
 
   // UPDATED: Better error handling for status updates with page reload
   void _onUpdateOrderStatus(UpdateOrderStatusEvent event, Emitter<OrdersState> emit) async {
+    debugPrint('OrdersBloc: 🎯 _onUpdateOrderStatus called');
+    debugPrint('OrdersBloc: 🎯 Event orderId: ${event.orderId}');
+    debugPrint('OrdersBloc: 🎯 Event newStatus: ${event.newStatus.apiValue}');
+    debugPrint('OrdersBloc: 🎯 Current state: ${state.runtimeType}');
+    
     if (state is OrdersLoaded) {
       final currentState = state as OrdersLoaded;
       
@@ -158,10 +163,13 @@ class OrdersBloc extends Bloc<OrdersEvent, OrdersState> {
       ));
       
       try {
+        debugPrint('OrdersBloc: 📞 Calling OrdersApiService.updateOrderStatus');
         final success = await OrdersApiService.updateOrderStatus(
           orderId: event.orderId,
           newStatus: _mapOrderStatusToString(event.newStatus),
         );
+        
+        debugPrint('OrdersBloc: 📞 OrdersApiService.updateOrderStatus result: $success');
         
         if (success) {
           debugPrint('OrdersBloc: ✅ Order status updated successfully');
@@ -192,6 +200,7 @@ class OrdersBloc extends Bloc<OrdersEvent, OrdersState> {
         }
       } catch (e) {
         debugPrint('OrdersBloc: ❌ Error updating order status: $e');
+        debugPrint('OrdersBloc: ❌ Error stack trace: ${StackTrace.current}');
         
         // Parse error message from exception
         String errorMessage = 'Failed to update order status. Please try again.';
@@ -229,6 +238,9 @@ class OrdersBloc extends Bloc<OrdersEvent, OrdersState> {
         await Future.delayed(const Duration(milliseconds: 1500));
         add(LoadOrdersEvent());
       }
+    } else {
+      debugPrint('OrdersBloc: ❌ Cannot update order status - current state is not OrdersLoaded');
+      debugPrint('OrdersBloc: ❌ Current state: ${state.runtimeType}');
     }
   }
 
