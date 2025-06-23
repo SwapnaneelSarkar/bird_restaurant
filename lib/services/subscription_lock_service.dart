@@ -55,7 +55,7 @@ class SubscriptionLockService {
 
   // Check if user can access a specific page
   static Future<bool> canAccessPage(String routeName) async {
-    if (requiresSubscription(routeName)) {
+    if (!requiresSubscription(routeName)) {
       return true; // Page doesn't require subscription
     }
 

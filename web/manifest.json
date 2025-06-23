@@ -1,11 +1,11 @@
 {
-    "name": "bird_restaurant",
-    "short_name": "bird_restaurant",
+    "name": "Bird Partner",
+    "short_name": "Bird Partner",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#ffffff",
     "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "description": "Bird Partner - Restaurant Management App",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

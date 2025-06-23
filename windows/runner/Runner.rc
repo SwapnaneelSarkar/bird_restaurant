@@ -90,12 +90,12 @@ BEGIN
         BLOCK "040904e4"
         BEGIN
             VALUE "CompanyName", "com.example" "\0"
-            VALUE "FileDescription", "bird_restaurant" "\0"
+            VALUE "FileDescription", "Bird Partner" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
-            VALUE "InternalName", "bird_restaurant" "\0"
+            VALUE "InternalName", "Bird Partner" "\0"
             VALUE "LegalCopyright", "Copyright (C) 2025 com.example. All rights reserved." "\0"
-            VALUE "OriginalFilename", "bird_restaurant.exe" "\0"
-            VALUE "ProductName", "bird_restaurant" "\0"
+            VALUE "OriginalFilename", "Bird Partner.exe" "\0"
+            VALUE "ProductName", "Bird Partner" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END
