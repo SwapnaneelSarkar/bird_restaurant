@@ -52,18 +52,8 @@ void _handleError(Object error, StackTrace stackTrace) {
 void main() async {
   // Set up global error handling
   FlutterError.onError = (FlutterErrorDetails details) {
-    developer.log('🚨 FLUTTER ERROR: ${details.exception}', name: 'BirdRestaurant');
-    developer.log('📚 Stack trace: ${details.stack}', name: 'BirdRestaurant');
-    debugPrint('🚨 FLUTTER ERROR: ${details.exception}');
-    debugPrint('📚 Stack trace: ${details.stack}');
-    
-    // Check if it's a navigation-related error
-    if (details.exception.toString().contains('Navigator') || 
-        details.exception.toString().contains('context') ||
-        details.exception.toString().contains('mounted')) {
-      developer.log('🚨 NAVIGATION ERROR DETECTED', name: 'BirdRestaurant');
-      debugPrint('🚨 NAVIGATION ERROR DETECTED');
-    }
+    FlutterError.presentError(details);
+    debugPrint('GLOBAL FLUTTER ERROR: [31m${details.exception}\n${details.stack}[0m');
   };
 
   // Handle errors that occur during zone execution

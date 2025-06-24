@@ -26,7 +26,7 @@ class SubscriptionLockService {
     return _pageSubscriptionRequirements[routeName] ?? false;
   }
 
-  // Check if user has valid subscription (ONLY ACTIVE, not PENDING)
+  // Check if user has any plan or a pending plan (lock if no plan or pending, allow otherwise)
   static Future<bool> hasValidSubscription() async {
     try {
       final partnerId = await TokenService.getUserId();
@@ -35,18 +35,25 @@ class SubscriptionLockService {
         return false;
       }
 
-      final activeSubscription = await SubscriptionPlansService.getActiveSubscription(partnerId);
-      
-      // Only ACTIVE subscriptions are considered valid for access
-      if (activeSubscription != null) {
-        final status = activeSubscription['status']?.toString().toUpperCase() ?? 'UNKNOWN';
-        debugPrint('Subscription status: $status');
-        
-        // Only ACTIVE subscriptions allow access
-        return status == 'ACTIVE';
+      final subscriptions = await SubscriptionPlansService.fetchVendorSubscriptions(partnerId);
+      if (subscriptions.isEmpty) {
+        debugPrint('No subscriptions found, lock the page');
+        return false;
       }
-      
-      return false;
+
+      // Find the most recent subscription by start_date
+      subscriptions.sort((a, b) {
+        final aDate = a['start_date'] != null ? DateTime.parse(a['start_date']) : DateTime(1970);
+        final bDate = b['start_date'] != null ? DateTime.parse(b['start_date']) : DateTime(1970);
+        return bDate.compareTo(aDate); // descending
+      });
+      final mostRecent = subscriptions.first;
+      final status = mostRecent['status']?.toString().toUpperCase() ?? 'UNKNOWN';
+      debugPrint('hasValidSubscription: Most recent subscription status: $status');
+      final result = status != 'PENDING';
+      debugPrint('hasValidSubscription: returning $result');
+      // Only lock if most recent is PENDING
+      return result;
     } catch (e) {
       debugPrint('Error checking subscription status: $e');
       return false;
@@ -74,20 +81,23 @@ class SubscriptionLockService {
         };
       }
 
-      final activeSubscription = await SubscriptionPlansService.getActiveSubscription(partnerId);
-      
-      if (activeSubscription == null) {
+      final subscriptions = await SubscriptionPlansService.fetchVendorSubscriptions(partnerId);
+      if (subscriptions.isEmpty) {
         return {
           'hasSubscription': false,
           'status': 'NO_SUBSCRIPTION',
-          'message': 'No active subscription found',
+          'message': 'No subscription found',
         };
       }
-
-      final status = activeSubscription['status']?.toString().toUpperCase() ?? 'UNKNOWN';
-      final planName = activeSubscription['plan_name']?.toString() ?? 'Unknown Plan';
-      final endDate = activeSubscription['end_date']?.toString() ?? 'Unknown';
-
+      subscriptions.sort((a, b) {
+        final aDate = a['start_date'] != null ? DateTime.parse(a['start_date']) : DateTime(1970);
+        final bDate = b['start_date'] != null ? DateTime.parse(b['start_date']) : DateTime(1970);
+        return bDate.compareTo(aDate); // descending
+      });
+      final mostRecent = subscriptions.first;
+      final status = mostRecent['status']?.toString().toUpperCase() ?? 'UNKNOWN';
+      final planName = mostRecent['plan_name']?.toString() ?? 'Unknown Plan';
+      final endDate = mostRecent['end_date']?.toString() ?? 'Unknown';
       if (status == 'PENDING') {
         return {
           'hasSubscription': true,
@@ -96,19 +106,11 @@ class SubscriptionLockService {
           'planName': planName,
           'endDate': endDate,
         };
-      } else if (status == 'ACTIVE') {
-        return {
-          'hasSubscription': true,
-          'status': 'ACTIVE',
-          'message': 'Subscription is active',
-          'planName': planName,
-          'endDate': endDate,
-        };
       } else {
         return {
-          'hasSubscription': false,
-          'status': 'INACTIVE',
-          'message': 'Subscription is not active',
+          'hasSubscription': true,
+          'status': status,
+          'message': 'Subscription is $status',
           'planName': planName,
           'endDate': endDate,
         };

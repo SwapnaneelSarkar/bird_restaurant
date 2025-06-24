@@ -186,16 +186,14 @@ class _HomeViewState extends State<HomeView> with TickerProviderStateMixin {
         final hasPendingSubscription = subscriptionStatus['hasPendingSubscription'] as bool? ?? false;
         final pendingPlanName = subscriptionStatus['pendingPlanName'] as String?;
         
+        debugPrint('Subscription dialog check: hasExpiredPlan=$hasExpiredPlan, expiredPlanName=$expiredPlanName, hasPendingSubscription=$hasPendingSubscription, pendingPlanName=$pendingPlanName');
         // Show appropriate dialog based on subscription status
         if (hasPendingSubscription) {
           // Show pending subscription dialog
           _showPendingSubscriptionDialog(pendingPlanName);
         } else if (hasExpiredPlan) {
           // Show expired plan dialog
-          _showSubscriptionReminderDialog(hasExpiredPlan, expiredPlanName);
-        } else if (expiredPlanName == null) {
-          // Show no plan dialog
-          _showSubscriptionReminderDialog(hasExpiredPlan, expiredPlanName);
+          _showSubscriptionReminderDialog(true, expiredPlanName);
         }
         
         setState(() {

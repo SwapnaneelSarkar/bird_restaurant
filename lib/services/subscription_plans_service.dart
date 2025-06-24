@@ -313,11 +313,19 @@ class SubscriptionPlansService {
         final startDateStr = subscription['start_date']?.toString();
         final endDateStr = subscription['end_date']?.toString();
 
+        debugPrint('Checking subscription:');
+        debugPrint('  - status: [33m$status[0m');
+        debugPrint('  - startDateStr: $startDateStr');
+        debugPrint('  - endDateStr: $endDateStr');
+
         if (status == 'PENDING' && startDateStr != null) {
           try {
             final startDate = TimeUtils.parseToIST(startDateStr);
+            final now = TimeUtils.getCurrentIST();
+            final valid = TimeUtils.isSubscriptionValid(startDate, DateTime.now(), 'PENDING');
+            debugPrint('  - [PENDING] startDate (IST): $startDate, now (IST): $now, valid: $valid');
             // Use IST validation for pending subscriptions
-            if (TimeUtils.isSubscriptionValid(startDate, DateTime.now(), 'PENDING')) {
+            if (valid) {
               hasPendingSubscription = true;
               // Keep track of the most recent pending subscription
               if (mostRecentPending == null || startDate.isAfter(TimeUtils.parseToIST(mostRecentPending['start_date']!))) {
@@ -325,7 +333,7 @@ class SubscriptionPlansService {
               }
             }
           } catch (e) {
-            debugPrint('Error parsing start date for pending subscription ${subscription['subscription_id']}: $e');
+            debugPrint('Error parsing start date for pending subscription [31m${subscription['subscription_id']}[0m: $e');
           }
           continue; // Skip pending subscriptions for other logic
         }
@@ -333,9 +341,11 @@ class SubscriptionPlansService {
         if (status == 'ACTIVE' && endDateStr != null) {
           try {
             final endDate = TimeUtils.parseToIST(endDateStr);
-            
+            final now = TimeUtils.getCurrentIST();
+            final valid = TimeUtils.isSubscriptionValid(DateTime.now(), endDate, 'ACTIVE');
+            debugPrint('  - [ACTIVE] endDate (IST): $endDate, now (IST): $now, valid: $valid');
             // Use IST validation for active subscriptions
-            if (TimeUtils.isSubscriptionValid(DateTime.now(), endDate, 'ACTIVE')) {
+            if (valid) {
               hasActiveSubscription = true;
               break; // Found an active subscription, no need to check further
             } else {
@@ -346,7 +356,7 @@ class SubscriptionPlansService {
               }
             }
           } catch (e) {
-            debugPrint('Error parsing end date for subscription ${subscription['subscription_id']}: $e');
+            debugPrint('Error parsing end date for subscription [31m${subscription['subscription_id']}[0m: $e');
           }
         }
       }

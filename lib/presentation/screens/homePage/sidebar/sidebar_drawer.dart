@@ -1,5 +1,4 @@
-// Updated Sidebar Drawer with proper navigation
-// lib/presentation/screens/homePage/sidebar/sidebar_drawer.dart
+// lib/presentation/screens/homePage/sidebar/sidebar_drawer.dart - FIXED VERSION
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -8,6 +7,8 @@ import 'dart:ui';
 import 'dart:math';
 import '../../../../services/restaurant_info_service.dart';
 import '../../../../services/subscription_lock_service.dart';
+import '../../../../ui_components/subscription_lock_dialog.dart';
+import '../../../../services/subscription_plans_service.dart';
 
 class SidebarDrawer extends StatefulWidget {
   final String? activePage;
@@ -49,7 +50,93 @@ class _SidebarDrawerState extends State<SidebarDrawer> with SingleTickerProvider
   
   // For menu item staggered animation
   late List<Animation<double>> _menuItemAnimations;
-  final int _menuItemCount = 12; // Total number of menu items including logout (increased by 1 for plan)
+  final int _menuItemCount = 12; // Total number of menu items including logout
+
+  // Minimal subscription check utility
+  static const List<String> _protectedRoutes = [
+    '/orders',
+    '/editMenu',
+    '/addProduct',
+    '/attributes',
+  ];
+
+  Future<bool> _hasActiveSubscription() async {
+    try {
+      return await SubscriptionPlansService.checkSubscriptionStatus();
+    } catch (_) {
+      return false;
+    }
+  }
+
+  void _showSubscriptionDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        title: Row(
+          children: [
+            Icon(
+              Icons.lock_outline,
+              color: Colors.orange[600],
+              size: 28,
+            ),
+            const SizedBox(width: 12),
+            const Text(
+              'Subscription Required',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+        content: const Text(
+          'This feature requires an active subscription. Please subscribe to a plan to access orders, products, and attributes management.',
+          style: TextStyle(
+            fontSize: 16,
+            height: 1.4,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+            },
+            child: const Text(
+              'Cancel',
+              style: TextStyle(
+                fontSize: 16,
+                color: Colors.grey,
+              ),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              Navigator.of(context).pushNamed('/plan');
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.orange[600],
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            child: const Text(
+              'Subscribe Now',
+              style: TextStyle(
+                fontSize: 16,
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   void initState() {
@@ -137,139 +224,48 @@ class _SidebarDrawerState extends State<SidebarDrawer> with SingleTickerProvider
     });
   }
 
-  // Updated navigation method with subscription checks
-  void _navigateToPage(String routeName) async {
-    _closeDrawer();
-    
-    // Check if the page requires subscription
-    if (SubscriptionLockService.requiresSubscription(routeName)) {
-      try {
-        final canAccess = await SubscriptionLockService.canAccessPage(routeName);
-        
-        if (!canAccess) {
-          // Show snackbar instead of dialog for better UX
-          _showSubscriptionSnackbar(routeName);
-          return;
-        }
-      } catch (e) {
-        debugPrint('Error checking subscription for navigation: $e');
-        // Show snackbar as fallback
-        _showSubscriptionSnackbar(routeName);
+  // Updated navigation method with subscription check
+  Future<void> _navigateToPage(String routeName) async {
+    if (_protectedRoutes.contains(routeName)) {
+      final hasAccess = await _hasActiveSubscription();
+      if (!hasAccess) {
+        _showSubscriptionDialog();
         return;
       }
     }
+    _closeDrawer();
+    _performNavigation(routeName);
+  }
+
+  void _performNavigation(String routeName) {
+    debugPrint('🎯 Performing navigation to: $routeName');
     
-    // Use a single, safe navigation approach
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
+      if (!mounted) return;
+      
+      try {
+        if (routeName == '/home') {
+          Navigator.of(context).pushNamedAndRemoveUntil(
+            '/home',
+            (route) => false,
+          );
+        } else {
+          Navigator.of(context).pushReplacementNamed(routeName);
+        }
+        debugPrint('✅ Navigation successful to: $routeName');
+      } catch (e) {
+        debugPrint('❌ Navigation error: $e');
+        // Fallback to home
         try {
-          if (routeName == '/home') {
-            // If navigating to home, clear all routes and go to home
-            Navigator.of(context).pushNamedAndRemoveUntil(
-              '/home',
-              (route) => false,
-            );
-          } else {
-            // For other pages, use a simple push replacement to avoid stack issues
-            Navigator.of(context).pushReplacementNamed(routeName);
-          }
-        } catch (e) {
-          debugPrint('Navigation error: $e');
-          // Fallback to home if navigation fails
-          try {
-            Navigator.of(context).pushNamedAndRemoveUntil(
-              '/home',
-              (route) => false,
-            );
-          } catch (fallbackError) {
-            debugPrint('Fallback navigation also failed: $fallbackError');
-          }
+          Navigator.of(context).pushNamedAndRemoveUntil(
+            '/home',
+            (route) => false,
+          );
+        } catch (fallbackError) {
+          debugPrint('❌ Fallback navigation failed: $fallbackError');
         }
       }
     });
-  }
-
-  void _showSubscriptionSnackbar(String routeName) {
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      if (mounted) {
-        try {
-          final subscriptionStatus = await SubscriptionLockService.getSubscriptionStatus();
-          final pageName = _getPageDisplayName(routeName);
-          
-          String message;
-          if (subscriptionStatus['status'] == 'PENDING') {
-            message = 'Your subscription is pending approval. Please wait for activation.';
-          } else {
-            message = 'Subscription required to access $pageName';
-          }
-          
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Row(
-                children: [
-                  Icon(
-                    subscriptionStatus['status'] == 'PENDING' 
-                        ? Icons.schedule_outlined 
-                        : Icons.lock_outline,
-                    color: Colors.white,
-                    size: 20,
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      message,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              backgroundColor: subscriptionStatus['status'] == 'PENDING' 
-                  ? Colors.orange 
-                  : const Color(0xFFE17A47),
-              behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
-              duration: const Duration(seconds: 4),
-            ),
-          );
-        } catch (e) {
-          debugPrint('Error showing subscription snackbar: $e');
-          // Fallback snackbar
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Subscription required to access ${_getPageDisplayName(routeName)}'),
-              backgroundColor: const Color(0xFFE17A47),
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
-        }
-      }
-    });
-  }
-
-  String _getPageDisplayName(String routeName) {
-    switch (routeName) {
-      case '/orders':
-        return 'Orders Management';
-      case '/editMenu':
-        return 'Products Management';
-      case '/addProduct':
-        return 'Add Product';
-      case '/attributes':
-        return 'Attributes Management';
-      case '/chat':
-        return 'Chat';
-      case '/chatList':
-        return 'Chat List';
-      case '/reviews':
-        return 'Reviews';
-      default:
-        return 'This Feature';
-    }
   }
 
   @override
@@ -505,8 +501,8 @@ class AnimatedSidebarContent extends StatelessWidget {
                   GestureDetector(
                     onTap: () => onNavigate('/profile'),
                     child: Text(
-                      restaurantName ?? '',
-                      style: TextStyle(
+                      restaurantName,
+                      style: const TextStyle(
                         fontFamily: 'Montserrat',
                         fontSize: 20,
                         fontWeight: FontWeight.w600,
@@ -519,8 +515,8 @@ class AnimatedSidebarContent extends StatelessWidget {
                   const SizedBox(height: 4),
                   // Restaurant Slogan
                   Text(
-                    restaurantSlogan ?? '',
-                    style: TextStyle(
+                    restaurantSlogan,
+                    style: const TextStyle(
                       fontFamily: 'Montserrat',
                       fontSize: 14,
                       fontWeight: FontWeight.w400,
@@ -666,7 +662,7 @@ class AnimatedSidebarContent extends StatelessWidget {
                 child: InkWell(
                   borderRadius: BorderRadius.circular(10),
                   onTap: () => _handleLogout(context),
-                  child: Container(
+                                      child: Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 16,
                       vertical: 14,

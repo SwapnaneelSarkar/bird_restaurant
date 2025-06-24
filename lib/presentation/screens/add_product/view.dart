@@ -1,3 +1,4 @@
+// lib/presentation/screens/add_product/view.dart - FIXED VERSION
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -7,7 +8,6 @@ import '../../../ui_components/image_picker.dart';
 import '../../../ui_components/universal_widget/topbar.dart';
 import '../../../presentation/resources/colors.dart';
 import '../../../presentation/resources/font.dart';
-// Remove this import
 import '../homePage/sidebar/sidebar_drawer.dart';
 import 'bloc.dart';
 import 'event.dart';
@@ -48,7 +48,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
   @override
   void initState() {
     super.initState();
-    // Load restaurant info
+    // REMOVED: Subscription check - handled by sidebar now
     _loadRestaurantInfo();
   }
 
@@ -63,7 +63,6 @@ class _AddProductScreenState extends State<AddProductScreen> {
 
   Future<void> _loadRestaurantInfo() async {
     try {
-      // Force refresh from API to get the latest restaurant info
       final info = await RestaurantInfoService.refreshRestaurantInfo();
       if (mounted) {
         setState(() {
@@ -78,66 +77,78 @@ class _AddProductScreenState extends State<AddProductScreen> {
   }
 
   void _openSidebar() {
-    // Use the scaffold's built-in drawer instead of pushing a new route
     _scaffoldKey.currentState?.openDrawer();
   }
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (context) => AddProductBloc()..add(AddProductInitEvent()),
-      child: BlocConsumer<AddProductBloc, AddProductState>(
-        listener: (context, state) {
-          if (state is AddProductFormState) {
-            if (state.errorMessage != null) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text(state.errorMessage!)),
+    try {
+      return BlocProvider(
+        create: (context) => AddProductBloc()..add(AddProductInitEvent()),
+        child: BlocConsumer<AddProductBloc, AddProductState>(
+          listener: (context, state) {
+            if (state is AddProductFormState) {
+              if (state.errorMessage != null) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(state.errorMessage!)),
+                );
+              }
+              
+              if (state.isSuccess) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Product added successfully!')),
+                );
+                
+                // Navigate to HomePage after showing success message
+                Future.delayed(const Duration(seconds: 1), () {
+                  Navigator.of(context).pushReplacementNamed('/home');
+                });
+              }
+            }
+          },
+          builder: (context, state) {
+            debugPrint('AddProductScreen: BlocConsumer builder state = \u001b[36m'+state.runtimeType.toString()+'\u001b[0m');
+            if (state is AddProductFormState) {
+              return Scaffold(
+                key: _scaffoldKey,
+                backgroundColor: ColorManager.background,
+                drawer: SidebarDrawer(
+                  activePage: 'addProduct',
+                  restaurantName: _restaurantInfo?['name'] ?? 'Restaurant',
+                  restaurantSlogan: _restaurantInfo?['slogan'] ?? 'Add new product',
+                  restaurantImageUrl: _restaurantInfo?['imageUrl'],
+                ),
+                body: SafeArea(
+                  child: Column(
+                    children: [
+                      _buildHeader(context),
+                      Expanded(
+                        child: _buildForm(context, state),
+                      ),
+                    ],
+                  ),
+                ),
               );
             }
             
-            if (state.isSuccess) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Product added successfully!')),
-              );
-              
-              // Navigate to HomePage after showing success message
-              Future.delayed(const Duration(seconds: 1), () {
-                // Navigate to HomePage
-                Navigator.of(context).pushReplacementNamed('/home');
-              });
-            }
-          }
-        },
-        builder: (context, state) {
-          if (state is AddProductFormState) {
-            return Scaffold(
-              key: _scaffoldKey,
-              backgroundColor: ColorManager.background,
-              drawer: SidebarDrawer(
-                activePage: 'addProduct',
-                restaurantName: _restaurantInfo?['name'] ?? 'Restaurant',
-                restaurantSlogan: _restaurantInfo?['slogan'] ?? 'Add new product',
-                restaurantImageUrl: _restaurantInfo?['imageUrl'],
-              ),
-              body: SafeArea(
-                child: Column(
-                  children: [
-                    _buildHeader(context),
-                    Expanded(
-                      child: _buildForm(context, state),
-                    ),
-                  ],
-                ),
-              ),
+            return const Scaffold(
+              body: Center(child: CircularProgressIndicator()),
             );
-          }
-          
-          return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
-          );
-        },
-      ),
-    );
+          },
+        ),
+      );
+    } catch (e, stack) {
+      debugPrint('AddProductScreen: build error: \u001b[31m$e\n$stack\u001b[0m');
+      return Scaffold(
+        body: Center(
+          child: Text(
+            'An error occurred while building the page:\n$e',
+            style: TextStyle(color: Colors.red, fontSize: 16),
+            textAlign: TextAlign.center,
+          ),
+        ),
+      );
+    }
   }
 
   Widget _buildHeader(BuildContext context) {

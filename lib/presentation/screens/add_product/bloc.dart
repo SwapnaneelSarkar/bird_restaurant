@@ -1,4 +1,3 @@
-
 // lib/presentation/screens/add_product/bloc.dart
 import 'dart:convert';
 import 'dart:io';
@@ -32,6 +31,7 @@ class AddProductBloc extends Bloc<AddProductEvent, AddProductState> {
 
   void _onInitialize(AddProductInitEvent event, Emitter<AddProductState> emit) async {
     // Initially emit a state with an empty categories list
+    debugPrint('BLoC: Emitting initial AddProductFormState (empty categories)');
     emit(AddProductFormState(
       product: ProductModel(),
       categories: [],
@@ -40,12 +40,13 @@ class AddProductBloc extends Bloc<AddProductEvent, AddProductState> {
     try {
       // Fetch categories from API
       final categories = await _fetchCategories();
-      
+      debugPrint('BLoC: Emitting AddProductFormState (categories loaded, count: [32m${categories.length}[0m)');
       emit(AddProductFormState(
         product: ProductModel(),
         categories: categories,
       ));
     } catch (e) {
+      debugPrint('BLoC: Emitting AddProductFormState (error: $e)');
       emit(AddProductFormState(
         product: ProductModel(),
         categories: [],
