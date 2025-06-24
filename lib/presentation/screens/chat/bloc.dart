@@ -677,20 +677,18 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
   // Helper method to format time
   String _formatTime(DateTime dateTime) {
     final istTime = TimeUtils.toIST(dateTime);
-    final istNow = TimeUtils.getCurrentIST();
-    
-    // Check if it's today
-    if (TimeUtils.isToday(dateTime)) {
+    // Always use IST for all checks and formatting
+    if (TimeUtils.isToday(istTime)) {
       // Today: show 12-hour IST time (e.g., "2:30 PM")
-      return TimeUtils.formatChatMessageTime(dateTime);
-    } else if (TimeUtils.isYesterday(dateTime)) {
+      return TimeUtils.formatChatMessageTime(istTime);
+    } else if (TimeUtils.isYesterday(istTime)) {
       // Yesterday: show "Yesterday 2:30 PM"
-      final timeStr = TimeUtils.formatChatMessageTime(dateTime);
+      final timeStr = TimeUtils.formatChatMessageTime(istTime);
       return 'Yesterday $timeStr';
     } else {
       // Older: show date with time (e.g., "12/25/2024 2:30 PM")
       final dateStr = '${istTime.month.toString().padLeft(2, '0')}/${istTime.day.toString().padLeft(2, '0')}/${istTime.year}';
-      final timeStr = TimeUtils.formatChatMessageTime(dateTime);
+      final timeStr = TimeUtils.formatChatMessageTime(istTime);
       return '$dateStr $timeStr';
     }
   }
