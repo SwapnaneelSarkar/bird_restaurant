@@ -430,10 +430,10 @@ class MenuItemsBloc extends Bloc<MenuItemsEvent, MenuItemsState> {
 
       switch (event.filterType) {
         case FilterType.priceLowToHigh:
-          filteredItems.sort((a, b) => (a.price).compareTo(b.price));
+          filteredItems.sort((a, b) => double.parse(a.price).compareTo(double.parse(b.price)));
           break;
         case FilterType.priceHighToLow:
-          filteredItems.sort((a, b) => (b.price).compareTo(a.price));
+          filteredItems.sort((a, b) => double.parse(b.price).compareTo(double.parse(a.price)));
           break;
         case FilterType.nameAZ:
           filteredItems.sort((a, b) => a.name.compareTo(b.name));

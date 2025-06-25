@@ -214,28 +214,28 @@ class Order {
 }
 
 class OrderItem {
-  final String id;
-  final String name;
+  final String menuId;
   final int quantity;
   final double price;
+  final String? name;
   final String? description;
   final String? imageUrl;
 
   const OrderItem({
-    required this.id,
-    required this.name,
+    required this.menuId,
     required this.quantity,
     required this.price,
+    this.name,
     this.description,
     this.imageUrl,
   });
 
   factory OrderItem.fromJson(Map<String, dynamic> json) {
     return OrderItem(
-      id: json['id'] ?? json['item_id'] ?? '',
-      name: json['name'] ?? json['item_name'] ?? '',
+      menuId: json['menu_id'] ?? json['id'] ?? json['item_id'] ?? '',
       quantity: int.tryParse(json['quantity']?.toString() ?? '1') ?? 1,
-      price: double.tryParse(json['price']?.toString() ?? '0') ?? 0.0,
+      price: double.tryParse(json['item_price']?.toString() ?? json['price']?.toString() ?? '0') ?? 0.0,
+      name: json['name'],
       description: json['description'],
       imageUrl: json['image_url'] ?? json['imageUrl'],
     );
@@ -243,10 +243,10 @@ class OrderItem {
 
   Map<String, dynamic> toJson() {
     return {
-      'id': id,
-      'name': name,
+      'menu_id': menuId,
       'quantity': quantity,
-      'price': price,
+      'item_price': price,
+      'name': name,
       'description': description,
       'image_url': imageUrl,
     };

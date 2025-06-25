@@ -10,6 +10,7 @@ import 'bloc.dart';
 import 'event.dart';
 import 'state.dart';
 import '../../../services/restaurant_info_service.dart';
+import '../../../ui_components/order_options_bottom_sheet_for_orders_page.dart';
 
 // Wrapper widget that provides OrdersBloc
 class OrdersScreen extends StatelessWidget {
@@ -503,6 +504,15 @@ class _OrdersViewState extends State<OrdersView> {
                     status: order.orderStatus,
                     customerPhone: order.customerPhone,
                     deliveryAddress: order.deliveryAddress,
+                    onTap: () {
+                      final ordersBloc = context.read<OrdersBloc>();
+                      showModalBottomSheet(
+                        context: context,
+                        isScrollControlled: true,
+                        backgroundColor: Colors.transparent,
+                        builder: (context) => OrderOptionsBottomSheetForOrdersPage(order: order, ordersBloc: ordersBloc),
+                      );
+                    },
                   );
                 },
                 childCount: state.filteredOrders.length,

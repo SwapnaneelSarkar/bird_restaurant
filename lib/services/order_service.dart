@@ -8,6 +8,7 @@ import '../presentation/screens/chat/state.dart';
 import '../constants/api_constants.dart';
 import '../services/token_service.dart';
 import '../utils/time_utils.dart';
+import '../models/order_model.dart';
 
 class OrderService {
   static const String baseUrl = 'https://api.bird.delivery/api';
@@ -32,32 +33,48 @@ class OrderService {
       if (token == null) {
         throw Exception('No authentication token found');
       }
-
-      // Use the FULL order ID - do not truncate or format it
       final fullOrderId = _getFullOrderId(orderId);
-      final url = Uri.parse('$baseUrl/partner/orders/$partnerId/$fullOrderId');
-      
-      final response = await http.get(
-        url,
+      final partnerUrl = Uri.parse('$baseUrl/partner/orders/$partnerId/$fullOrderId');
+      final userUrl = Uri.parse('$baseUrl/user/order/$fullOrderId');
+      // Try partner endpoint first
+      var response = await http.get(
+        partnerUrl,
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
         },
       );
-
-      print('OrderService: GET $url');
-      print('OrderService: Using Partner ID: $partnerId');
-      print('OrderService: Using Full Order ID: $fullOrderId');
+      print('OrderService: GET $partnerUrl');
       print('OrderService: Response status: ${response.statusCode}');
       print('OrderService: Response body: ${response.body}');
-
       if (response.statusCode == 200) {
         final Map<String, dynamic> responseBody = json.decode(response.body);
-        
         if (responseBody['status'] == 'SUCCESS' && responseBody['data'] != null) {
           return OrderDetails.fromJson(responseBody['data']);
         } else {
           throw Exception(responseBody['message'] ?? 'Failed to get order details');
+        }
+      } else if (response.statusCode == 404) {
+        // Try user endpoint as fallback
+        response = await http.get(
+          userUrl,
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $token',
+          },
+        );
+        print('OrderService: Fallback GET $userUrl');
+        print('OrderService: Response status: ${response.statusCode}');
+        print('OrderService: Response body: ${response.body}');
+        if (response.statusCode == 200) {
+          final Map<String, dynamic> responseBody = json.decode(response.body);
+          if (responseBody['status'] == 'SUCCESS' && responseBody['data'] != null) {
+            return OrderDetails.fromJson(responseBody['data']);
+          } else {
+            throw Exception(responseBody['message'] ?? 'Failed to get order details');
+          }
+        } else {
+          throw Exception('HTTP ${response.statusCode}: Failed to fetch order details from both endpoints');
         }
       } else {
         throw Exception('HTTP ${response.statusCode}: Failed to fetch order details');
@@ -440,5 +457,33 @@ static Map<String, dynamic> getStatusValidationInfo(String currentStatus, String
   static bool isActiveStatus(String status) {
     return ['CONFIRMED', 'PREPARING', 'READY_FOR_DELIVERY', 'OUT_FOR_DELIVERY']
         .contains(status.toUpperCase());
+  }
+
+  static Future<Order?> fetchOrderDetailsById(String orderId) async {
+    try {
+      final token = await TokenService.getToken();
+      if (token == null) throw Exception('No authentication token found');
+      final url = Uri.parse('${ApiConstants.baseUrl}/user/order/$orderId');
+      final response = await http.get(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> responseBody = json.decode(response.body);
+        if (responseBody['status'] == 'SUCCESS' && responseBody['data'] != null) {
+          return Order.fromJson(responseBody['data']);
+        } else {
+          throw Exception(responseBody['message'] ?? 'Failed to get order details');
+        }
+      } else {
+        throw Exception('HTTP ${response.statusCode}: Failed to fetch order details');
+      }
+    } catch (e) {
+      print('OrderService: Error fetching order details: $e');
+      return null;
+    }
   }
 }
