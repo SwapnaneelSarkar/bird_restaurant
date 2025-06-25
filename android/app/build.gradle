@@ -1,0 +1,107 @@
+plugins {
+    id "com.android.application"
+    id 'com.google.gms.google-services'
+    id "kotlin-android"
+    id "dev.flutter.flutter-gradle-plugin"
+}
+
+// Load keystore properties
+def keystorePropertiesFile = rootProject.file('key.properties')
+def keystoreProperties = new Properties()
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+}
+
+android {
+    namespace = "com.birdpartner.app"
+    compileSdk = 35
+    ndkVersion = flutter.ndkVersion
+
+    compileOptions {
+        // Enable core library desugaring for flutter_local_notifications
+        coreLibraryDesugaringEnabled = true
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+
+    kotlinOptions {
+        jvmTarget = '17'
+    }
+
+    defaultConfig {
+        applicationId = "com.birdpartner.app"
+        minSdkVersion 23
+        targetSdkVersion 35
+        versionCode = 4
+        versionName = "1.0.2"
+        multiDexEnabled true
+    }
+
+    signingConfigs {
+        release {
+            if (keystoreProperties['keyAlias']) {
+                keyAlias keystoreProperties['keyAlias']
+                keyPassword keystoreProperties['keyPassword']
+                storeFile keystoreProperties['storeFile'] ? file(keystoreProperties['storeFile']) : null
+                storePassword keystoreProperties['storePassword']
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            signingConfig signingConfigs.release
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+        debug {
+            minifyEnabled false
+            debuggable true
+        }
+    }
+
+    // Add this block to resolve dependency conflicts
+    configurations.all {
+        resolutionStrategy {
+            // Force exclude the problematic BouncyCastle version
+            exclude group: 'org.bouncycastle', module: 'bcprov-jdk18on'
+            // Force a compatible version if needed
+            force 'org.bouncycastle:bcprov-jdk15on:1.70'
+        }
+    }
+
+    packagingOptions {
+        pickFirst '**/META-INF/DEPENDENCIES'
+        pickFirst '**/META-INF/LICENSE'
+        pickFirst '**/META-INF/LICENSE.txt'
+        pickFirst '**/META-INF/NOTICE'
+        pickFirst '**/META-INF/NOTICE.txt'
+        pickFirst '**/META-INF/ASL2.0'
+        pickFirst '**/META-INF/LGPL2.1'
+    }
+}
+
+flutter {
+    source = "../.."
+}
+
+dependencies {
+    // Core library desugaring for flutter_local_notifications
+    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.4'
+    
+    // Existing Firebase dependencies
+    implementation platform('com.google.firebase:firebase-bom:33.5.1')
+    implementation 'com.google.firebase:firebase-auth-ktx'
+    implementation 'com.google.firebase:firebase-analytics-ktx'
+    
+    // Firebase Messaging for push notifications
+    implementation 'com.google.firebase:firebase-messaging-ktx'
+    
+    // Existing dependencies
+    implementation 'androidx.multidex:multidex:2.0.1'
+    implementation 'com.google.android.gms:play-services-auth:21.3.0'
+    implementation 'com.google.android.gms:play-services-base:18.5.0'
+    implementation 'com.google.android.recaptcha:recaptcha:18.6.1'
+    implementation 'androidx.browser:browser:1.8.0'
+}

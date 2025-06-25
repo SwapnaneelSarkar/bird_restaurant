@@ -20,10 +20,10 @@
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         
-        <!-- Disable Play Integrity API to bypass project number mismatch -->
+        <!-- Enable Firebase App Check for production -->
         <meta-data
-            android:name="com.google.android.gms.security.core.PlayIntegrityApi"
-            android:value="false" />
+            android:name="firebase_appcheck_debug_token"
+            android:value="true" />
             
         <!-- FCM Default notification channel ID -->
         <meta-data

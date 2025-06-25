@@ -1,0 +1,28 @@
+FIREBASE CONFIGURATION FIX
+
+To fix the Firebase Authentication error, you need to add these SHA fingerprints to your Firebase Console:
+
+1. Go to: https://console.firebase.google.com/
+2. Select your project: "bird-partner"
+3. Click the gear icon (⚙️) next to "Project Overview"
+4. Select "Project settings"
+5. In the "General" tab, find your Android app: "com.birdpartner.app"
+6. Click "Add fingerprint" and add these fingerprints:
+
+DEBUG BUILD:
+- SHA-1: FC:01:4A:A3:EF:92:8E:F3:12:64:17:1A:BE:08:07:17:66:42:86:48
+- SHA-256: 9C:FF:46:86:AE:17:AA:5E:67:E9:51:07:62:D3:A8:E7:7A:E0:7A:34:AD:81:97:7B:B6:A0:14:81:9A:5A:17:C6
+
+RELEASE BUILD:
+- SHA-1: D8:06:B7:6B:16:AC:B3:6C:DC:C0:80:51:83:45:43:7C:7B:50:17:AB
+- SHA-256: 85:C9:5A:F6:A5:F5:E1:C8:54:48:B7:37:D7:8B:3C:CB:EE:38:37:7E:BB:3D:E9:49:B5:52:BD:76:E4:18:4B:E2
+
+7. After adding all fingerprints, download the updated google-services.json
+8. Replace your current google-services.json file with the new one
+
+ALTERNATIVE QUICK FIX:
+If you want to test quickly, try building a release version:
+flutter build apk --release
+flutter install --release
+
+The release build might work if the release keystore is already configured in Firebase Console. 

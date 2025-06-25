@@ -26,15 +26,8 @@ class ChatListView extends StatefulWidget {
 
 class _ChatListViewState extends State<ChatListView> with TickerProviderStateMixin, WidgetsBindingObserver {
   late ChatListBloc _chatListBloc;
-  final TextEditingController _searchController = TextEditingController();
-  final FocusNode _searchFocusNode = FocusNode();
   final GlobalKey<RefreshIndicatorState> _refreshIndicatorKey = GlobalKey<RefreshIndicatorState>();
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
-  
-  late AnimationController _searchAnimationController;
-  late Animation<double> _searchSlideAnimation;
-  late Animation<double> _searchFadeAnimation;
-  bool _isSearchExpanded = false;
   
   // Bottom navigation
   int _selectedIndex = 1; // Set to 1 since this is the chat screen
@@ -46,31 +39,6 @@ class _ChatListViewState extends State<ChatListView> with TickerProviderStateMix
     WidgetsBinding.instance.addObserver(this);
     
     _chatListBloc = ChatListBloc()..add(const LoadChatRooms());
-    
-    // Initialize search animations
-    _searchAnimationController = AnimationController(
-      duration: const Duration(milliseconds: 300),
-      vsync: this,
-    );
-    
-    _searchSlideAnimation = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _searchAnimationController,
-      curve: Curves.easeOutCubic,
-    ));
-    
-    _searchFadeAnimation = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _searchAnimationController,
-      curve: const Interval(0.3, 1.0, curve: Curves.easeOut),
-    ));
-    
-    // Add listener for search controller
-    _searchController.addListener(_onSearchChanged);
   }
 
   @override
@@ -78,10 +46,6 @@ class _ChatListViewState extends State<ChatListView> with TickerProviderStateMix
     // Remove observer
     WidgetsBinding.instance.removeObserver(this);
     
-    _searchController.removeListener(_onSearchChanged);
-    _searchController.dispose();
-    _searchFocusNode.dispose();
-    _searchAnimationController.dispose();
     _chatListBloc.close();
     super.dispose();
   }
@@ -96,31 +60,9 @@ class _ChatListViewState extends State<ChatListView> with TickerProviderStateMix
     }
   }
 
-  void _onSearchChanged() {
-    _chatListBloc.add(SearchChatRooms(_searchController.text));
-  }
-
   Future<void> _handleRefresh() async {
     _chatListBloc.add(const RefreshChatRooms());
     return Future.delayed(const Duration(seconds: 1));
-  }
-
-  void _toggleSearch() {
-    setState(() {
-      _isSearchExpanded = !_isSearchExpanded;
-    });
-    
-    if (_isSearchExpanded) {
-      _searchAnimationController.forward();
-      Future.delayed(const Duration(milliseconds: 200), () {
-        _searchFocusNode.requestFocus();
-      });
-    } else {
-      _searchAnimationController.reverse();
-      _searchFocusNode.unfocus();
-      _searchController.clear();
-      _chatListBloc.add(const ClearSearch());
-    }
   }
 
   void _onBottomNavTapped(int index) {
@@ -186,7 +128,6 @@ class _ChatListViewState extends State<ChatListView> with TickerProviderStateMix
                   child: Column(
                     children: [
                       _buildHeader(),
-                      _buildSearchBar(),
                       Expanded(
                         child: _buildBody(state),
                       ),
@@ -235,80 +176,8 @@ class _ChatListViewState extends State<ChatListView> with TickerProviderStateMix
               fontFamily: FontFamily.Montserrat,
             ),
           ),
-          IconButton(
-            icon: Icon(
-              _isSearchExpanded ? Icons.close : Icons.search,
-              color: ColorManager.primary,
-            ),
-            onPressed: _toggleSearch,
-          ),
         ],
       ),
-    );
-  }
-
-  Widget _buildSearchBar() {
-    return AnimatedBuilder(
-      animation: _searchSlideAnimation,
-      builder: (context, child) {
-        return Container(
-          height: _searchSlideAnimation.value * 60,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            border: Border(
-              bottom: BorderSide(
-                color: Colors.grey.shade200,
-                width: 1,
-              ),
-            ),
-          ),
-          child: FadeTransition(
-            opacity: _searchFadeAnimation,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: TextField(
-                controller: _searchController,
-                focusNode: _searchFocusNode,
-                style: TextStyle(
-                  fontSize: FontSize.s16,
-                  fontFamily: FontFamily.Montserrat,
-                  color: ColorManager.black,
-                ),
-                decoration: InputDecoration(
-                  hintText: 'Search chats...',
-                  hintStyle: TextStyle(
-                    color: Colors.grey[500],
-                    fontFamily: FontFamily.Montserrat,
-                  ),
-                  prefixIcon: Icon(
-                    Icons.search,
-                    color: Colors.grey[500],
-                    size: 20,
-                  ),
-                  suffixIcon: _searchController.text.isNotEmpty
-                      ? GestureDetector(
-                          onTap: () {
-                            _searchController.clear();
-                            _chatListBloc.add(const ClearSearch());
-                          },
-                          child: Icon(
-                            Icons.clear,
-                            color: Colors.grey[500],
-                            size: 20,
-                          ),
-                        )
-                      : null,
-                  border: InputBorder.none,
-                  contentPadding: const EdgeInsets.symmetric(
-                    vertical: 12,
-                    horizontal: 8,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        );
-      },
     );
   }
 
@@ -322,9 +191,6 @@ class _ChatListViewState extends State<ChatListView> with TickerProviderStateMix
     } else if (state is ChatListEmpty) {
       return _buildEmptyState(state.message);
     } else if (state is ChatListLoaded) {
-      if (state.isSearching && state.filteredChatRooms.isEmpty) {
-        return _buildSearchEmptyState(state.searchQuery);
-      }
       return _buildChatList(state.filteredChatRooms);
     }
     
@@ -602,62 +468,6 @@ class _ChatListViewState extends State<ChatListView> with TickerProviderStateMix
             ),
             child: Text(
               'Refresh',
-              style: TextStyle(
-                fontSize: FontSize.s14,
-                fontWeight: FontWeightManager.medium,
-                fontFamily: FontFamily.Montserrat,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSearchEmptyState(String query) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.search_off,
-            size: 80,
-            color: Colors.grey[400],
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'No Results Found',
-            style: TextStyle(
-              fontSize: FontSize.s18,
-              fontWeight: FontWeightManager.semiBold,
-              color: ColorManager.black,
-              fontFamily: FontFamily.Montserrat,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 32),
-            child: Text(
-              'No chats found for "$query".\nTry a different search term.',
-              style: TextStyle(
-                fontSize: FontSize.s14,
-                color: Colors.grey[600],
-                fontFamily: FontFamily.Montserrat,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ),
-          const SizedBox(height: 24),
-          TextButton(
-            onPressed: () {
-              _searchController.clear();
-              _chatListBloc.add(const ClearSearch());
-            },
-            style: TextButton.styleFrom(
-              foregroundColor: ColorManager.primary,
-            ),
-            child: Text(
-              'Clear Search',
               style: TextStyle(
                 fontSize: FontSize.s14,
                 fontWeight: FontWeightManager.medium,

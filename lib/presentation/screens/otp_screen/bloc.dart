@@ -71,86 +71,93 @@ class OtpBloc extends Bloc<OtpEvent, OtpState> {
   }
 
   Future<void> _onInitializeOtp(InitializeOtpEvent event, Emitter<OtpState> emit) async {
-    if (event.mobileNumber.isEmpty) {
-      emit(state.copyWith(
-        status: OtpStatus.failure,
-        errorMessage: 'Phone number is required',
-      ));
-      return;
-    }
-
+  if (event.mobileNumber.isEmpty) {
     emit(state.copyWith(
-      mobileNumber: event.mobileNumber,
-      status: OtpStatus.validating,
+      status: OtpStatus.failure,
+      errorMessage: 'Phone number is required',
     ));
-    
-    try {
-      debugPrint('Initializing OTP for phone: ${event.mobileNumber}');
-      
-      // Only use test mode for the specific test phone number
-      if (event.mobileNumber == '+911111111111') {
-        debugPrint('Test phone number detected');
-        
-        // For iOS test numbers, skip Firebase and use direct verification
-        if (Platform.isIOS) {
-          debugPrint('iOS detected - using test mode');
-          // Set a dummy verification ID for test
-          emit(state.copyWith(
-            verificationId: 'test-verification-id',
-            status: OtpStatus.initial,
-          ));
-          add(StartTimerEvent());
-          return;
-        } else {
-          // For Android, use the regular Firebase flow with test settings
-          await _auth.setSettings(
-            appVerificationDisabledForTesting: true,
-            forceRecaptchaFlow: false,
-          );
-        }
-      }
-      
-      // For all real phone numbers (including on iOS), use Firebase Phone Auth
-      debugPrint('Starting Firebase phone verification');
-      
-      await _auth.verifyPhoneNumber(
-        phoneNumber: event.mobileNumber,
-        verificationCompleted: (PhoneAuthCredential credential) async {
-          debugPrint('✅ Verification completed automatically');
-          add(VerificationCompleted(credential.smsCode ?? ''));
-        },
-        verificationFailed: (FirebaseAuthException e) {
-          debugPrint('❌ Verification failed: ${e.code} - ${e.message}');
-          if (e.code == 'invalid-phone-number') {
-            add(VerificationFailed('The provided phone number is not valid.'));
-          } else if (e.code == 'missing-client-identifier') {
-            add(VerificationFailed('Missing client identifier. Please check your Firebase configuration.'));
-          } else if (e.code == 'app-not-authorized') {
-            add(VerificationFailed('This app is not authorized to use Firebase Authentication. Please check your Firebase configuration.'));
-          } else {
-            add(VerificationFailed(e.message ?? 'Verification failed'));
-          }
-        },
-        codeSent: (String verificationId, int? resendToken) {
-          debugPrint('✅ Code sent! Verification ID: $verificationId');
-          add(CodeSent(verificationId));
-        },
-        codeAutoRetrievalTimeout: (String verificationId) {
-          debugPrint('⏰ Auto retrieval timeout. Verification ID: $verificationId');
-          if (state.verificationId == null) {
-            add(CodeSent(verificationId));
-          }
-        },
-        timeout: const Duration(seconds: 60),
-      );
-    } catch (e) {
-      debugPrint('❌ Error in _onInitializeOtp: $e');
-      emit(state.copyWith(
-        status: OtpStatus.failure,
-        errorMessage: 'Failed to send OTP: $e',
-      ));
-    }
+    return;
   }
+
+  emit(state.copyWith(
+    mobileNumber: event.mobileNumber,
+    status: OtpStatus.validating,
+  ));
+  
+  try {
+    debugPrint('Initializing OTP for phone: ${event.mobileNumber}');
+    
+    // Only use test mode for the specific test phone number
+    if (event.mobileNumber == '+911111111111') {
+      debugPrint('Test phone number detected');
+      
+      // For iOS test numbers, skip Firebase and use direct verification
+      if (Platform.isIOS) {
+        debugPrint('iOS detected - using test mode');
+        // Set a dummy verification ID for test
+        emit(state.copyWith(
+          verificationId: 'test-verification-id',
+          status: OtpStatus.initial,
+        ));
+        add(StartTimerEvent());
+        return;
+      } else {
+        // For Android test numbers, use proper test settings
+        await _auth.setSettings(
+          appVerificationDisabledForTesting: true,
+          forceRecaptchaFlow: false,
+        );
+      }
+    } else {
+      // ✅ FOR REAL PHONE NUMBERS - THIS IS THE KEY FIX
+      debugPrint('Real phone number - enabling reCAPTCHA fallback');
+      await _auth.setSettings(
+        appVerificationDisabledForTesting: false,  // ✅ Changed from true to false
+        forceRecaptchaFlow: true,                  // ✅ Changed from false to true
+      );
+    }
+    
+    // For all real phone numbers (including on iOS), use Firebase Phone Auth
+    debugPrint('Starting Firebase phone verification');
+    
+    await _auth.verifyPhoneNumber(
+      phoneNumber: event.mobileNumber,
+      verificationCompleted: (PhoneAuthCredential credential) async {
+        debugPrint('✅ Verification completed automatically');
+        add(VerificationCompleted(credential.smsCode ?? ''));
+      },
+      verificationFailed: (FirebaseAuthException e) {
+        debugPrint('❌ Verification failed: ${e.code} - ${e.message}');
+        if (e.code == 'invalid-phone-number') {
+          add(VerificationFailed('The provided phone number is not valid.'));
+        } else if (e.code == 'missing-client-identifier') {
+          add(VerificationFailed('Missing client identifier. Please check your Firebase configuration.'));
+        } else if (e.code == 'app-not-authorized') {
+          add(VerificationFailed('This app is not authorized to use Firebase Authentication. Please check your Firebase configuration.'));
+        } else {
+          add(VerificationFailed(e.message ?? 'Verification failed'));
+        }
+      },
+      codeSent: (String verificationId, int? resendToken) {
+        debugPrint('✅ Code sent! Verification ID: $verificationId');
+        add(CodeSent(verificationId));
+      },
+      codeAutoRetrievalTimeout: (String verificationId) {
+        debugPrint('⏰ Auto retrieval timeout. Verification ID: $verificationId');
+        if (state.verificationId == null) {
+          add(CodeSent(verificationId));
+        }
+      },
+      timeout: const Duration(seconds: 60),
+    );
+  } catch (e) {
+    debugPrint('❌ Error in _onInitializeOtp: $e');
+    emit(state.copyWith(
+      status: OtpStatus.failure,
+      errorMessage: 'Failed to send OTP: $e',
+    ));
+  }
+}
 
   void _onVerificationCompleted(VerificationCompleted event, Emitter<OtpState> emit) {
     final smsCode = event.smsCode;

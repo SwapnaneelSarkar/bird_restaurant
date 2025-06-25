@@ -63,7 +63,7 @@ class DefaultFirebaseOptions {
     messagingSenderId: '230772297916',
     projectId: 'bird-partner',
     storageBucket: 'bird-partner.firebasestorage.app',
-    androidClientId: '230772297916-s51nthchbk4tp62ks61kgt9fsafldr7a.apps.googleusercontent.com',
+    androidClientId: '230772297916-5km5le4aodjpmh81u3qdksa4q4lb3b9e.apps.googleusercontent.com',
     iosClientId: '230772297916-bd92kf9frm7bkmii867aappau4un0h97.apps.googleusercontent.com',
     iosBundleId: 'com.birdpartner.app',
   );
