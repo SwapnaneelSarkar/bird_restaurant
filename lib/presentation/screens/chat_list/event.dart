@@ -42,11 +42,3 @@ class SelectChatRoom extends ChatListEvent {
   @override
   List<Object?> get props => [roomId, orderId];
 }
-
-class StartAutoRefresh extends ChatListEvent {
-  const StartAutoRefresh();
-}
-
-class StopAutoRefresh extends ChatListEvent {
-  const StopAutoRefresh();
-}

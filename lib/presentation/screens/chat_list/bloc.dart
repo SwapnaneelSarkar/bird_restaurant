@@ -15,19 +15,19 @@ import 'state.dart';
 
 class ChatListBloc extends Bloc<ChatListEvent, ChatListState> {
   Timer? _debounce;
-  Timer? _autoRefreshTimer;
   
   ChatListBloc() : super(ChatListInitial()) {
+    
+    debugPrint('ChatListBloc: Initializing...');
+    
+    // Register event handlers
     on<LoadChatRooms>(_onLoadChatRooms);
     on<RefreshChatRooms>(_onRefreshChatRooms);
     on<SearchChatRooms>(_onSearchChatRooms);
     on<ClearSearch>(_onClearSearch);
     on<SelectChatRoom>(_onSelectChatRoom);
-    on<StartAutoRefresh>(_onStartAutoRefresh);
-    on<StopAutoRefresh>(_onStopAutoRefresh);
     
-    // Start auto-refresh when bloc is created
-    add(const StartAutoRefresh());
+    debugPrint('ChatListBloc: Event handlers registered');
   }
 
   Future<void> _onLoadChatRooms(LoadChatRooms event, Emitter<ChatListState> emit) async {
@@ -141,25 +141,6 @@ class ChatListBloc extends Bloc<ChatListEvent, ChatListState> {
     // This event is handled in the UI for navigation
   }
 
-  void _onStartAutoRefresh(StartAutoRefresh event, Emitter<ChatListState> emit) {
-    debugPrint('ChatListBloc: Starting auto-refresh');
-    _autoRefreshTimer?.cancel();
-    
-    // Refresh chat list every 30 seconds
-    _autoRefreshTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
-      if (!isClosed) {
-        debugPrint('ChatListBloc: Auto-refreshing chat list');
-        add(const RefreshChatRooms());
-      }
-    });
-  }
-
-  void _onStopAutoRefresh(StopAutoRefresh event, Emitter<ChatListState> emit) {
-    debugPrint('ChatListBloc: Stopping auto-refresh');
-    _autoRefreshTimer?.cancel();
-    _autoRefreshTimer = null;
-  }
-
   Future<List<ChatRoom>> _fetchChatRooms() async {
     try {
       // Get authentication data
@@ -238,7 +219,6 @@ class ChatListBloc extends Bloc<ChatListEvent, ChatListState> {
   @override
   Future<void> close() {
     _debounce?.cancel();
-    _autoRefreshTimer?.cancel();
     return super.close();
   }
 }

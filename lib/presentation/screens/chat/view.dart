@@ -1,4 +1,4 @@
-// lib/presentation/screens/chat/view.dart - FIXED VERSION WITH WHATSAPP-STYLE MESSAGE LAYOUT
+// lib/presentation/screens/chat/view.dart - ORIGINAL VERSION
 
 import 'dart:async';
 import 'package:flutter/material.dart';
@@ -28,9 +28,11 @@ class _ChatViewState extends State<ChatView> {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   Timer? _typingTimer;
+  Timer? _markAsReadDebounceTimer;
   bool _isTyping = false;
   int _previousMessageCount = 0;
   bool _shouldAutoScroll = true;
+  bool _hasMarkedAsRead = false;
 
   @override
   void initState() {
@@ -40,6 +42,13 @@ class _ChatViewState extends State<ChatView> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         context.read<ChatBloc>().add(LoadChatData(widget.orderId));
+        
+        // Mark messages as read after a short delay to ensure chat is loaded
+        Future.delayed(const Duration(milliseconds: 1000), () {
+          if (mounted) {
+            _markMessagesAsReadOnView();
+          }
+        });
       }
     });
 
@@ -54,6 +63,9 @@ class _ChatViewState extends State<ChatView> {
         setState(() {
           _shouldAutoScroll = (maxScroll - currentScroll) < 100;
         });
+        
+        // Mark messages as read when user scrolls to view them
+        _markMessagesAsReadOnScroll();
       }
     });
   }
@@ -63,6 +75,7 @@ class _ChatViewState extends State<ChatView> {
     _messageController.dispose();
     _scrollController.dispose();
     _typingTimer?.cancel();
+    _markAsReadDebounceTimer?.cancel();
     super.dispose();
   }
 
@@ -125,10 +138,91 @@ class _ChatViewState extends State<ChatView> {
   void _checkForNewMessages(List<chat_state.ChatMessage> messages) {
     // CRITICAL: Always scroll to bottom when new messages arrive if auto-scroll is enabled
     if (messages.length > _previousMessageCount && _shouldAutoScroll) {
-      debugPrint('ChatView: 📱 New messages detected (${messages.length} vs $_previousMessageCount), scrolling to bottom');
       _scrollToBottom();
     }
+    
+    // Reset mark as read flag when new messages arrive
+    if (messages.length > _previousMessageCount) {
+      _hasMarkedAsRead = false;
+    }
+    
     _previousMessageCount = messages.length;
+  }
+
+  // NEW: Mark messages as read when user scrolls to view them
+  void _markMessagesAsReadOnScroll() {
+    if (!mounted || _hasMarkedAsRead) return;
+    
+    // Cancel any existing timer
+    _markAsReadDebounceTimer?.cancel();
+    
+    // Debounce the mark as read call to avoid too many API calls
+    _markAsReadDebounceTimer = Timer(const Duration(milliseconds: 500), () {
+      if (!mounted) return;
+      
+      try {
+        final chatBloc = context.read<ChatBloc>();
+        final currentState = chatBloc.state;
+        
+        if (currentState is chat_state.ChatLoaded && 
+            currentState.messages.isNotEmpty &&
+            chatBloc.currentRoomId != null) {
+          
+          // Check if user has scrolled to view unread messages
+          final unreadMessages = currentState.messages.where((msg) => 
+              !msg.isUserMessage && !msg.isRead).toList();
+          
+          if (unreadMessages.isNotEmpty) {
+            // Mark messages as read via API
+            chatBloc.add(MarkAsRead(chatBloc.currentRoomId!));
+            _hasMarkedAsRead = true;
+          }
+        }
+      } catch (e) {
+        debugPrint('Error marking messages as read: $e');
+      }
+    });
+  }
+
+  // NEW: Mark messages as read when chat is loaded
+  void _markMessagesAsReadOnChatLoad(chat_state.ChatLoaded state) {
+    if (!mounted || _hasMarkedAsRead) return;
+    
+    try {
+      final chatBloc = context.read<ChatBloc>();
+      
+      if (state.messages.isNotEmpty && chatBloc.currentRoomId != null) {
+        // Check if there are unread messages
+        final unreadMessages = state.messages.where((msg) => 
+            !msg.isUserMessage && !msg.isRead).toList();
+        
+        if (unreadMessages.isNotEmpty) {
+          // Mark all messages as read via API
+          chatBloc.add(MarkAsRead(chatBloc.currentRoomId!));
+          _hasMarkedAsRead = true;
+        }
+      }
+    } catch (e) {
+      debugPrint('Error marking messages as read: $e');
+    }
+  }
+
+  // NEW: Mark messages as read when the user first views the chat screen
+  void _markMessagesAsReadOnView() {
+    if (!mounted || _hasMarkedAsRead) return;
+    
+    try {
+      final chatBloc = context.read<ChatBloc>();
+      
+      if (chatBloc.state is chat_state.ChatLoaded && 
+          chatBloc.currentRoomId != null) {
+        // Mark all messages as read via API
+        chatBloc.add(MarkAsRead(chatBloc.currentRoomId!));
+        _hasMarkedAsRead = true;
+      }
+    } catch (e) {
+      debugPrint('Error marking messages as read: $e');
+    }
   }
 
 @override
@@ -142,6 +236,10 @@ Widget build(BuildContext context) {
           listenWhen: (previous, current) {
             if (current is chat_state.ChatLoaded) {
               _checkForNewMessages(current.messages);
+              
+              // Mark messages as read when chat is loaded
+              _markMessagesAsReadOnChatLoad(current);
+              
               return false; // Don't trigger listener for message updates
             }
             return current is chat_state.ChatError;
@@ -165,7 +263,7 @@ Widget build(BuildContext context) {
           },
         ),
         
-        // NEW: Add this listener for status updates
+        // NEW: Add this listener for status update completion
         BlocListener<ChatBloc, chat_state.ChatState>(
           listenWhen: (previous, current) {
             // Listen specifically for status update completion
@@ -178,7 +276,6 @@ Widget build(BuildContext context) {
           listener: (context, state) {
             if (state is chat_state.ChatLoaded && state.lastUpdateSuccess == true) {
               // Status was successfully updated - show success snackbar
-              debugPrint('ChatView: Status update successful, showing success snackbar');
               
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
@@ -207,7 +304,6 @@ Widget build(BuildContext context) {
               );
               
               // Refresh the entire chat view
-              debugPrint('ChatView: Status update successful, refreshing view');
               
               // Reload the chat data to get updated order info
               context.read<ChatBloc>().add(chat_event.LoadChatData(widget.orderId));
@@ -237,7 +333,6 @@ Widget build(BuildContext context) {
           listener: (context, state) {
             if (state is chat_state.ChatLoaded && state.lastUpdateSuccess == false && state.lastUpdateMessage != null) {
               // Status update failed - show error snackbar
-              debugPrint('ChatView: Status update failed, showing snackbar: ${state.lastUpdateMessage}');
               
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
@@ -270,15 +365,16 @@ Widget build(BuildContext context) {
       ],
       child: BlocBuilder<ChatBloc, chat_state.ChatState>(
         builder: (context, state) {
+          
           if (state is chat_state.ChatLoading) {
             return _buildLoadingState();
           } else if (state is chat_state.ChatLoaded) {
             return _buildChatContent(context, state);
           } else if (state is chat_state.ChatError) {
             return _buildErrorState(context, state);
+          } else {
+            return _buildLoadingState(); // Show loading for initial state
           }
-          
-          return _buildLoadingState(); // Show loading for initial state
         },
       ),
     ),
@@ -421,13 +517,6 @@ Widget build(BuildContext context) {
               ],
             ),
           ),
-          // Refresh button
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: () {
-              context.read<ChatBloc>().add(const RefreshChat());
-            },
-          ),
         ],
       ),
     );
@@ -551,6 +640,7 @@ void _onOrderHeaderTap(chat_state.ChatOrderInfo orderInfo) {
 
 // Updated _buildMessagesList method
 Widget _buildMessagesList(BuildContext context, List<chat_state.ChatMessage> messages) {
+  
   if (messages.isEmpty) {
     return Center(
       child: Column(
@@ -598,11 +688,6 @@ Widget _buildMessagesList(BuildContext context, List<chat_state.ChatMessage> mes
 // Updated _buildMessageBubble method
 
 Widget _buildMessageBubble(chat_state.ChatMessage message) {
-  debugPrint('ChatView: 🎯 Rendering message:');
-  debugPrint('  - Content: ${message.message}');
-  debugPrint('  - isUserMessage: ${message.isUserMessage}');
-  debugPrint('  - isRead: ${message.isRead}'); // NEW: Log read status
-  debugPrint('  - Should appear on: ${message.isUserMessage ? 'RIGHT (Partner)' : 'LEFT (Customer)'}');
   
   final screenWidth = MediaQuery.of(context).size.width;
   
@@ -887,7 +972,6 @@ Widget _buildMessageBubble(chat_state.ChatMessage message) {
     final message = _messageController.text.trim();
     if (message.isNotEmpty && mounted) {
       try {
-        debugPrint('ChatView: 📤 Sending message: $message');
         context.read<ChatBloc>().add(SendMessage(message));
         _messageController.clear();
         
@@ -911,5 +995,30 @@ Widget _buildMessageBubble(chat_state.ChatMessage message) {
         );
       }
     }
+  }
+
+  Widget _buildConnectionStatusIndicator(chat_state.ChatLoaded state) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      color: state.isConnected ? Colors.green.withOpacity(0.1) : Colors.orange.withOpacity(0.1),
+      child: Row(
+        children: [
+          Icon(
+            state.isConnected ? Icons.wifi : Icons.wifi_off,
+            size: 16,
+            color: state.isConnected ? Colors.green : Colors.orange,
+          ),
+          const SizedBox(width: 8),
+          Text(
+            state.isConnected ? 'Connected' : 'Connecting...',
+            style: TextStyle(
+              fontSize: 12,
+              color: state.isConnected ? Colors.green : Colors.orange,
+              fontWeight: FontWeightManager.medium,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

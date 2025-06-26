@@ -115,6 +115,7 @@ class SocketChatService extends ChangeNotifier {
   String? _token;
   Timer? _typingTimer;
   Timer? _reconnectTimer;
+  Timer? _notifyDebounceTimer;
   bool _isDisposed = false;
   int _reconnectAttempts = 0;
   int _maxReconnectAttempts = 5;
@@ -161,13 +162,15 @@ class SocketChatService extends ChangeNotifier {
       }
 
       debugPrint('SocketChatService: 🔌 Initializing socket connection...');
+      debugPrint('SocketChatService: 🌐 WebSocket URL: $wsUrl');
+      debugPrint('SocketChatService: 🆔 User ID: $_currentUserId');
       
       _socket = IO.io(wsUrl, <String, dynamic>{
         'transports': ['websocket'],
         'autoConnect': false,
         'query': {
           'userId': _currentUserId,
-          'userType': 'partner', // Use partner as specified
+          'userType': 'partner',
         },
         'extraHeaders': {
           'Authorization': 'Bearer $_token',
@@ -176,12 +179,22 @@ class SocketChatService extends ChangeNotifier {
         'reconnection': true,
         'reconnectionAttempts': _maxReconnectAttempts,
         'reconnectionDelay': 3000,
+        'reconnectionDelayMax': 10000,
+        'maxReconnectionAttempts': _maxReconnectAttempts,
+        'forceNew': true,
+        'upgrade': false,
+        'rememberUpgrade': false,
+        'secure': true,
+        'rejectUnauthorized': false,
+        'pingTimeout': 60000,
+        'pingInterval': 25000,
       });
 
       _setupSocketEventHandlers();
       
     } catch (e) {
       debugPrint('SocketChatService: ❌ Error initializing socket: $e');
+      _handleConnectionFailure('Socket initialization failed: $e');
     }
   }
 
@@ -193,6 +206,8 @@ class SocketChatService extends ChangeNotifier {
     // Connection events
     _socket!.onConnect((_) {
       debugPrint('SocketChatService: ✅ Socket connected successfully');
+      debugPrint('SocketChatService: 🔍 Socket ID: ${_socket!.id}');
+      debugPrint('SocketChatService: 🔍 Socket connected: ${_socket!.connected}');
       _isConnected = true;
       _reconnectAttempts = 0;
       notifyListeners();
@@ -206,6 +221,7 @@ class SocketChatService extends ChangeNotifier {
 
     _socket!.onDisconnect((_) {
       debugPrint('SocketChatService: ❌ Socket disconnected');
+      debugPrint('SocketChatService: 🔍 Socket connected: ${_socket!.connected}');
       _isConnected = false;
       notifyListeners();
       _handleReconnection();
@@ -213,6 +229,7 @@ class SocketChatService extends ChangeNotifier {
 
     _socket!.onConnectError((data) {
       debugPrint('SocketChatService: ❌ Connection error: $data');
+      debugPrint('SocketChatService: 🔍 Socket connected: ${_socket!.connected}');
       _isConnected = false;
       notifyListeners();
       _handleReconnection();
@@ -226,6 +243,12 @@ class SocketChatService extends ChangeNotifier {
     _socket!.on('receive_message', (data) {
       debugPrint('SocketChatService: 📥 Received message via socket: $data');
       _handleReceivedMessage(data);
+    });
+
+    // NEW: Message sent confirmation
+    _socket!.on('message_sent', (data) {
+      debugPrint('SocketChatService: ✅ Message sent confirmation: $data');
+      _handleMessageSentConfirmation(data);
     });
 
     // NEW: Read status events
@@ -260,6 +283,17 @@ class SocketChatService extends ChangeNotifier {
     debugPrint('SocketChatService: ✅ Socket event handlers set up successfully');
   }
 
+  // NEW: Debounced notification method
+  void _debouncedNotify() {
+    _notifyDebounceTimer?.cancel();
+    _notifyDebounceTimer = Timer(const Duration(milliseconds: 100), () {
+      if (!_isDisposed) {
+        debugPrint('SocketChatService: 📢 Debounced notification sent');
+        notifyListeners();
+      }
+    });
+  }
+
   void _handleReceivedMessage(dynamic data) {
     try {
       debugPrint('SocketChatService: 📥 Processing received message...');
@@ -284,18 +318,20 @@ class SocketChatService extends ChangeNotifier {
         return;
       }
       
-      // Check if message already exists to avoid duplicates
+      // IMPROVED: Better duplicate detection using multiple criteria
       final messageExists = _messages.any((m) => 
-        m.id == message.id ||
+        m.id == message.id || // Same ID (definite duplicate)
         (m.content == message.content && 
          m.senderId == message.senderId &&
-         m.createdAt.difference(message.createdAt).abs().inSeconds < 5));
+         m.createdAt.difference(message.createdAt).abs().inMilliseconds < 100) // Same content, sender, and very close time (within 100ms - likely duplicate)
+      );
       
       if (!messageExists) {
         _messages.add(message);
         _messages.sort((a, b) => a.createdAt.compareTo(b.createdAt));
         
         debugPrint('SocketChatService: ✨ New message added from ${message.senderType}: "${message.content}"');
+        debugPrint('SocketChatService: 📊 Total messages: ${_messages.length}');
         
         // Emit to stream for immediate UI updates (only for other users' messages)
         if (!_messageStreamController.isClosed) {
@@ -308,12 +344,72 @@ class SocketChatService extends ChangeNotifier {
           debugPrint('SocketChatService: 📖 Auto-marked incoming message as read via socket');
         }
         
-        notifyListeners();
+        _debouncedNotify();
       } else {
-        debugPrint('SocketChatService: 🔄 Message already exists, skipping duplicate');
+        debugPrint('SocketChatService: 🔄 Message already exists, skipping duplicate: "${message.content}"');
+        debugPrint('SocketChatService: 🔍 Duplicate check - ID: ${message.id}, Content: ${message.content}, Sender: ${message.senderId}');
       }
     } catch (e) {
       debugPrint('SocketChatService: ❌ Error handling received message: $e');
+    }
+  }
+
+  // NEW: Handle message sent confirmation
+  void _handleMessageSentConfirmation(dynamic data) {
+    try {
+      debugPrint('SocketChatService: 📥 Processing message sent confirmation...');
+      debugPrint('SocketChatService: Raw confirmation data: $data');
+      
+      Map<String, dynamic> messageData;
+      
+      if (data is String) {
+        messageData = jsonDecode(data);
+      } else if (data is Map<String, dynamic>) {
+        messageData = data;
+      } else {
+        debugPrint('SocketChatService: ❌ Invalid confirmation data format');
+        return;
+      }
+      
+      final message = ApiChatMessage.fromJson(messageData);
+      
+      // IMPROVED: Better optimistic message update logic
+      final existingIndex = _messages.indexWhere((msg) => 
+        msg.content == message.content && 
+        msg.senderId == message.senderId &&
+        msg.createdAt.difference(message.createdAt).abs().inSeconds < 3);
+      
+      if (existingIndex != -1) {
+        // Update the optimistic message with the real message from server
+        final oldMessage = _messages[existingIndex];
+        if (oldMessage.id != message.id) {
+          _messages[existingIndex] = message;
+          debugPrint('SocketChatService: ✅ Updated optimistic message with server confirmation');
+          debugPrint('SocketChatService: 🔄 Old ID: ${oldMessage.id} -> New ID: ${message.id}');
+        } else {
+          debugPrint('SocketChatService: 🔄 Message already has correct ID, no update needed');
+        }
+      } else {
+        // Check if this is a completely new message (shouldn't happen for sent confirmations)
+        final isNewMessage = !_messages.any((msg) => 
+          msg.id == message.id ||
+          (msg.content == message.content && 
+           msg.senderId == message.senderId &&
+           msg.createdAt.difference(message.createdAt).abs().inSeconds < 3));
+        
+        if (isNewMessage) {
+          _messages.add(message);
+          _messages.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+          debugPrint('SocketChatService: ✅ Added confirmed message to list');
+        } else {
+          debugPrint('SocketChatService: 🔄 Confirmed message already exists, skipping');
+        }
+      }
+      
+      _debouncedNotify();
+      
+    } catch (e) {
+      debugPrint('SocketChatService: ❌ Error handling message sent confirmation: $e');
     }
   }
 
@@ -423,19 +519,37 @@ class SocketChatService extends ChangeNotifier {
   }
 
   Future<void> connect() async {
-    if (_isDisposed || _isConnected) return;
+    if (_isDisposed) return;
     
     try {
       if (_socket == null) {
         await _initializeSocket();
       }
       
-      if (_socket != null) {
+      if (_socket != null && !_isConnected) {
         debugPrint('SocketChatService: 🔌 Connecting socket...');
+        debugPrint('SocketChatService: 🔍 Socket state before connect: ${_socket!.connected}');
+        
         _socket!.connect();
+        
+        // Wait for connection with timeout
+        int attempts = 0;
+        while (!_isConnected && attempts < 10 && !_isDisposed) {
+          await Future.delayed(const Duration(milliseconds: 500));
+          attempts++;
+          debugPrint('SocketChatService: ⏳ Waiting for connection... attempt $attempts');
+        }
+        
+        if (_isConnected) {
+          debugPrint('SocketChatService: ✅ Socket connected successfully');
+        } else {
+          debugPrint('SocketChatService: ❌ Socket connection timeout');
+          _handleConnectionFailure('Connection timeout');
+        }
       }
     } catch (e) {
       debugPrint('SocketChatService: ❌ Error connecting: $e');
+      _handleConnectionFailure('Connection error: $e');
     }
   }
 
@@ -517,19 +631,21 @@ class SocketChatService extends ChangeNotifier {
         return false;
       }
 
+      debugPrint('SocketChatService: 📤 Sending message: "$content"');
+      debugPrint('SocketChatService: 🆔 Using sender ID: $userId');
+
+      // PRIMARY: Send via REST API first for reliable message delivery
       final messageData = {
         'roomId': roomId,
         'senderId': userId,
-        'senderType': 'partner', // Use partner as specified
+        'senderType': 'partner',
         'content': content,
         'messageType': messageType,
       };
 
-      debugPrint('SocketChatService: 📤 Sending message: "$content"');
-      debugPrint('SocketChatService: 🆔 Using sender ID: $userId');
-
-      // Send via REST API for persistence
       final url = Uri.parse('${baseUrl}chat/message');
+      
+      debugPrint('SocketChatService: 📨 Sending via REST API to: $url');
       
       final response = await http.post(
         url,
@@ -540,54 +656,144 @@ class SocketChatService extends ChangeNotifier {
         body: jsonEncode(messageData),
       ).timeout(const Duration(seconds: 10));
 
-      debugPrint('SocketChatService: 📨 Send response: ${response.statusCode}');
-      debugPrint('SocketChatService: 📨 Send response body: ${response.body}');
+      debugPrint('SocketChatService: 📨 REST API response: ${response.statusCode}');
 
       if (response.statusCode == 200 || response.statusCode == 201) {
-        try {
-          // Parse the response but DON'T add to local messages yet
-          final responseData = jsonDecode(response.body);
-          
-          ApiChatMessage? sentMessage;
-          if (responseData is Map<String, dynamic>) {
-            if (responseData.containsKey('data') && responseData['data'] != null) {
-              sentMessage = ApiChatMessage.fromJson(responseData['data']);
-            } else {
-              sentMessage = ApiChatMessage.fromJson(responseData);
-            }
-          }
-          
-          // Track the sent message ID to avoid duplicates
-          if (sentMessage != null) {
-            _sentMessageIds.add(sentMessage.id);
-            debugPrint('SocketChatService: 📋 Tracking sent message ID: ${sentMessage.id}');
-            
-            // Add to local messages only if it doesn't exist
-            if (!_messages.any((msg) => msg.id == sentMessage?.id)) {
-              _messages.add(sentMessage);
-              _messages.sort((a, b) => a.createdAt.compareTo(b.createdAt));
-              notifyListeners();
-              debugPrint('SocketChatService: ✅ Added sent message to local messages');
-            }
-          }
-          
-          // AUTO mark as read after sending message via SOCKET
-          markAsReadViaSocket(roomId);
-          debugPrint('SocketChatService: 📖 Auto-marked sent message as read via socket');
-          
-        } catch (parseError) {
-          debugPrint('SocketChatService: ⚠️ Response parsing error: $parseError');
+        final responseData = jsonDecode(response.body);
+        final sentMessage = ApiChatMessage.fromJson(responseData);
+        
+        // Add the confirmed message from API
+        final apiMessageExists = _messages.any((msg) => 
+            msg.content == content && 
+            msg.senderId == userId &&
+            msg.createdAt.difference(sentMessage.createdAt).abs().inSeconds < 3);
+        
+        if (!apiMessageExists) {
+          _messages.add(sentMessage);
+          _messages.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+          notifyListeners();
+          debugPrint('SocketChatService: ✅ Added API message to local list');
         }
         
-        debugPrint('SocketChatService: ✅ Message sent successfully via API');
+        // SECONDARY: Send via Socket.IO for real-time notifications (if connected)
+        if (_socket != null && _isConnected) {
+          final socketMessageData = {
+            'roomId': roomId,
+            'senderId': userId,
+            'senderType': 'partner',
+            'content': content,
+            'messageType': messageType,
+            'timestamp': DateTime.now().toIso8601String(),
+          };
+
+          debugPrint('SocketChatService: 📡 Sending via socket for real-time notification: $socketMessageData');
+          _socket!.emit('send_message', socketMessageData);
+        }
+        
+        // Mark as read via socket if connected
+        if (_socket != null && _isConnected) {
+          markAsReadViaSocket(roomId);
+          debugPrint('SocketChatService: 📖 Marked message as read via socket');
+        }
+        
         return true;
       } else {
-        debugPrint('SocketChatService: ❌ Send failed: ${response.statusCode} - ${response.body}');
+        debugPrint('SocketChatService: ❌ Failed to send message via API: ${response.statusCode}');
+        debugPrint('SocketChatService: ❌ Response body: ${response.body}');
+        
+        // FALLBACK: Try WebSocket if API fails
+        if (_socket != null && _isConnected) {
+          debugPrint('SocketChatService: ⚠️ Falling back to WebSocket due to API failure');
+          
+          final socketMessageData = {
+            'roomId': roomId,
+            'senderId': userId,
+            'senderType': 'partner',
+            'content': content,
+            'messageType': messageType,
+            'timestamp': DateTime.now().toIso8601String(),
+          };
+
+          _socket!.emit('send_message', socketMessageData);
+          
+          // Create optimistic message for immediate UI update
+          final optimisticMessage = ApiChatMessage(
+            id: DateTime.now().millisecondsSinceEpoch.toString(),
+            roomId: roomId,
+            senderId: userId,
+            senderType: 'partner',
+            content: content,
+            messageType: messageType,
+            readBy: [],
+            createdAt: DateTime.now(),
+          );
+          
+          // Add optimistic message
+          final optimisticExists = _messages.any((msg) => 
+              msg.content == content && 
+              msg.senderId == userId &&
+              msg.createdAt.difference(optimisticMessage.createdAt).abs().inSeconds < 2);
+          
+          if (!optimisticExists) {
+            _messages.add(optimisticMessage);
+            _messages.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+            notifyListeners();
+            debugPrint('SocketChatService: ✅ Added optimistic message to local list');
+          }
+          
+          return true;
+        }
+        
         return false;
       }
-      
     } catch (e) {
       debugPrint('SocketChatService: ❌ Error sending message: $e');
+      
+      // FALLBACK: Try WebSocket if API throws exception
+      if (_socket != null && _isConnected) {
+        debugPrint('SocketChatService: ⚠️ Falling back to WebSocket due to API exception');
+        
+        try {
+          final userId = _currentUserId ?? await TokenService.getUserId();
+          if (userId == null) {
+            debugPrint('SocketChatService: ❌ No user ID available for WebSocket fallback');
+            return false;
+          }
+          
+          final socketMessageData = {
+            'roomId': roomId,
+            'senderId': userId,
+            'senderType': 'partner',
+            'content': content,
+            'messageType': messageType,
+            'timestamp': DateTime.now().toIso8601String(),
+          };
+
+          _socket!.emit('send_message', socketMessageData);
+          
+          // Create optimistic message
+          final optimisticMessage = ApiChatMessage(
+            id: DateTime.now().millisecondsSinceEpoch.toString(),
+            roomId: roomId,
+            senderId: userId,
+            senderType: 'partner',
+            content: content,
+            messageType: messageType,
+            readBy: [],
+            createdAt: DateTime.now(),
+          );
+          
+          _messages.add(optimisticMessage);
+          _messages.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+          notifyListeners();
+          
+          return true;
+        } catch (socketError) {
+          debugPrint('SocketChatService: ❌ WebSocket fallback also failed: $socketError');
+          return false;
+        }
+      }
+      
       return false;
     }
   }
@@ -834,6 +1040,41 @@ class SocketChatService extends ChangeNotifier {
     }
   }
 
+  // NEW: Test WebSocket functionality
+  Future<bool> testWebSocketConnection() async {
+    if (_isDisposed) return false;
+    
+    try {
+      debugPrint('SocketChatService: 🧪 Testing WebSocket connection...');
+      
+      // Check if socket exists and is connected
+      if (_socket == null) {
+        debugPrint('SocketChatService: ❌ Socket is null');
+        return false;
+      }
+      
+      if (!_socket!.connected) {
+        debugPrint('SocketChatService: ❌ Socket is not connected');
+        return false;
+      }
+      
+      debugPrint('SocketChatService: ✅ Socket exists and is connected');
+      debugPrint('SocketChatService: 🔍 Socket ID: ${_socket!.id}');
+      debugPrint('SocketChatService: 🔍 Socket connected: ${_socket!.connected}');
+      debugPrint('SocketChatService: 🔍 Current room: $_currentRoomId');
+      debugPrint('SocketChatService: 🔍 Message count: ${_messages.length}');
+      
+      // Send a ping to test connectivity
+      _socket!.emit('ping', {'timestamp': DateTime.now().toIso8601String()});
+      debugPrint('SocketChatService: 📡 Sent ping to test connectivity');
+      
+      return true;
+    } catch (e) {
+      debugPrint('SocketChatService: ❌ Error testing WebSocket: $e');
+      return false;
+    }
+  }
+
   // Get connection status info for debugging
   Map<String, dynamic> getConnectionInfo() {
     return {
@@ -844,7 +1085,32 @@ class SocketChatService extends ChangeNotifier {
       'messageCount': _messages.length,
       'sentMessageIds': _sentMessageIds.length,
       'socketConnected': _socket?.connected ?? false,
+      'socketId': _socket?.id,
+      'socketExists': _socket != null,
     };
+  }
+
+  // NEW: Connection health check
+  Future<Map<String, dynamic>> checkConnectionHealth() async {
+    final health = <String, dynamic>{
+      'socket': <String, dynamic>{
+        'connected': _isConnected,
+        'socketExists': _socket != null,
+        'socketConnected': _socket?.connected ?? false,
+        'socketId': _socket?.id,
+      },
+      'room': <String, dynamic>{
+        'currentRoomId': _currentRoomId,
+        'messageCount': _messages.length,
+      },
+      'reconnection': <String, dynamic>{
+        'attempts': _reconnectAttempts,
+        'maxAttempts': _maxReconnectAttempts,
+      }
+    };
+
+    debugPrint('SocketChatService: 🔍 Connection health check: $health');
+    return health;
   }
 
   @override
@@ -855,6 +1121,7 @@ class SocketChatService extends ChangeNotifier {
     // Cancel timers
     _typingTimer?.cancel();
     _reconnectTimer?.cancel();
+    _notifyDebounceTimer?.cancel();
     
     // Disconnect socket
     _socket?.disconnect();
@@ -867,6 +1134,16 @@ class SocketChatService extends ChangeNotifier {
     _sentMessageIds.clear();
     
     super.dispose();
+  }
+
+  void _handleConnectionFailure(String reason) {
+    debugPrint('SocketChatService: 🚨 Connection failure: $reason');
+    _isConnected = false;
+    notifyListeners();
+    
+    if (!_isDisposed && _reconnectAttempts < _maxReconnectAttempts) {
+      _handleReconnection();
+    }
   }
 }
 
