@@ -438,17 +438,27 @@ class RestaurantProfileBloc
   }
 
   TimeOfDay? _parseTimeString(String timeStr) {
-    // Format expected: "9am" or "9pm"
+    // Format expected: "9am", "9.30am", "9pm", "9.30pm"
     try {
       timeStr = timeStr.toLowerCase().trim();
       bool isPM = timeStr.contains('pm');
       
-      String hourStr = timeStr
+      String timeWithoutAmPm = timeStr
           .replaceAll('am', '')
           .replaceAll('pm', '')
           .trim();
       
-      int hour = int.parse(hourStr);
+      int hour;
+      int minute = 0;
+      
+      // Check if time has minutes (contains a dot)
+      if (timeWithoutAmPm.contains('.')) {
+        final parts = timeWithoutAmPm.split('.');
+        hour = int.parse(parts[0]);
+        minute = int.parse(parts[1]);
+      } else {
+        hour = int.parse(timeWithoutAmPm);
+      }
       
       // Convert to 24-hour format
       if (isPM && hour < 12) {
@@ -457,7 +467,7 @@ class RestaurantProfileBloc
         hour = 0;
       }
       
-      return TimeOfDay(hour: hour, minute: 0);
+      return TimeOfDay(hour: hour, minute: minute);
     } catch (e) {
       debugPrint('Error parsing time string: $e');
       return null;
@@ -516,11 +526,13 @@ class RestaurantProfileBloc
         if (day.enabled) {
           final String dayKey = dayMap[i]!;
           final startHour = day.start.hour;
+          final startMinute = day.start.minute;
           final endHour = day.end.hour;
+          final endMinute = day.end.minute;
           
-          // Format time for API (e.g., "9am - 9pm")
-          String startFormatted = _formatTimeForAPI(startHour);
-          String endFormatted = _formatTimeForAPI(endHour);
+          // Format time for API (e.g., "9.30am - 9pm")
+          String startFormatted = _formatTimeForAPI(startHour, startMinute);
+          String endFormatted = _formatTimeForAPI(endHour, endMinute);
           
           operationalHours[dayKey] = '$startFormatted - $endFormatted';
         }
@@ -536,12 +548,8 @@ class RestaurantProfileBloc
       }
       
       // Prepare the veg/nonveg field 
-      String vegNonveg = state.type == RestaurantType.veg ? 'veg' : 'non veg';
+      String vegNonveg = state.type == RestaurantType.veg ? 'veg' : 'non-veg';
       debugPrint('Veg/NonVeg: $vegNonveg');
-      
-      // Prepare category based on veg/nonveg
-      String category = state.type == RestaurantType.veg ? 'vegetarian' : 'non-vegetarian';
-      debugPrint('Category: $category');
       
       // Log API call attempt
       debugPrint('Attempting to call API for profile update...');
@@ -596,7 +604,6 @@ class RestaurantProfileBloc
       request.fields['restaurant_name'] = state.restaurantName;
       request.fields['address'] = state.ownerAddress;
       request.fields['email'] = state.ownerEmail;
-      request.fields['category'] = category;
       request.fields['operational_hours'] = jsonEncode(operationalHours);
       request.fields['owner_name'] = state.ownerName;
       
@@ -615,7 +622,7 @@ class RestaurantProfileBloc
         request.fields['longitude'] = state.longitude;
       }
       
-      request.fields['veg-nonveg'] = vegNonveg;
+      request.fields['veg_nonveg'] = vegNonveg;
       
       if (state.cookingTime.isNotEmpty) {
         request.fields['cooking_time'] = state.cookingTime;
@@ -743,15 +750,33 @@ class RestaurantProfileBloc
     }
   }
   
-  String _formatTimeForAPI(int hour) {
+  String _formatTimeForAPI(int hour, int minute) {
+    String timeStr;
+    
     if (hour == 0) {
-      return '12am';
+      timeStr = '12';
     } else if (hour == 12) {
-      return '12pm';
+      timeStr = '12';
     } else if (hour > 12) {
-      return '${hour - 12}pm';
+      timeStr = '${hour - 12}';
     } else {
-      return '${hour}am';
+      timeStr = '$hour';
+    }
+    
+    // Add minutes if they are not zero
+    if (minute > 0) {
+      timeStr += '.${minute.toString().padLeft(2, '0')}';
+    }
+    
+    // Add am/pm
+    if (hour == 0) {
+      return '${timeStr}am';
+    } else if (hour == 12) {
+      return '${timeStr}pm';
+    } else if (hour > 12) {
+      return '${timeStr}pm';
+    } else {
+      return '${timeStr}am';
     }
   }
 }

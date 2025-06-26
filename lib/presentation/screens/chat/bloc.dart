@@ -724,10 +724,10 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     }
   }
 
-  // Helper method to format order ID for display (shortened version)
+  // Helper method to format order ID for display (showing more characters)
   String _formatOrderIdForDisplay(String orderId) {
-    if (orderId.length > 8) {
-      return orderId.substring(orderId.length - 8);
+    if (orderId.length > 12) {
+      return orderId.substring(0, 12) + '...';
     }
     return orderId;
   }

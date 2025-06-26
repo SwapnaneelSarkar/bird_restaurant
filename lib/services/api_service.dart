@@ -318,7 +318,7 @@ Future<ApiResponse> updatePartnerWithAllFields({
     request.fields['longitude'] = longitude;
     debugPrint('Adding coordinates to API request - Latitude: $latitude, Longitude: $longitude');
     
-    request.fields['veg-nonveg'] = vegNonveg;
+    request.fields['veg_nonveg'] = vegNonveg;
     request.fields['cooking_time'] = cookingTime;
     
     if (restaurantType != null && restaurantType.isNotEmpty) {

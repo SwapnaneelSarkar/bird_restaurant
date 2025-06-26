@@ -543,13 +543,16 @@ Widget build(BuildContext context) {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                'Order ${orderInfo.orderId}',
-                style: TextStyle(
-                  fontSize: MediaQuery.of(context).size.width * 0.048,
-                  fontWeight: FontWeightManager.bold,
-                  color: ColorManager.black,
-                  fontFamily: FontFamily.Montserrat,
+              Expanded(
+                child: Text(
+                  'Order ${orderInfo.orderId}',
+                  style: TextStyle(
+                    fontSize: MediaQuery.of(context).size.width * 0.035,
+                    fontWeight: FontWeightManager.bold,
+                    color: ColorManager.black,
+                    fontFamily: FontFamily.Montserrat,
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
               Container(

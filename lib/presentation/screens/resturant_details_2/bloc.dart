@@ -180,6 +180,12 @@ class RestaurantCategoryBloc extends Bloc<RestaurantCategoryEvent, RestaurantCat
   String _formatTime(TimeOfDay time) {
     final hour = time.hourOfPeriod == 0 ? 12 : time.hourOfPeriod;
     final period = time.period == DayPeriod.am ? 'am' : 'pm';
-    return '$hour$period';
+    
+    // Add minutes if they are not zero
+    if (time.minute > 0) {
+      return '$hour.${time.minute.toString().padLeft(2, '0')}$period';
+    } else {
+      return '$hour$period';
+    }
   }
 }

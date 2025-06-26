@@ -11,6 +11,7 @@ import 'event.dart';
 import 'state.dart';
 import '../../../services/restaurant_info_service.dart';
 import '../../../ui_components/order_options_bottom_sheet_for_orders_page.dart';
+import '../../../presentation/resources/router/router.dart';
 
 // Wrapper widget that provides OrdersBloc
 class OrdersScreen extends StatelessWidget {
@@ -66,241 +67,251 @@ class _OrdersViewState extends State<OrdersView> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      key: _scaffoldKey,
-      backgroundColor: ColorManager.background,
-      drawer: SidebarDrawer(
-        activePage: 'orders',
-        restaurantName: _restaurantInfo?['name'] ?? 'Restaurant',
-        restaurantSlogan: _restaurantInfo?['slogan'] ?? 'Manage your orders',
-        restaurantImageUrl: _restaurantInfo?['imageUrl'],
-      ),
-      appBar: AppBar(
-        elevation: 0,
-        backgroundColor: Colors.white,
-        toolbarHeight: 60,
-        automaticallyImplyLeading: false,
-        title: Row(
-          children: [
-            InkWell(
-              borderRadius: BorderRadius.circular(40),
-              onTap: _openSidebar,
-              child: const Padding(
-                padding: EdgeInsets.all(8.0),
-                child: Icon(
-                  Icons.menu_rounded,
-                  color: Colors.black87,
-                  size: 24.0,
+    return WillPopScope(
+      onWillPop: () async {
+        // Navigate back to home page instead of quitting the app
+        Navigator.of(context).pushNamedAndRemoveUntil(
+          Routes.homePage,
+          (route) => false,
+        );
+        return false; // Prevent default back behavior
+      },
+      child: Scaffold(
+        key: _scaffoldKey,
+        backgroundColor: ColorManager.background,
+        drawer: SidebarDrawer(
+          activePage: 'orders',
+          restaurantName: _restaurantInfo?['name'] ?? 'Restaurant',
+          restaurantSlogan: _restaurantInfo?['slogan'] ?? 'Manage your orders',
+          restaurantImageUrl: _restaurantInfo?['imageUrl'],
+        ),
+        appBar: AppBar(
+          elevation: 0,
+          backgroundColor: Colors.white,
+          toolbarHeight: 60,
+          automaticallyImplyLeading: false,
+          title: Row(
+            children: [
+              InkWell(
+                borderRadius: BorderRadius.circular(40),
+                onTap: _openSidebar,
+                child: const Padding(
+                  padding: EdgeInsets.all(8.0),
+                  child: Icon(
+                    Icons.menu_rounded,
+                    color: Colors.black87,
+                    size: 24.0,
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(width: 12),
-            Text(
-              'Orders Management',
-              style: TextStyle(
-                fontFamily: FontFamily.Montserrat,
-                fontSize: FontSize.s18,
-                color: ColorManager.black,
-                fontWeight: FontWeightManager.bold,
+              const SizedBox(width: 12),
+              Text(
+                'Orders Management',
+                style: TextStyle(
+                  fontFamily: FontFamily.Montserrat,
+                  fontSize: FontSize.s18,
+                  color: ColorManager.black,
+                  fontWeight: FontWeightManager.bold,
+                ),
               ),
+            ],
+          ),
+          actions: [
+            IconButton(
+              onPressed: () => context.read<OrdersBloc>().add(const RefreshOrdersEvent()),
+              icon: const Icon(Icons.refresh, color: Colors.black87),
             ),
           ],
         ),
-        actions: [
-          IconButton(
-            onPressed: () => context.read<OrdersBloc>().add(const RefreshOrdersEvent()),
-            icon: const Icon(Icons.refresh, color: Colors.black87),
-          ),
-        ],
-      ),
-      body: MultiBlocListener(
-        listeners: [
-          // Status update success listener
-          BlocListener<OrdersBloc, OrdersState>(
-            listenWhen: (previous, current) => current is OrderStatusUpdateSuccess,
-            listener: (context, state) {
-              if (state is OrderStatusUpdateSuccess) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Row(
-                      children: [
-                        const Icon(Icons.check_circle, color: Colors.white, size: 20),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            state.message,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 14,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    backgroundColor: Colors.green,
-                    behavior: SnackBarBehavior.floating,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    duration: const Duration(seconds: 3),
-                  ),
-                );
-              }
-            },
-          ),
-          
-          // Status update error listener
-          BlocListener<OrdersBloc, OrdersState>(
-            listenWhen: (previous, current) => current is OrderStatusUpdateError,
-            listener: (context, state) {
-              if (state is OrderStatusUpdateError) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Row(
-                      children: [
-                        const Icon(Icons.error_outline, color: Colors.white, size: 20),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            state.message,
-                            style: const TextStyle(
-                              fontWeight: FontWeightManager.medium,
-                              fontSize: 14,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    backgroundColor: Colors.red,
-                    behavior: SnackBarBehavior.floating,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    duration: const Duration(seconds: 5),
-                  ),
-                );
-              }
-            },
-          ),
-          
-          // General error listener
-          BlocListener<OrdersBloc, OrdersState>(
-            listenWhen: (previous, current) => current is OrdersError,
-            listener: (context, state) {
-              if (state is OrdersError) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(state.message),
-                    backgroundColor: Colors.red,
-                  ),
-                );
-              }
-            },
-          ),
-        ],
-        child: BlocBuilder<OrdersBloc, OrdersState>(
-          builder: (context, state) {
-            if (state is OrdersLoading) {
-              return const Center(
-                child: CircularProgressIndicator(
-                  color: Color(0xFFE17A47),
-                ),
-              );
-            }
-
-            if (state is OrdersLoaded) {
-              return _buildOrdersContent(context, state);
-            }
-          
-            // Show updating indicator for status updates
-            if (state is OrderStatusUpdating) {
-              // Keep the previous loaded state visible but show updating indicator
-              final previousLoaded = context.read<OrdersBloc>().state;
-              if (previousLoaded is OrdersLoaded) {
-                return Stack(
-                  children: [
-                    _buildOrdersContent(context, previousLoaded),
-                    
-                    // Overlay updating indicator
-                    Positioned(
-                      top: 0,
-                      left: 0,
-                      right: 0,
-                      child: Container(
-                        padding: const EdgeInsets.all(12),
-                        color: Colors.orange.withOpacity(0.9),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white,
+        body: MultiBlocListener(
+          listeners: [
+            // Status update success listener
+            BlocListener<OrdersBloc, OrdersState>(
+              listenWhen: (previous, current) => current is OrderStatusUpdateSuccess,
+              listener: (context, state) {
+                if (state is OrderStatusUpdateSuccess) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Row(
+                        children: [
+                          const Icon(Icons.check_circle, color: Colors.white, size: 20),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              state.message,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
                               ),
                             ),
-                            const SizedBox(width: 12),
-                            Text(
-                              'Updating order status...',
-                              style: TextStyle(
-                                color: Colors.white,
+                          ),
+                        ],
+                      ),
+                      backgroundColor: Colors.green,
+                      behavior: SnackBarBehavior.floating,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      duration: const Duration(seconds: 3),
+                    ),
+                  );
+                }
+              },
+            ),
+            
+            // Status update error listener
+            BlocListener<OrdersBloc, OrdersState>(
+              listenWhen: (previous, current) => current is OrderStatusUpdateError,
+              listener: (context, state) {
+                if (state is OrderStatusUpdateError) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Row(
+                        children: [
+                          const Icon(Icons.error_outline, color: Colors.white, size: 20),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              state.message,
+                              style: const TextStyle(
                                 fontWeight: FontWeightManager.medium,
                                 fontSize: 14,
                               ),
                             ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
+                      backgroundColor: Colors.red,
+                      behavior: SnackBarBehavior.floating,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      duration: const Duration(seconds: 5),
                     ),
-                  ],
-                );
-              } else {
+                  );
+                }
+              },
+            ),
+            
+            // General error listener
+            BlocListener<OrdersBloc, OrdersState>(
+              listenWhen: (previous, current) => current is OrdersError,
+              listener: (context, state) {
+                if (state is OrdersError) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(state.message),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              },
+            ),
+          ],
+          child: BlocBuilder<OrdersBloc, OrdersState>(
+            builder: (context, state) {
+              if (state is OrdersLoading) {
                 return const Center(
-                  child: CircularProgressIndicator(color: Color(0xFFE17A47)),
+                  child: CircularProgressIndicator(
+                    color: Color(0xFFE17A47),
+                  ),
                 );
               }
-            }
 
-            if (state is OrdersError) {
-              return Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(Icons.error_outline, color: Colors.red, size: 48),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Error loading orders',
-                      style: TextStyle(
-                        fontSize: FontSize.s16,
-                        fontWeight: FontWeightManager.medium,
-                        color: ColorManager.black,
+              if (state is OrdersLoaded) {
+                return _buildOrdersContent(context, state);
+              }
+            
+              // Show updating indicator for status updates
+              if (state is OrderStatusUpdating) {
+                // Keep the previous loaded state visible but show updating indicator
+                final previousLoaded = context.read<OrdersBloc>().state;
+                if (previousLoaded is OrdersLoaded) {
+                  return Stack(
+                    children: [
+                      _buildOrdersContent(context, previousLoaded),
+                      
+                      // Overlay updating indicator
+                      Positioned(
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        child: Container(
+                          padding: const EdgeInsets.all(12),
+                          color: Colors.orange.withOpacity(0.9),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Text(
+                                'Updating order status...',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeightManager.medium,
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      state.message,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: FontSize.s14,
-                        color: Colors.grey[600],
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    ElevatedButton(
-                      onPressed: () => context.read<OrdersBloc>().add(const LoadOrdersEvent()),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFE17A47),
-                      ),
-                      child: const Text('Retry', style: TextStyle(color: Colors.white)),
-                    ),
-                  ],
-                ),
-              );
-            }
+                    ],
+                  );
+                } else {
+                  return const Center(
+                    child: CircularProgressIndicator(color: Color(0xFFE17A47)),
+                  );
+                }
+              }
 
-            return const SizedBox();
-          },
+              if (state is OrdersError) {
+                return Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.error_outline, color: Colors.red, size: 48),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Error loading orders',
+                        style: TextStyle(
+                          fontSize: FontSize.s16,
+                          fontWeight: FontWeightManager.medium,
+                          color: ColorManager.black,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        state.message,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: FontSize.s14,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      ElevatedButton(
+                        onPressed: () => context.read<OrdersBloc>().add(const LoadOrdersEvent()),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFE17A47),
+                        ),
+                        child: const Text('Retry', style: TextStyle(color: Colors.white)),
+                      ),
+                    ],
+                  ),
+                );
+              }
+
+              return const SizedBox();
+            },
+          ),
         ),
       ),
     );

@@ -13,6 +13,7 @@ import 'bloc.dart';
 import 'event.dart';
 import 'state.dart';
 import '../../../services/restaurant_info_service.dart';
+import '../../resources/router/router.dart';
 
 class EditMenuView extends StatefulWidget {
   const EditMenuView({Key? key}) : super(key: key);
@@ -94,72 +95,81 @@ class _EditMenuViewState extends State<EditMenuView> {
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider.value(
-      value: _menuItemsBloc,
-      child: BlocConsumer<MenuItemsBloc, MenuItemsState>(
-        listenWhen: (previous, current) {
-          // Only listen for navigation events
-          return current is NavigateToAddItem || 
-                 current is NavigateToEditItem || 
-                 current is MenuItemsError;
-        },
-        listener: (context, state) {
-          if (state is NavigateToAddItem) {
-            // Navigate to add product screen
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => const AddProductScreen(),
-              ),
-            ).then((_) {
-              // Refresh menu items when returning from add screen
-              _menuItemsBloc.add(const RefreshMenuItemsEvent());
-            });
-          } else if (state is NavigateToEditItem) {
-            // Navigate to edit product screen with the selected menu item
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => EditProductView(menuItem: state.menuItem),
-              ),
-            ).then((result) {
-              // Refresh menu items when returning from edit screen if result is true
-              if (result == true) {
+    return WillPopScope(
+      onWillPop: () async {
+        Navigator.of(context).pushNamedAndRemoveUntil(
+          Routes.homePage,
+          (route) => false,
+        );
+        return false;
+      },
+      child: BlocProvider.value(
+        value: _menuItemsBloc,
+        child: BlocConsumer<MenuItemsBloc, MenuItemsState>(
+          listenWhen: (previous, current) {
+            // Only listen for navigation events
+            return current is NavigateToAddItem || 
+                   current is NavigateToEditItem || 
+                   current is MenuItemsError;
+          },
+          listener: (context, state) {
+            if (state is NavigateToAddItem) {
+              // Navigate to add product screen
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => const AddProductScreen(),
+                ),
+              ).then((_) {
+                // Refresh menu items when returning from add screen
                 _menuItemsBloc.add(const RefreshMenuItemsEvent());
-              }
-            });
-          } else if (state is MenuItemsError) {
-            // Show error message
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(state.message)),
-            );
-          }
-        },
-        builder: (context, state) {
-          // Track the last loaded state
-          if (state is MenuItemsLoaded) {
-            _lastLoadedState = state;
-          }
-          return Scaffold(
-            key: _scaffoldKey,
-            backgroundColor: Colors.grey[100],
-            drawer: SidebarDrawer(
-              activePage: 'products',
-              restaurantName: _restaurantInfo?['name'] ?? 'Products',
-              restaurantSlogan: _restaurantInfo?['slogan'] ?? 'Manage your menu',
-              restaurantImageUrl: _restaurantInfo?['imageUrl'],
-            ),
-            body: SafeArea(
-              child: Column(
-                children: [
-                  _buildHeader(context),
-                  Expanded(
-                    child: _buildBodyWithLastLoaded(context, state),
-                  ),
-                ],
+              });
+            } else if (state is NavigateToEditItem) {
+              // Navigate to edit product screen with the selected menu item
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => EditProductView(menuItem: state.menuItem),
+                ),
+              ).then((result) {
+                // Refresh menu items when returning from edit screen if result is true
+                if (result == true) {
+                  _menuItemsBloc.add(const RefreshMenuItemsEvent());
+                }
+              });
+            } else if (state is MenuItemsError) {
+              // Show error message
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text(state.message)),
+              );
+            }
+          },
+          builder: (context, state) {
+            // Track the last loaded state
+            if (state is MenuItemsLoaded) {
+              _lastLoadedState = state;
+            }
+            return Scaffold(
+              key: _scaffoldKey,
+              backgroundColor: Colors.grey[100],
+              drawer: SidebarDrawer(
+                activePage: 'products',
+                restaurantName: _restaurantInfo?['name'] ?? 'Products',
+                restaurantSlogan: _restaurantInfo?['slogan'] ?? 'Manage your menu',
+                restaurantImageUrl: _restaurantInfo?['imageUrl'],
               ),
-            ),
-            floatingActionButton: _buildFloatingActionButton(context),
-          );
-        },
+              body: SafeArea(
+                child: Column(
+                  children: [
+                    _buildHeader(context),
+                    Expanded(
+                      child: _buildBodyWithLastLoaded(context, state),
+                    ),
+                  ],
+                ),
+              ),
+              floatingActionButton: _buildFloatingActionButton(context),
+            );
+          },
+        ),
       ),
     );
   }

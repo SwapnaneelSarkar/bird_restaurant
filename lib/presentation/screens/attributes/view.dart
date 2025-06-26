@@ -17,6 +17,7 @@ import '../../../services/currency_service.dart';
 import '../../../services/attribute_service.dart';
 import '../../../models/attribute_model.dart';
 import '../../../services/restaurant_info_service.dart';
+import '../../resources/router/router.dart';
 
 class AttributesScreen extends StatefulWidget {
   const AttributesScreen({Key? key}) : super(key: key);
@@ -91,73 +92,82 @@ class _AttributesScreenState extends State<AttributesScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return MultiBlocProvider(
-      providers: [
-        BlocProvider(
-          create: (context) => AttributeBloc(),
-        ),
-        BlocProvider(
-          create: (context) => MenuItemsBloc()..add(const LoadMenuItemsEvent()),
-        ),
-      ],
-      child: Scaffold(
-        key: _scaffoldKey,
-        backgroundColor: ColorManager.background,
-        drawer: SidebarDrawer(
-          activePage: 'add_attributes',
-          restaurantName: _restaurantInfo?['name'] ?? 'Restaurant',
-          restaurantSlogan: _restaurantInfo?['slogan'] ?? 'Manage your attributes',
-          restaurantImageUrl: _restaurantInfo?['imageUrl'],
-        ),
-        body: SafeArea(
-          child: Column(
-            children: [
-              _buildHeader(context),
-              Expanded(
-                child: BlocConsumer<AttributeBloc, AttributeState>(
-                  listener: (context, state) {
-                    if (state is AttributeCreationSuccess) {
-                      _attributeNameController.clear();
-                      _valueController.clear();
-                      _priceController.clear();
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(state.message),
-                          backgroundColor: Colors.green,
-                          duration: const Duration(seconds: 2),
+    return WillPopScope(
+      onWillPop: () async {
+        Navigator.of(context).pushNamedAndRemoveUntil(
+          Routes.homePage,
+          (route) => false,
+        );
+        return false;
+      },
+      child: MultiBlocProvider(
+        providers: [
+          BlocProvider(
+            create: (context) => AttributeBloc(),
+          ),
+          BlocProvider(
+            create: (context) => MenuItemsBloc()..add(const LoadMenuItemsEvent()),
+          ),
+        ],
+        child: Scaffold(
+          key: _scaffoldKey,
+          backgroundColor: ColorManager.background,
+          drawer: SidebarDrawer(
+            activePage: 'add_attributes',
+            restaurantName: _restaurantInfo?['name'] ?? 'Restaurant',
+            restaurantSlogan: _restaurantInfo?['slogan'] ?? 'Manage your attributes',
+            restaurantImageUrl: _restaurantInfo?['imageUrl'],
+          ),
+          body: SafeArea(
+            child: Column(
+              children: [
+                _buildHeader(context),
+                Expanded(
+                  child: BlocConsumer<AttributeBloc, AttributeState>(
+                    listener: (context, state) {
+                      if (state is AttributeCreationSuccess) {
+                        _attributeNameController.clear();
+                        _valueController.clear();
+                        _priceController.clear();
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(state.message),
+                            backgroundColor: Colors.green,
+                            duration: const Duration(seconds: 2),
+                          ),
+                        );
+                      } else if (state is AttributeError) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(state.message),
+                            backgroundColor: Colors.red,
+                            duration: const Duration(seconds: 3),
+                          ),
+                        );
+                      }
+                    },
+                    builder: (context, state) {
+                      return SingleChildScrollView(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildMenuItemSelector(context),
+                            const SizedBox(height: 24),
+                            if (_selectedMenuItem != null) ...[
+                              _buildNewAttributeSection(context, state),
+                              const SizedBox(height: 32),
+                              _buildExistingAttributesSection(context, state),
+                            ] else
+                              _buildSelectMenuItemPrompt(),
+                          ],
                         ),
                       );
-                    } else if (state is AttributeError) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(state.message),
-                          backgroundColor: Colors.red,
-                          duration: const Duration(seconds: 3),
-                        ),
-                      );
-                    }
-                  },
-                  builder: (context, state) {
-                    return SingleChildScrollView(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _buildMenuItemSelector(context),
-                          const SizedBox(height: 24),
-                          if (_selectedMenuItem != null) ...[
-                            _buildNewAttributeSection(context, state),
-                            const SizedBox(height: 32),
-                            _buildExistingAttributesSection(context, state),
-                          ] else
-                            _buildSelectMenuItemPrompt(),
-                        ],
-                      ),
-                    );
-                  },
+                    },
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

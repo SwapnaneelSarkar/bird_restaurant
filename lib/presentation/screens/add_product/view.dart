@@ -14,6 +14,7 @@ import 'event.dart';
 import 'state.dart';
 import '../../../services/restaurant_info_service.dart';
 import '../../../services/currency_service.dart';
+import '../../resources/router/router.dart';
 
 class AddProductScreen extends StatefulWidget {
   const AddProductScreen({Key? key}) : super(key: key);
@@ -82,8 +83,15 @@ class _AddProductScreenState extends State<AddProductScreen> {
 
   @override
   Widget build(BuildContext context) {
-    try {
-      return BlocProvider(
+    return WillPopScope(
+      onWillPop: () async {
+        Navigator.of(context).pushNamedAndRemoveUntil(
+          Routes.homePage,
+          (route) => false,
+        );
+        return false;
+      },
+      child: BlocProvider(
         create: (context) => AddProductBloc()..add(AddProductInitEvent()),
         child: BlocConsumer<AddProductBloc, AddProductState>(
           listener: (context, state) {
@@ -136,19 +144,8 @@ class _AddProductScreenState extends State<AddProductScreen> {
             );
           },
         ),
-      );
-    } catch (e, stack) {
-      debugPrint('AddProductScreen: build error: \u001b[31m$e\n$stack\u001b[0m');
-      return Scaffold(
-        body: Center(
-          child: Text(
-            'An error occurred while building the page:\n$e',
-            style: TextStyle(color: Colors.red, fontSize: 16),
-            textAlign: TextAlign.center,
-          ),
-        ),
-      );
-    }
+      ),
+    );
   }
 
   Widget _buildHeader(BuildContext context) {
