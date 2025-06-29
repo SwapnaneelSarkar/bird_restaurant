@@ -257,93 +257,112 @@ class _HomeViewState extends State<HomeView> with TickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider.value(
-      value: _homeBloc, // Use the existing BLoC instance
-      child: Scaffold(
-        key: _scaffoldKey,
-        backgroundColor: Colors.grey[50],
-        drawer: SidebarDrawer(
-          activePage: 'home',
-          restaurantName: _restaurantInfo?['name'] ?? 'Restaurant',
-          restaurantSlogan: _restaurantInfo?['slogan'] ?? 'Fine Dining',
-          restaurantImageUrl: _restaurantInfo?['imageUrl'],
-        ),
-        appBar: _selectedIndex == 0 ? AppBar(
-          backgroundColor: Colors.white,
-          elevation: 0,
-          leading: SidebarOpener(
-            scaffoldKey: _scaffoldKey,
-            iconColor: Colors.black87,
-            padding: const EdgeInsets.all(12),
+    return WillPopScope(
+      onWillPop: () async {
+        if (_selectedIndex == 0) {
+          // On home page, allow app to quit
+          return true;
+        } else {
+          // On other pages, go to home page
+          setState(() {
+            _selectedIndex = 0;
+            _pageController.animateToPage(
+              0,
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeInOut,
+            );
+          });
+          return false;
+        }
+      },
+      child: BlocProvider.value(
+        value: _homeBloc, // Use the existing BLoC instance
+        child: Scaffold(
+          key: _scaffoldKey,
+          backgroundColor: Colors.grey[50],
+          drawer: SidebarDrawer(
+            activePage: 'home',
+            restaurantName: _restaurantInfo?['name'] ?? 'Restaurant',
+            restaurantSlogan: _restaurantInfo?['slogan'] ?? 'Fine Dining',
+            restaurantImageUrl: _restaurantInfo?['imageUrl'],
           ),
-          title: Padding(
-            padding: const EdgeInsets.only(left: 0.0),
-            child: Image.asset(
-              'assets/svg/logo_text.png',
-              height: 80,
-              semanticLabel: 'Bird Partner Logo',
+          appBar: _selectedIndex == 0 ? AppBar(
+            backgroundColor: Colors.white,
+            elevation: 0,
+            leading: SidebarOpener(
+              scaffoldKey: _scaffoldKey,
+              iconColor: Colors.black87,
+              padding: const EdgeInsets.all(12),
             ),
-          ),
-        ) : null,
-        body: Stack(
-          children: [
-            // Page content
-            PageView(
-              controller: _pageController,
-              onPageChanged: (index) {
-                setState(() {
-                  _selectedIndex = index;
-                });
-              },
-              children: [
-                // Home content
-                BlocBuilder<HomeBloc, HomeState>(
-                  builder: (context, state) {
-                    if (state is HomeLoading) {
-                      return const ShimmerHomeContent();
-                    } else if (state is HomeLoaded) {
-                      return _buildHomeContent(context, state);
-                    } else if (state is HomeError) {
-                      return Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              state.message,
-                              style: const TextStyle(
-                                fontSize: 16,
-                                color: Colors.red,
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-                            ElevatedButton(
-                              onPressed: () {
-                                _homeBloc.add(LoadHomeData()); // Use the instance variable
-                              },
-                              child: const Text('Retry'),
-                            ),
-                          ],
-                        ),
-                      );
-                    }
-                    return const ShimmerHomeContent();
-                  },
-                ),
-                // Chat content
-                const ChatListView(),
-              ],
-            ),
-            // Bottom navigation
-            Positioned(
-              bottom: 0,
-              left: 0,
-              right: 0,
-              child: BottomNavigationWidget(
-                selectedIndex: _selectedIndex,
-                onItemTapped: _onBottomNavTapped,
+            title: Padding(
+              padding: const EdgeInsets.only(left: 0.0),
+              child: Image.asset(
+                'assets/svg/logo_text.png',
+                height: 80,
+                semanticLabel: 'Bird Partner Logo',
               ),
             ),
-          ],
+          ) : null,
+          body: Stack(
+            children: [
+              // Page content
+              PageView(
+                controller: _pageController,
+                onPageChanged: (index) {
+                  setState(() {
+                    _selectedIndex = index;
+                  });
+                },
+                children: [
+                  // Home content
+                  BlocBuilder<HomeBloc, HomeState>(
+                    builder: (context, state) {
+                      if (state is HomeLoading) {
+                        return const ShimmerHomeContent();
+                      } else if (state is HomeLoaded) {
+                        return _buildHomeContent(context, state);
+                      } else if (state is HomeError) {
+                        return Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                state.message,
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  color: Colors.red,
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              ElevatedButton(
+                                onPressed: () {
+                                  _homeBloc.add(LoadHomeData()); // Use the instance variable
+                                },
+                                child: const Text('Retry'),
+                              ),
+                            ],
+                          ),
+                        );
+                      }
+                      return const ShimmerHomeContent();
+                    },
+                  ),
+                  // Chat content
+                  const ChatListView(),
+                ],
+              ),
+              // Bottom navigation
+              Positioned(
+                bottom: 0,
+                left: 0,
+                right: 0,
+                child: BottomNavigationWidget(
+                  selectedIndex: _selectedIndex,
+                  onItemTapped: _onBottomNavTapped,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

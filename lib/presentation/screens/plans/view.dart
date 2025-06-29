@@ -42,6 +42,7 @@ class _PlanSelectionScreenState extends State<PlanSelectionScreen> {
   Map<String, String>? _restaurantInfo;
   String? _errorMessage;
   bool _hasCheckedSubscription = false;
+  bool _hasValidSubscription = false;
 
   @override
   void initState() {
@@ -71,6 +72,7 @@ class _PlanSelectionScreenState extends State<PlanSelectionScreen> {
         debugPrint('No partner ID found, allowing access to plans');
         setState(() {
           _hasCheckedSubscription = true;
+          _hasValidSubscription = false;
         });
         return;
       }
@@ -78,7 +80,11 @@ class _PlanSelectionScreenState extends State<PlanSelectionScreen> {
       final activeSubscription = await SubscriptionPlansService.getActiveSubscription(partnerId);
       
       if (activeSubscription != null) {
-        // User has active subscription, show dialog and redirect
+        // User has active subscription, show dialog and set flag
+        setState(() {
+          _hasCheckedSubscription = true;
+          _hasValidSubscription = true;
+        });
         if (mounted) {
           _showActivePlanDialog(activeSubscription);
         }
@@ -86,6 +92,7 @@ class _PlanSelectionScreenState extends State<PlanSelectionScreen> {
         // No active subscription, allow access to plans
         setState(() {
           _hasCheckedSubscription = true;
+          _hasValidSubscription = false;
         });
       }
     } catch (e) {
@@ -93,6 +100,7 @@ class _PlanSelectionScreenState extends State<PlanSelectionScreen> {
       // On error, allow access to plans
       setState(() {
         _hasCheckedSubscription = true;
+        _hasValidSubscription = false;
       });
     }
   }
@@ -284,275 +292,288 @@ class _PlanSelectionScreenState extends State<PlanSelectionScreen> {
       );
     }
 
-    return Scaffold(
-      key: _scaffoldKey,
-      backgroundColor: const Color(0xFFF8F9FA),
-      drawer: SidebarDrawer(
-        activePage: 'plan',
-        restaurantName: _restaurantInfo?['name'] ?? 'Restaurant',
-        restaurantSlogan: _restaurantInfo?['slogan'] ?? 'Choose your plan',
-        restaurantImageUrl: _restaurantInfo?['imageUrl'],
-      ),
-      appBar: AppBar(
-        leading: null,
-        automaticallyImplyLeading: false,
-        elevation: 0,
-        backgroundColor: Colors.white,
-        title: Row(
-          children: [
-            InkWell(
-              borderRadius: BorderRadius.circular(40),
-              onTap: _openSidebar,
-              child: const Padding(
-                padding: EdgeInsets.all(8.0),
-                child: Icon(
-                  Icons.menu_rounded,
-                  color: Colors.black87,
-                  size: 24.0,
+    return WillPopScope(
+      onWillPop: () async {
+        // If user has valid subscription, redirect to home instead of going back
+        if (_hasValidSubscription) {
+          Navigator.of(context).pushNamedAndRemoveUntil('/home', (route) => false);
+          return false; // Prevent default back behavior
+        }
+        return true; // Allow normal back behavior
+      },
+      child: Scaffold(
+        key: _scaffoldKey,
+        backgroundColor: const Color(0xFFF8F9FA),
+        drawer: SidebarDrawer(
+          activePage: 'plan',
+          restaurantName: _restaurantInfo?['name'] ?? 'Restaurant',
+          restaurantSlogan: _restaurantInfo?['slogan'] ?? 'Choose your plan',
+          restaurantImageUrl: _restaurantInfo?['imageUrl'],
+        ),
+        appBar: AppBar(
+          leading: _hasValidSubscription ? null : IconButton(
+            icon: const Icon(Icons.arrow_back, color: Colors.black87),
+            onPressed: () => Navigator.of(context).pop(),
+          ),
+          automaticallyImplyLeading: false,
+          elevation: 0,
+          backgroundColor: Colors.white,
+          title: Row(
+            children: [
+              InkWell(
+                borderRadius: BorderRadius.circular(40),
+                onTap: _openSidebar,
+                child: const Padding(
+                  padding: EdgeInsets.all(8.0),
+                  child: Icon(
+                    Icons.menu_rounded,
+                    color: Colors.black87,
+                    size: 24.0,
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(width: 12),
-            Text(
-              'Subscription Plans',
-              style: TextStyle(
-                fontFamily: FontConstants.fontFamily,
-                fontSize: FontSize.s18,
-                fontWeight: FontWeightManager.semiBold,
-                color: ColorManager.black,
+              const SizedBox(width: 12),
+              Text(
+                'Subscription Plans',
+                style: TextStyle(
+                  fontFamily: FontConstants.fontFamily,
+                  fontSize: FontSize.s18,
+                  fontWeight: FontWeightManager.semiBold,
+                  color: ColorManager.black,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
-      ),
-      body: SafeArea(
-        child: BlocConsumer<PlanSelectionBloc, PlanSelectionState>(
-          listener: (context, state) {
-            try {
-              if (state is SubscriptionCreated) {
-                _showSuccessDialog(context, state.subscriptionData);
-              } else if (state is SubscriptionError) {
+        body: SafeArea(
+          child: BlocConsumer<PlanSelectionBloc, PlanSelectionState>(
+            listener: (context, state) {
+              try {
+                if (state is SubscriptionCreated) {
+                  _showSuccessDialog(context, state.subscriptionData);
+                } else if (state is SubscriptionError) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(state.message),
+                      backgroundColor: Colors.red,
+                      duration: const Duration(seconds: 3),
+                    ),
+                  );
+                }
+              } catch (e) {
+                debugPrint('PlanSelectionView: Error in bloc listener: $e');
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text(state.message),
+                    content: Text('Error: $e'),
                     backgroundColor: Colors.red,
                     duration: const Duration(seconds: 3),
                   ),
                 );
               }
-            } catch (e) {
-              debugPrint('PlanSelectionView: Error in bloc listener: $e');
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('Error: $e'),
-                  backgroundColor: Colors.red,
-                  duration: const Duration(seconds: 3),
-                ),
-              );
-            }
-          },
-          builder: (context, state) {
-            // Add debug logging
-            debugPrint('PlanSelectionView: Current state is ${state.runtimeType}');
-            
-            if (state is PlanSelectionLoading) {
-              return Center(
-                child: CircularProgressIndicator(
-                  color: ColorManager.primary,
-                ),
-              );
-            }
-            
-            if (state is PlanSelectionError) {
-              return Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      'Error',
-                      style: TextStyle(
-                        fontSize: FontSize.s18,
-                        fontWeight: FontWeightManager.bold,
-                        color: ColorManager.black,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      state.message,
-                      style: TextStyle(
-                        fontSize: FontSize.s14,
-                        color: ColorManager.grey,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ],
-                ),
-              );
-            }
-            
-            if (state is PlanSelectionLoaded || state is SubscriptionCreating || state is SubscriptionError || state is SubscriptionCreated) {
-              List<PlanModel> plans;
-              String? selectedPlanId;
+            },
+            builder: (context, state) {
+              // Add debug logging
+              debugPrint('PlanSelectionView: Current state is ${state.runtimeType}');
               
-              try {
-                if (state is PlanSelectionLoaded) {
-                  plans = state.plans;
-                  selectedPlanId = state.selectedPlanId;
-                  debugPrint('PlanSelectionView: Loaded ${plans.length} plans');
-                } else if (state is SubscriptionCreating) {
-                  plans = state.plans;
-                  selectedPlanId = state.selectedPlanId;
-                  debugPrint('PlanSelectionView: Creating subscription with ${plans.length} plans');
-                } else if (state is SubscriptionError) {
-                  plans = state.plans;
-                  selectedPlanId = state.selectedPlanId;
-                  debugPrint('PlanSelectionView: Subscription error with ${plans.length} plans');
-                } else if (state is SubscriptionCreated) {
-                  plans = state.plans;
-                  selectedPlanId = state.selectedPlanId;
-                  debugPrint('PlanSelectionView: Subscription created with ${plans.length} plans');
-                } else {
-                  plans = [];
-                  selectedPlanId = null;
-                  debugPrint('PlanSelectionView: Unknown state, using empty plans');
-                }
-              } catch (e) {
-                debugPrint('PlanSelectionView: Error accessing state data: $e');
-                plans = [];
-                selectedPlanId = null;
+              if (state is PlanSelectionLoading) {
+                return Center(
+                  child: CircularProgressIndicator(
+                    color: ColorManager.primary,
+                  ),
+                );
               }
               
-              return Stack(
-                children: [
-                  SingleChildScrollView(
-                    padding: const EdgeInsets.all(20),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Choose Your Plan',
-                          style: TextStyle(
-                            fontSize: FontSize.s22,
-                            fontWeight: FontWeightManager.bold,
-                            color: ColorManager.black,
-                          ),
+              if (state is PlanSelectionError) {
+                return Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        'Error',
+                        style: TextStyle(
+                          fontSize: FontSize.s18,
+                          fontWeight: FontWeightManager.bold,
+                          color: ColorManager.black,
                         ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Select the best plan for your business',
-                          style: TextStyle(
-                            fontSize: FontSize.s16,
-                            color: ColorManager.textGrey,
-                          ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        state.message,
+                        style: TextStyle(
+                          fontSize: FontSize.s14,
+                          color: ColorManager.grey,
                         ),
-                        const SizedBox(height: 24),
-                        
-                        // Plans list
-                        ...plans.map((plan) {
-                          try {
-                            // Validate plan data before rendering
-                            if (plan.id.isEmpty || plan.title.isEmpty) {
-                              debugPrint('PlanSelectionView: Invalid plan data detected: ${plan.id} - ${plan.title}');
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ),
+                );
+              }
+              
+              if (state is PlanSelectionLoaded || state is SubscriptionCreating || state is SubscriptionError || state is SubscriptionCreated) {
+                List<PlanModel> plans;
+                String? selectedPlanId;
+                
+                try {
+                  if (state is PlanSelectionLoaded) {
+                    plans = state.plans;
+                    selectedPlanId = state.selectedPlanId;
+                    debugPrint('PlanSelectionView: Loaded ${plans.length} plans');
+                  } else if (state is SubscriptionCreating) {
+                    plans = state.plans;
+                    selectedPlanId = state.selectedPlanId;
+                    debugPrint('PlanSelectionView: Creating subscription with ${plans.length} plans');
+                  } else if (state is SubscriptionError) {
+                    plans = state.plans;
+                    selectedPlanId = state.selectedPlanId;
+                    debugPrint('PlanSelectionView: Subscription error with ${plans.length} plans');
+                  } else if (state is SubscriptionCreated) {
+                    plans = state.plans;
+                    selectedPlanId = state.selectedPlanId;
+                    debugPrint('PlanSelectionView: Subscription created with ${plans.length} plans');
+                  } else {
+                    plans = [];
+                    selectedPlanId = null;
+                    debugPrint('PlanSelectionView: Unknown state, using empty plans');
+                  }
+                } catch (e) {
+                  debugPrint('PlanSelectionView: Error accessing state data: $e');
+                  plans = [];
+                  selectedPlanId = null;
+                }
+                
+                return Stack(
+                  children: [
+                    SingleChildScrollView(
+                      padding: const EdgeInsets.all(20),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Choose Your Plan',
+                            style: TextStyle(
+                              fontSize: FontSize.s22,
+                              fontWeight: FontWeightManager.bold,
+                              color: ColorManager.black,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Select the best plan for your business',
+                            style: TextStyle(
+                              fontSize: FontSize.s16,
+                              color: ColorManager.textGrey,
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+                          
+                          // Plans list
+                          ...plans.map((plan) {
+                            try {
+                              // Validate plan data before rendering
+                              if (plan.id.isEmpty || plan.title.isEmpty) {
+                                debugPrint('PlanSelectionView: Invalid plan data detected: ${plan.id} - ${plan.title}');
+                                return Container(
+                                  padding: const EdgeInsets.all(16),
+                                  margin: const EdgeInsets.only(bottom: 16),
+                                  decoration: BoxDecoration(
+                                    color: Colors.orange.withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(color: Colors.orange.withOpacity(0.3)),
+                                  ),
+                                  child: Text(
+                                    'Invalid plan data',
+                                    style: TextStyle(color: Colors.orange[700]),
+                                  ),
+                                );
+                              }
+                              
+                              return PlanCard(
+                                plan: plan,
+                                isSelected: selectedPlanId == plan.id,
+                                onTap: () {
+                                  try {
+                                    // Get bloc reference before showing dialog
+                                    final bloc = context.read<PlanSelectionBloc>();
+                                    
+                                    bloc.add(
+                                      SelectPlanEvent(plan.id),
+                                    );
+                                    // Show payment method dialog
+                                    _showPaymentMethodDialog(context, plan);
+                                  } catch (e) {
+                                    debugPrint('PlanSelectionView: Error handling plan tap: $e');
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text('Error selecting plan: $e'),
+                                        backgroundColor: Colors.red,
+                                      ),
+                                    );
+                                  }
+                                },
+                              );
+                            } catch (e) {
+                              debugPrint('PlanSelectionView: Error rendering plan card: $e');
                               return Container(
                                 padding: const EdgeInsets.all(16),
                                 margin: const EdgeInsets.only(bottom: 16),
                                 decoration: BoxDecoration(
-                                  color: Colors.orange.withOpacity(0.1),
+                                  color: Colors.red.withOpacity(0.1),
                                   borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(color: Colors.orange.withOpacity(0.3)),
+                                  border: Border.all(color: Colors.red.withOpacity(0.3)),
                                 ),
                                 child: Text(
-                                  'Invalid plan data',
-                                  style: TextStyle(color: Colors.orange[700]),
+                                  'Error loading plan: $e',
+                                  style: TextStyle(color: Colors.red),
                                 ),
                               );
                             }
-                            
-                            return PlanCard(
-                              plan: plan,
-                              isSelected: selectedPlanId == plan.id,
-                              onTap: () {
-                                try {
-                                  // Get bloc reference before showing dialog
-                                  final bloc = context.read<PlanSelectionBloc>();
-                                  
-                                  bloc.add(
-                                    SelectPlanEvent(plan.id),
-                                  );
-                                  // Show payment method dialog
-                                  _showPaymentMethodDialog(context, plan);
-                                } catch (e) {
-                                  debugPrint('PlanSelectionView: Error handling plan tap: $e');
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text('Error selecting plan: $e'),
-                                      backgroundColor: Colors.red,
-                                    ),
-                                  );
-                                }
-                              },
-                            );
-                          } catch (e) {
-                            debugPrint('PlanSelectionView: Error rendering plan card: $e');
-                            return Container(
-                              padding: const EdgeInsets.all(16),
-                              margin: const EdgeInsets.only(bottom: 16),
-                              decoration: BoxDecoration(
-                                color: Colors.red.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: Colors.red.withOpacity(0.3)),
-                              ),
-                              child: Text(
-                                'Error loading plan: $e',
-                                style: TextStyle(color: Colors.red),
-                              ),
-                            );
-                          }
-                        }),
-                      ],
+                          }),
+                        ],
+                      ),
                     ),
-                  ),
-                  
-                  // Loading overlay for subscription creation
-                  if (state is SubscriptionCreating)
-                    Container(
-                      color: Colors.black.withOpacity(0.3),
-                      child: Center(
-                        child: Container(
-                          padding: const EdgeInsets.all(24),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              CircularProgressIndicator(
-                                color: ColorManager.primary,
-                              ),
-                              const SizedBox(height: 16),
-                              Text(
-                                'Creating Subscription...',
-                                style: TextStyle(
-                                  fontSize: FontSize.s16,
-                                  fontWeight: FontWeightManager.medium,
-                                  color: ColorManager.black,
+                    
+                    // Loading overlay for subscription creation
+                    if (state is SubscriptionCreating)
+                      Container(
+                        color: Colors.black.withOpacity(0.3),
+                        child: Center(
+                          child: Container(
+                            padding: const EdgeInsets.all(24),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                CircularProgressIndicator(
+                                  color: ColorManager.primary,
                                 ),
-                              ),
-                            ],
+                                const SizedBox(height: 16),
+                                Text(
+                                  'Creating Subscription...',
+                                  style: TextStyle(
+                                    fontSize: FontSize.s16,
+                                    fontWeight: FontWeightManager.medium,
+                                    color: ColorManager.black,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                ],
+                  ],
+                );
+              }
+              
+              // Default case - should not reach here but just in case
+              return const Center(
+                child: Text('No plans available'),
               );
-            }
-            
-            // Default case - should not reach here but just in case
-            return const Center(
-              child: Text('No plans available'),
-            );
-          },
+            },
+          ),
         ),
       ),
     );

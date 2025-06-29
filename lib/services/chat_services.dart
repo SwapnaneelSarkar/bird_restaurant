@@ -127,11 +127,18 @@ class SocketChatService extends ChangeNotifier {
   final StreamController<ApiChatMessage> _messageStreamController = 
       StreamController<ApiChatMessage>.broadcast();
   
+  // NEW: Stream controller for real-time read status updates
+  final StreamController<Map<String, dynamic>> _readStatusStreamController = 
+      StreamController<Map<String, dynamic>>.broadcast();
+  
   List<ApiChatMessage> get messages => List.unmodifiable(_messages);
   bool get isConnected => _isConnected;
   String? get currentUserId => _currentUserId;
   
   Stream<ApiChatMessage> get messageStream => _messageStreamController.stream;
+  
+  // NEW: Stream for read status updates
+  Stream<Map<String, dynamic>> get readStatusStream => _readStatusStreamController.stream;
 
   SocketChatService() {
     _initializeService();
@@ -247,8 +254,57 @@ class SocketChatService extends ChangeNotifier {
 
     // NEW: Message sent confirmation
     _socket!.on('message_sent', (data) {
-      debugPrint('SocketChatService: ✅ Message sent confirmation: $data');
-      _handleMessageSentConfirmation(data);
+      debugPrint('SocketChatService: 📥 Processing message sent confirmation...');
+      debugPrint('SocketChatService: Raw confirmation data: $data');
+      
+      Map<String, dynamic> messageData;
+      
+      if (data is String) {
+        messageData = jsonDecode(data);
+      } else if (data is Map<String, dynamic>) {
+        messageData = data;
+      } else {
+        debugPrint('SocketChatService: ❌ Invalid confirmation data format');
+        return;
+      }
+      
+      final message = ApiChatMessage.fromJson(messageData);
+      
+      // IMPROVED: Better optimistic message update logic
+      final existingIndex = _messages.indexWhere((msg) => 
+        msg.content == message.content && 
+        msg.senderId == message.senderId &&
+        msg.createdAt.difference(message.createdAt).abs().inSeconds < 3);
+      
+      if (existingIndex != -1) {
+        // Update the optimistic message with the real message from server
+        final oldMessage = _messages[existingIndex];
+        if (oldMessage.id != message.id) {
+          _messages[existingIndex] = message;
+          debugPrint('SocketChatService: ✅ Updated optimistic message with server confirmation');
+          debugPrint('SocketChatService: 🔄 Old ID: ${oldMessage.id} -> New ID: ${message.id}');
+        } else {
+          debugPrint('SocketChatService: 🔄 Message already has correct ID, no update needed');
+        }
+      } else {
+        // Check if this is a completely new message (shouldn't happen for sent confirmations)
+        final isNewMessage = !_messages.any((msg) => 
+          msg.id == message.id ||
+          (msg.content == message.content && 
+           msg.senderId == message.senderId &&
+           msg.createdAt.difference(message.createdAt).abs().inSeconds < 3));
+        
+        if (isNewMessage) {
+          _messages.add(message);
+          _messages.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+          debugPrint('SocketChatService: ✅ Added confirmed message to list');
+        } else {
+          debugPrint('SocketChatService: 🔄 Confirmed message already exists, skipping');
+        }
+      }
+      
+      _debouncedNotify();
+      
     });
 
     // NEW: Read status events
@@ -262,6 +318,12 @@ class SocketChatService extends ChangeNotifier {
       _handleMessagesMarkedRead(data);
     });
 
+    // NEW: Message seen event for real-time read status
+    // _socket!.on('message_seen', (data) {
+    //   debugPrint('SocketChatService: 👁️ Message seen event received: $data');
+    //   _handleMessageSeen(data);
+    // });
+
     // User events
     _socket!.on('user_joined', (data) {
       debugPrint('SocketChatService: 👋 User joined: $data');
@@ -271,9 +333,14 @@ class SocketChatService extends ChangeNotifier {
       debugPrint('SocketChatService: 👋 User left: $data');
     });
 
-    // Typing events
+    // Typing events - NEW: Use typing to trigger mark as read and blue ticks
     _socket!.on('user_typing', (data) {
       debugPrint('SocketChatService: ⌨️ User typing: $data');
+      
+      // NEW: When someone starts typing, mark all messages as read and update blue ticks
+      if (_currentRoomId != null && _currentUserId != null) {
+        _markAllMessagesAsReadForBlueTicks();
+      }
     });
 
     _socket!.on('user_stop_typing', (data) {
@@ -338,6 +405,28 @@ class SocketChatService extends ChangeNotifier {
           _messageStreamController.add(message);
         }
         
+        // NEW: Auto-emit typing when receiving a message on active chat page
+        if (_currentRoomId != null) {
+          debugPrint('SocketChatService: 🔍 Auto-emission check - Room ID: $_currentRoomId');
+          debugPrint('SocketChatService: 🔍 Auto-emission check - Socket ready: ${_socket != null && _isConnected}');
+          
+          sendTyping(_currentRoomId!);
+          debugPrint('SocketChatService: ⌨️ Auto-emitted typing for received message');
+          
+          // Stop typing after 3 seconds
+          Timer(const Duration(seconds: 3), () {
+            if (_currentRoomId != null) {
+              debugPrint('SocketChatService: 🔍 Auto-stop typing check - Room ID: $_currentRoomId');
+              sendStopTyping(_currentRoomId!);
+              debugPrint('SocketChatService: ⌨️ Auto-stopped typing after received message');
+            } else {
+              debugPrint('SocketChatService: ⚠️ Cannot auto-stop typing - no current room');
+            }
+          });
+        } else {
+          debugPrint('SocketChatService: ⚠️ Cannot auto-emit typing - no current room ID');
+        }
+        
         // AUTO mark as read for incoming messages via SOCKET
         if (_currentRoomId != null) {
           markAsReadViaSocket(_currentRoomId!);
@@ -351,65 +440,6 @@ class SocketChatService extends ChangeNotifier {
       }
     } catch (e) {
       debugPrint('SocketChatService: ❌ Error handling received message: $e');
-    }
-  }
-
-  // NEW: Handle message sent confirmation
-  void _handleMessageSentConfirmation(dynamic data) {
-    try {
-      debugPrint('SocketChatService: 📥 Processing message sent confirmation...');
-      debugPrint('SocketChatService: Raw confirmation data: $data');
-      
-      Map<String, dynamic> messageData;
-      
-      if (data is String) {
-        messageData = jsonDecode(data);
-      } else if (data is Map<String, dynamic>) {
-        messageData = data;
-      } else {
-        debugPrint('SocketChatService: ❌ Invalid confirmation data format');
-        return;
-      }
-      
-      final message = ApiChatMessage.fromJson(messageData);
-      
-      // IMPROVED: Better optimistic message update logic
-      final existingIndex = _messages.indexWhere((msg) => 
-        msg.content == message.content && 
-        msg.senderId == message.senderId &&
-        msg.createdAt.difference(message.createdAt).abs().inSeconds < 3);
-      
-      if (existingIndex != -1) {
-        // Update the optimistic message with the real message from server
-        final oldMessage = _messages[existingIndex];
-        if (oldMessage.id != message.id) {
-          _messages[existingIndex] = message;
-          debugPrint('SocketChatService: ✅ Updated optimistic message with server confirmation');
-          debugPrint('SocketChatService: 🔄 Old ID: ${oldMessage.id} -> New ID: ${message.id}');
-        } else {
-          debugPrint('SocketChatService: 🔄 Message already has correct ID, no update needed');
-        }
-      } else {
-        // Check if this is a completely new message (shouldn't happen for sent confirmations)
-        final isNewMessage = !_messages.any((msg) => 
-          msg.id == message.id ||
-          (msg.content == message.content && 
-           msg.senderId == message.senderId &&
-           msg.createdAt.difference(message.createdAt).abs().inSeconds < 3));
-        
-        if (isNewMessage) {
-          _messages.add(message);
-          _messages.sort((a, b) => a.createdAt.compareTo(b.createdAt));
-          debugPrint('SocketChatService: ✅ Added confirmed message to list');
-        } else {
-          debugPrint('SocketChatService: 🔄 Confirmed message already exists, skipping');
-        }
-      }
-      
-      _debouncedNotify();
-      
-    } catch (e) {
-      debugPrint('SocketChatService: ❌ Error handling message sent confirmation: $e');
     }
   }
 
@@ -460,6 +490,93 @@ class SocketChatService extends ChangeNotifier {
     }
   }
 
+  // NEW: Handle message seen event (for sender side)
+  // void _handleMessageSeen(dynamic data) {
+  //   try {
+  //     debugPrint('SocketChatService: 👁️ Processing message seen event...');
+  //     debugPrint('SocketChatService: Raw seen data: $data');
+  //     
+  //     Map<String, dynamic> seenData;
+  //     
+  //     if (data is String) {
+  //       seenData = jsonDecode(data);
+  //     } else if (data is Map<String, dynamic>) {
+  //       seenData = data;
+  //     } else {
+  //       debugPrint('SocketChatService: ❌ Invalid message seen data format');
+  //       return;
+  //     }
+  //     
+  //     final messageId = seenData['messageId'];
+  //     final readBy = seenData['seenBy'];
+  //     final readAt = seenData['seenAt'] != null 
+  //         ? DateTime.parse(seenData['seenAt']) 
+  //         : DateTime.now();
+  //     
+  //     debugPrint('SocketChatService: 👁️ Message $messageId seen by $readBy at $readAt');
+  //     debugPrint('SocketChatService: 🔍 Current messages count: ${_messages.length}');
+  //     
+  //     // Find and update the specific message
+  //     final messageIndex = _messages.indexWhere((msg) => msg.id == messageId);
+  //     debugPrint('SocketChatService: 🔍 Message found at index: $messageIndex');
+  //     
+  //     if (messageIndex != -1) {
+  //       final message = _messages[messageIndex];
+  //       debugPrint('SocketChatService: 🔍 Original message read status: ${message.isRead}');
+  //       debugPrint('SocketChatService: 🔍 Original readBy count: ${message.readBy.length}');
+  //       
+  //       final updatedReadBy = List<ReadByEntry>.from(message.readBy);
+  //       
+  //       // Add new read entry if not already present
+  //       if (!updatedReadBy.any((entry) => entry.userId == readBy)) {
+  //         updatedReadBy.add(ReadByEntry(
+  //           userId: readBy,
+  //           readAt: readAt,
+  //           id: DateTime.now().millisecondsSinceEpoch.toString(),
+  //         ));
+  //         
+  //         // Create updated message
+  //         final updatedMessage = ApiChatMessage(
+  //           id: message.id,
+  //           roomId: message.roomId,
+  //           senderId: message.senderId,
+  //           senderType: message.senderType,
+  //           content: message.content,
+  //           messageType: message.messageType,
+  //           readBy: updatedReadBy,
+  //           createdAt: message.createdAt,
+  //         );
+  //         
+  //         _messages[messageIndex] = updatedMessage;
+  //         
+  //         debugPrint('SocketChatService: 🔵 Updated message read status: ${updatedMessage.isRead}');
+  //         debugPrint('SocketChatService: 🔵 Updated readBy count: ${updatedMessage.readBy.length}');
+  //         
+  //         // NEW: Emit read status update through dedicated stream
+  //         if (!_readStatusStreamController.isClosed) {
+  //           final streamData = {
+  //             'type': 'message_seen',
+  //             'messageId': messageId,
+  //             'readBy': readBy,
+  //             'readAt': readAt.toIso8601String(),
+  //           };
+  //           _readStatusStreamController.add(streamData);
+  //           debugPrint('SocketChatService: 📡 Emitted message seen update to stream');
+  //         }
+  //         
+  //         notifyListeners();
+  //         debugPrint('SocketChatService: ✅ Message seen update completed');
+  //       } else {
+  //         debugPrint('SocketChatService: 🔄 User already in readBy list, skipping');
+  //       }
+  //     } else {
+  //       debugPrint('SocketChatService: ⚠️ Message not found for seen update: $messageId');
+  //     }
+  //   } catch (e) {
+  //     debugPrint('SocketChatService: ❌ Error handling message seen: $e');
+  //   }
+  // }
+
   // NEW: Handle bulk messages marked read
   void _handleMessagesMarkedRead(dynamic data) {
     try {
@@ -472,6 +589,8 @@ class SocketChatService extends ChangeNotifier {
       
       // Update all messages in the room that aren't already read by this user
       bool hasUpdates = false;
+      List<ApiChatMessage> updatedMessages = [];
+      
       for (int i = 0; i < _messages.length; i++) {
         final message = _messages[i];
         if (message.roomId == roomId && !message.readBy.any((entry) => entry.userId == userId)) {
@@ -482,7 +601,7 @@ class SocketChatService extends ChangeNotifier {
             id: DateTime.now().millisecondsSinceEpoch.toString(),
           ));
           
-          _messages[i] = ApiChatMessage(
+          final updatedMessage = ApiChatMessage(
             id: message.id,
             roomId: message.roomId,
             senderId: message.senderId,
@@ -492,13 +611,29 @@ class SocketChatService extends ChangeNotifier {
             readBy: updatedReadBy,
             createdAt: message.createdAt,
           );
+          
+          _messages[i] = updatedMessage;
+          updatedMessages.add(updatedMessage);
           hasUpdates = true;
         }
       }
       
       if (hasUpdates) {
+        // NEW: Emit bulk read status update through dedicated stream
+        if (!_readStatusStreamController.isClosed) {
+          _readStatusStreamController.add({
+            'type': 'bulk_messages_read',
+            'roomId': roomId,
+            'readBy': userId,
+            'readAt': readAt.toIso8601String(),
+            'updatedMessages': updatedMessages,
+            'totalUpdated': updatedMessages.length,
+          });
+        }
+        
         notifyListeners();
         debugPrint('SocketChatService: ✅ Updated read status for all messages in room: $roomId');
+        debugPrint('SocketChatService: 🔵 Updated ${updatedMessages.length} messages with blue ticks');
       }
     } catch (e) {
       debugPrint('SocketChatService: ❌ Error handling messages marked read: $e');
@@ -910,30 +1045,52 @@ class SocketChatService extends ChangeNotifier {
 
   // Typing indicators
   void sendTyping(String roomId) {
+    debugPrint('SocketChatService: 🔍 Attempting to send typing event...');
+    debugPrint('SocketChatService: 🔍 Socket exists: ${_socket != null}');
+    debugPrint('SocketChatService: 🔍 Socket connected: ${_isConnected}');
+    debugPrint('SocketChatService: 🔍 Current room ID: $_currentRoomId');
+    debugPrint('SocketChatService: 🔍 Current user ID: $_currentUserId');
+    
     if (_socket != null && _isConnected) {
-      _socket!.emit('typing', {
+      final typingData = {
         'roomId': roomId,
         'userId': _currentUserId,
         'userType': 'partner',
-      });
+      };
+      
+      debugPrint('SocketChatService: 📡 Emitting typing event: $typingData');
+      _socket!.emit('typing', typingData);
       debugPrint('SocketChatService: ⌨️ Typing indicator sent');
+    } else {
+      debugPrint('SocketChatService: ❌ Cannot send typing - socket not ready');
+      debugPrint('SocketChatService: ❌ Socket null: ${_socket == null}');
+      debugPrint('SocketChatService: ❌ Socket connected: ${_isConnected}');
     }
   }
 
   void sendStopTyping(String roomId) {
+    debugPrint('SocketChatService: 🔍 Attempting to send stop typing event...');
+    debugPrint('SocketChatService: 🔍 Socket exists: ${_socket != null}');
+    debugPrint('SocketChatService: 🔍 Socket connected: ${_isConnected}');
+    
     if (_socket != null && _isConnected) {
-      _socket!.emit('stop_typing', {
+      final stopTypingData = {
         'roomId': roomId,
         'userId': _currentUserId,
         'userType': 'partner',
-      });
+      };
+      
+      debugPrint('SocketChatService: 📡 Emitting stop typing event: $stopTypingData');
+      _socket!.emit('stop_typing', stopTypingData);
       debugPrint('SocketChatService: ⌨️ Stop typing indicator sent');
+    } else {
+      debugPrint('SocketChatService: ❌ Cannot send stop typing - socket not ready');
     }
   }
 
-  // NEW: Mark as read via Socket.IO (PRIMARY METHOD)
+  // NEW: Emit mark_as_read via socket
   void markAsReadViaSocket(String roomId) {
-    if (_socket != null && _isConnected) {
+    if (_socket != null && _isConnected && _currentUserId != null) {
       final markAsReadData = {
         'roomId': roomId,
         'userId': _currentUserId,
@@ -1127,8 +1284,9 @@ class SocketChatService extends ChangeNotifier {
     _socket?.disconnect();
     _socket?.dispose();
     
-    // Close stream
+    // Close streams
     _messageStreamController.close();
+    _readStatusStreamController.close();
     
     // Clear tracking
     _sentMessageIds.clear();
@@ -1143,6 +1301,75 @@ class SocketChatService extends ChangeNotifier {
     
     if (!_isDisposed && _reconnectAttempts < _maxReconnectAttempts) {
       _handleReconnection();
+    }
+  }
+
+  // NEW: Mark all messages as read for blue ticks
+  void _markAllMessagesAsReadForBlueTicks() {
+    debugPrint('SocketChatService: 🔵 Starting blue tick update for typing event');
+    
+    if (_currentRoomId != null && _currentUserId != null) {
+      debugPrint('SocketChatService: 🔵 Current room: $_currentRoomId, Current user: $_currentUserId');
+      debugPrint('SocketChatService: 🔵 Total messages: ${_messages.length}');
+      
+      bool hasUpdates = false;
+      
+      for (int i = 0; i < _messages.length; i++) {
+        final message = _messages[i];
+        
+        // Only update messages sent by current user (to show blue ticks when others read them)
+        if (message.roomId == _currentRoomId && 
+            message.senderId == _currentUserId && 
+            !message.isRead) {
+          
+          debugPrint('SocketChatService: 🔵 Updating message ${message.id} for blue tick');
+          
+          final updatedReadBy = List<ReadByEntry>.from(message.readBy);
+          
+          // Add a dummy read entry to simulate the message being read
+          updatedReadBy.add(ReadByEntry(
+            userId: 'typing_user', // Dummy user to indicate someone is typing
+            readAt: DateTime.now(),
+            id: DateTime.now().millisecondsSinceEpoch.toString(),
+          ));
+          
+          final updatedMessage = ApiChatMessage(
+            id: message.id,
+            roomId: message.roomId,
+            senderId: message.senderId,
+            senderType: message.senderType,
+            content: message.content,
+            messageType: message.messageType,
+            readBy: updatedReadBy,
+            createdAt: message.createdAt,
+          );
+          
+          _messages[i] = updatedMessage;
+          hasUpdates = true;
+          
+          debugPrint('SocketChatService: 🔵 Updated message read status: ${updatedMessage.isRead}');
+          debugPrint('SocketChatService: 🔵 Updated readBy count: ${updatedMessage.readBy.length}');
+        }
+      }
+      
+      if (hasUpdates) {
+        // Emit to read status stream for UI updates
+        if (!_readStatusStreamController.isClosed) {
+          _readStatusStreamController.add({
+            'type': 'typing_blue_tick_update',
+            'roomId': _currentRoomId,
+            'updatedMessages': _messages.where((m) => m.senderId == _currentUserId && m.isRead).toList(),
+          });
+          debugPrint('SocketChatService: 📡 Emitted typing blue tick update to stream');
+        }
+        
+        notifyListeners();
+        debugPrint('SocketChatService: ✅ Blue tick update completed');
+      } else {
+        debugPrint('SocketChatService: 🔄 No messages needed blue tick update');
+      }
+    } else {
+      debugPrint('SocketChatService: ❌ Cannot update blue ticks - missing room or user ID');
     }
   }
 }

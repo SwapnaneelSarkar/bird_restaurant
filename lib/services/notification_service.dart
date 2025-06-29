@@ -10,6 +10,12 @@ import 'package:http/http.dart' as http;
 import 'package:audioplayers/audioplayers.dart';
 import '../constants/api_constants.dart';
 import 'token_service.dart';
+import '../presentation/resources/router/router.dart';
+import '../presentation/screens/chat/view.dart';
+import '../presentation/screens/chat_list/view.dart';
+import '../presentation/screens/orders/view.dart';
+import '../presentation/screens/homePage/view.dart';
+import '../main.dart'; // Import to access the global navigator key
 
 // Top-level function to handle background messages
 @pragma('vm:entry-point')
@@ -22,30 +28,82 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   // Initialize local notifications for background messages
   final FlutterLocalNotificationsPlugin localNotifications = FlutterLocalNotificationsPlugin();
   
-  // For background messages, use custom sound from raw resources
-  // This will work even when the app is in the background
-  const androidDetails = AndroidNotificationDetails(
-    'bird_partner_channel',
-    'Bird Partner Notifications',
-    channelDescription: 'Notifications for Bird Partner app',
-    importance: Importance.high,
-    priority: Priority.high,
-    icon: '@mipmap/ic_launcher',
-    playSound: true,
-    sound: RawResourceAndroidNotificationSound('notification_ringtone'),
-  );
+  // Get notification type from data
+  final notificationType = message.data['type'];
+  debugPrint('🔔 Background notification type: $notificationType');
+  
+  // Use custom sound only for 'new_order' type notifications
+  final useCustomSound = notificationType == 'new_order';
+  final isChatMessage = notificationType == 'chat_message';
+  
+  NotificationDetails notificationDetails;
+  
+  if (useCustomSound) {
+    // Use custom sound for new order notifications
+    const androidDetails = AndroidNotificationDetails(
+      'bird_partner_channel',
+      'Bird Partner Notifications',
+      channelDescription: 'Notifications for Bird Partner app',
+      importance: Importance.high,
+      priority: Priority.high,
+      icon: '@mipmap/ic_launcher',
+      playSound: true,
+      sound: RawResourceAndroidNotificationSound('notification_ringtone'),
+    );
 
-  const iosDetails = DarwinNotificationDetails(
-    presentAlert: true,
-    presentBadge: true,
-    presentSound: true,
-    sound: 'notification_ringtone.ogg',
-  );
+    const iosDetails = DarwinNotificationDetails(
+      presentAlert: true,
+      presentBadge: true,
+      presentSound: true,
+      sound: 'notification_ringtone.ogg',
+    );
 
-  const notificationDetails = NotificationDetails(
-    android: androidDetails,
-    iOS: iosDetails,
-  );
+    notificationDetails = const NotificationDetails(
+      android: androidDetails,
+      iOS: iosDetails,
+    );
+  } else if (isChatMessage) {
+    const androidDetails = AndroidNotificationDetails(
+      'bird_partner_chat_channel',
+      'Bird Partner Chat Notifications',
+      channelDescription: 'Chat notifications for Bird Partner app',
+      importance: Importance.high,
+      priority: Priority.high,
+      icon: '@mipmap/ic_launcher',
+      playSound: false,
+    );
+    const iosDetails = DarwinNotificationDetails(
+      presentAlert: true,
+      presentBadge: true,
+      presentSound: false,
+    );
+    notificationDetails = const NotificationDetails(
+      android: androidDetails,
+      iOS: iosDetails,
+    );
+  } else {
+    // Completely disable sound for chat messages and other notifications
+    const androidDetails = AndroidNotificationDetails(
+      'bird_partner_channel',
+      'Bird Partner Notifications',
+      channelDescription: 'Notifications for Bird Partner app',
+      importance: Importance.high,
+      priority: Priority.high,
+      icon: '@mipmap/ic_launcher',
+      playSound: true,
+    );
+
+    const iosDetails = DarwinNotificationDetails(
+      presentAlert: true,
+      presentBadge: true,
+      presentSound: true,
+    );
+
+    notificationDetails = const NotificationDetails(
+      android: androidDetails,
+      iOS: iosDetails,
+    );
+  }
 
   await localNotifications.show(
     message.hashCode,
@@ -219,9 +277,12 @@ class NotificationService {
   /// Show local notification for foreground messages
   Future<void> _showLocalNotification(RemoteMessage message) async {
     try {
-      // Use system notification sound (brief)
-      // Custom ringtone will be handled by AudioPlayer for extended playback
-      final notificationDetails = _createNotificationDetails();
+      // Get notification type from data
+      final notificationType = message.data['type'];
+      debugPrint('🔔 Notification type: $notificationType');
+
+      // Create notification details based on type
+      final notificationDetails = _createNotificationDetails(notificationType: notificationType);
 
       await _localNotifications.show(
         message.hashCode,
@@ -231,8 +292,13 @@ class NotificationService {
         payload: jsonEncode(message.data),
       );
 
-      // Play custom ringtone for incoming notifications (extended playback)
-      await _playCustomRingtone();
+      // Play custom ringtone only for 'new_order' type notifications
+      if (notificationType == 'new_order') {
+        debugPrint('🔔 Playing custom ringtone for new order notification');
+        await _playCustomRingtone();
+      } else {
+        debugPrint('🔔 Skipping custom ringtone for notification type: $notificationType');
+      }
     } catch (e) {
       debugPrint('❌ Error showing local notification: $e');
     }
@@ -254,33 +320,147 @@ class NotificationService {
   void _handleNotificationData(Map<String, dynamic> data) {
     debugPrint('🔔 Handling notification data: $data');
     
-    // Add your navigation logic here based on notification data
-    // For example:
-    // - Navigate to specific screens
-    // - Update app state
-    // - Show dialogs
-    
     final type = data['type'];
     final orderId = data['order_id'];
     final messageId = data['message_id'];
+    final relatedId = data['related_id']; // For chat messages
+    final notificationId = data['notification_id'];
+    
+    debugPrint('🔔 Notification details - Type: $type, Order ID: $orderId, Related ID: $relatedId');
     
     switch (type) {
       case 'new_order':
         debugPrint('📦 New order notification: $orderId');
         // Navigate to orders screen
+        _navigateToOrders();
         break;
-      case 'new_message':
-        debugPrint('💬 New message notification: $messageId');
-        // Navigate to chat screen
+      case 'chat_message':
+        debugPrint('💬 Chat message notification: Related ID: $relatedId');
+        // Navigate to chat screen with the related_id (which is the order/room ID)
+        if (relatedId != null && relatedId.isNotEmpty) {
+          _navigateToChat(relatedId);
+        } else {
+          debugPrint('❌ No related_id found for chat message notification');
+          _navigateToChatList();
+        }
         break;
       case 'order_update':
         debugPrint('🔄 Order update notification: $orderId');
         // Navigate to specific order details
+        _navigateToOrderDetails(orderId);
         break;
       default:
         debugPrint('🔔 Unknown notification type: $type');
-        // Default action
+        // Default action - navigate to home
+        _navigateToHome();
         break;
+    }
+  }
+
+  /// Navigate to chat screen with specific order ID
+  void _navigateToChat(String orderId) {
+    debugPrint('🔔 Navigating to chat screen with order ID: $orderId');
+    try {
+      // Use the global navigator key to navigate and clear the stack
+      if (navigatorKey.currentState != null) {
+        navigatorKey.currentState!.pushNamedAndRemoveUntil(
+          Routes.chat,
+          (route) => false, // Remove all previous routes
+          arguments: orderId,
+        );
+        debugPrint('✅ Successfully navigated to chat screen (stack cleared)');
+      } else {
+        debugPrint('❌ No navigator state available for navigation');
+        _navigateToChatList(); // Fallback to chat list
+      }
+    } catch (e) {
+      debugPrint('❌ Error navigating to chat screen: $e');
+      _navigateToChatList(); // Fallback to chat list
+    }
+  }
+
+  /// Navigate to chat list screen
+  void _navigateToChatList() {
+    debugPrint('🔔 Navigating to chat list screen');
+    try {
+      if (navigatorKey.currentState != null) {
+        navigatorKey.currentState!.pushNamedAndRemoveUntil(
+          Routes.chatList,
+          (route) => false, // Remove all previous routes
+        );
+        debugPrint('✅ Successfully navigated to chat list screen (stack cleared)');
+      } else {
+        debugPrint('❌ No navigator state available for navigation');
+        _navigateToHome(); // Fallback to home
+      }
+    } catch (e) {
+      debugPrint('❌ Error navigating to chat list screen: $e');
+      _navigateToHome(); // Fallback to home
+    }
+  }
+
+  /// Navigate to orders screen
+  void _navigateToOrders() {
+    debugPrint('🔔 Navigating to orders screen');
+    try {
+      if (navigatorKey.currentState != null) {
+        navigatorKey.currentState!.pushNamedAndRemoveUntil(
+          Routes.orders,
+          (route) => false, // Remove all previous routes
+        );
+        debugPrint('✅ Successfully navigated to orders screen (stack cleared)');
+      } else {
+        debugPrint('❌ No navigator state available for navigation');
+        _navigateToHome(); // Fallback to home
+      }
+    } catch (e) {
+      debugPrint('❌ Error navigating to orders screen: $e');
+      _navigateToHome(); // Fallback to home
+    }
+  }
+
+  /// Navigate to order details screen
+  void _navigateToOrderDetails(String? orderId) {
+    debugPrint('🔔 Navigating to order details screen: $orderId');
+    if (orderId == null || orderId.isEmpty) {
+      debugPrint('❌ No order ID provided for order details navigation');
+      _navigateToOrders(); // Fallback to orders list
+      return;
+    }
+    
+    try {
+      if (navigatorKey.currentState != null) {
+        navigatorKey.currentState!.pushNamedAndRemoveUntil(
+          Routes.orders,
+          (route) => false, // Remove all previous routes
+          arguments: orderId,
+        );
+        debugPrint('✅ Successfully navigated to order details screen (stack cleared)');
+      } else {
+        debugPrint('❌ No navigator state available for navigation');
+        _navigateToOrders(); // Fallback to orders list
+      }
+    } catch (e) {
+      debugPrint('❌ Error navigating to order details screen: $e');
+      _navigateToOrders(); // Fallback to orders list
+    }
+  }
+
+  /// Navigate to home screen
+  void _navigateToHome() {
+    debugPrint('🔔 Navigating to home screen');
+    try {
+      if (navigatorKey.currentState != null) {
+        navigatorKey.currentState!.pushNamedAndRemoveUntil(
+          Routes.homePage,
+          (route) => false, // Remove all previous routes
+        );
+        debugPrint('✅ Successfully navigated to home screen (stack cleared)');
+      } else {
+        debugPrint('❌ No navigator state available for navigation');
+      }
+    } catch (e) {
+      debugPrint('❌ Error navigating to home screen: $e');
     }
   }
 
@@ -528,6 +708,40 @@ class NotificationService {
     }
   }
 
+  /// Test new order notification (should play custom ringtone)
+  Future<void> testNewOrderNotification() async {
+    try {
+      final testMessage = RemoteMessage(
+        notification: RemoteNotification(
+          title: 'New Order Received',
+          body: 'You have received a new order #12345',
+        ),
+        data: {'type': 'new_order', 'order_id': '12345'},
+      );
+      
+      await _showLocalNotification(testMessage);
+    } catch (e) {
+      debugPrint('❌ Error testing new order notification: $e');
+    }
+  }
+
+  /// Test chat message notification (should use system sound)
+  Future<void> testChatMessageNotification() async {
+    try {
+      final testMessage = RemoteMessage(
+        notification: RemoteNotification(
+          title: 'New Message',
+          body: 'You have received a new message from customer',
+        ),
+        data: {'type': 'chat_message', 'message_id': 'msg_123'},
+      );
+      
+      await _showLocalNotification(testMessage);
+    } catch (e) {
+      debugPrint('❌ Error testing chat message notification: $e');
+    }
+  }
+
   /// Test audio playback with different settings (public)
   Future<void> testAudioPlayback() async {
     try {
@@ -553,30 +767,77 @@ class NotificationService {
   }
 
   /// Create notification details with optional custom sound
-  NotificationDetails _createNotificationDetails({bool useCustomSound = false}) {
-    // Use custom sound from raw resources for both foreground and background
-    // AudioPlayer will handle extended playback for foreground notifications
-    const androidDetails = AndroidNotificationDetails(
-      'bird_partner_channel',
-      'Bird Partner Notifications',
-      channelDescription: 'Notifications for Bird Partner app',
-      importance: Importance.high,
-      priority: Priority.high,
-      icon: '@mipmap/ic_launcher',
-      playSound: true,
-      sound: RawResourceAndroidNotificationSound('notification_ringtone'),
-    );
+  NotificationDetails _createNotificationDetails({String? notificationType}) {
+    // Use custom sound only for 'new_order' type notifications
+    final useCustomSound = notificationType == 'new_order';
+    final isChatMessage = notificationType == 'chat_message';
+    
+    debugPrint('🔔 Creating notification details - Type: $notificationType, Custom sound: $useCustomSound');
 
-    const iosDetails = DarwinNotificationDetails(
-      presentAlert: true,
-      presentBadge: true,
-      presentSound: true,
-      sound: 'notification_ringtone.ogg',
-    );
+    if (useCustomSound) {
+      // Use custom sound from raw resources for new order notifications
+      const androidDetails = AndroidNotificationDetails(
+        'bird_partner_channel',
+        'Bird Partner Notifications',
+        channelDescription: 'Notifications for Bird Partner app',
+        importance: Importance.high,
+        priority: Priority.high,
+        icon: '@mipmap/ic_launcher',
+        playSound: true,
+        sound: RawResourceAndroidNotificationSound('notification_ringtone'),
+      );
 
-    return const NotificationDetails(
-      android: androidDetails,
-      iOS: iosDetails,
-    );
+      const iosDetails = DarwinNotificationDetails(
+        presentAlert: true,
+        presentBadge: true,
+        presentSound: true,
+        sound: 'notification_ringtone.ogg',
+      );
+
+      return const NotificationDetails(
+        android: androidDetails,
+        iOS: iosDetails,
+      );
+    } else if (isChatMessage) {
+      // Use a separate channel for chat messages with sound disabled
+      const androidDetails = AndroidNotificationDetails(
+        'bird_partner_chat_channel',
+        'Bird Partner Chat Notifications',
+        channelDescription: 'Chat notifications for Bird Partner app',
+        importance: Importance.high,
+        priority: Priority.high,
+        icon: '@mipmap/ic_launcher',
+        playSound: false,
+      );
+      const iosDetails = DarwinNotificationDetails(
+        presentAlert: true,
+        presentBadge: true,
+        presentSound: false,
+      );
+      return const NotificationDetails(
+        android: androidDetails,
+        iOS: iosDetails,
+      );
+    } else {
+      // Fallback for other types: system default sound, default channel
+      const androidDetails = AndroidNotificationDetails(
+        'bird_partner_channel',
+        'Bird Partner Notifications',
+        channelDescription: 'Notifications for Bird Partner app',
+        importance: Importance.high,
+        priority: Priority.high,
+        icon: '@mipmap/ic_launcher',
+        playSound: true,
+      );
+      const iosDetails = DarwinNotificationDetails(
+        presentAlert: true,
+        presentBadge: true,
+        presentSound: true,
+      );
+      return const NotificationDetails(
+        android: androidDetails,
+        iOS: iosDetails,
+      );
+    }
   }
 }

@@ -112,37 +112,6 @@ class _OrderStatusBottomSheetState extends State<OrderStatusBottomSheet> {
     });
 
     Navigator.of(context).pop();
-    
-    // Show success message
-    Future.delayed(const Duration(milliseconds: 100), () {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                const Icon(Icons.check_circle, color: Colors.white, size: 20),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    message,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 14,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            duration: const Duration(seconds: 4),
-            backgroundColor: Colors.green,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
-            ),
-          ),
-        );
-      }
-    });
   }
 
   void _handleError(String message) {
@@ -155,37 +124,6 @@ class _OrderStatusBottomSheetState extends State<OrderStatusBottomSheet> {
     });
 
     Navigator.of(context).pop();
-    
-    // Show error message
-    Future.delayed(const Duration(milliseconds: 100), () {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                const Icon(Icons.error_outline, color: Colors.white, size: 20),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    message,
-                    style: const TextStyle(
-                      fontWeight: FontWeightManager.medium,
-                      fontSize: 14,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            duration: const Duration(seconds: 6),
-            backgroundColor: Colors.red,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
-            ),
-          ),
-        );
-      }
-    });
   }
 
   void _handleTimeout() {
@@ -260,28 +198,6 @@ class _OrderStatusBottomSheetState extends State<OrderStatusBottomSheet> {
           )),
           
           const SizedBox(height: 20),
-          
-          // Debug close button (only show when updating)
-          if (_isUpdating) ...[
-            Container(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () {
-                  debugPrint('OrderStatusBottomSheet: Manual close button pressed');
-                  _handleError('Manually cancelled');
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.red,
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                ),
-                child: const Text(
-                  'Cancel Update (Debug)',
-                  style: TextStyle(color: Colors.white),
-                ),
-              ),
-            ),
-            const SizedBox(height: 10),
-          ],
         ],
       ),
     );

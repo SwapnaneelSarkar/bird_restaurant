@@ -291,29 +291,99 @@ class _RingtoneTestWidgetState extends State<RingtoneTestWidget> {
                       ),
                     ),
                     const SizedBox(height: 16),
-                    ElevatedButton.icon(
-                      onPressed: () async {
-                        // Test local notification
-                        await _notificationService.testNotification();
-                      },
-                      icon: const Icon(Icons.notifications),
-                      label: const Text('Test Notification'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.orange,
-                        foregroundColor: Colors.white,
-                      ),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: () async {
+                              // Test new order notification (should play custom ringtone)
+                              await _notificationService.testNewOrderNotification();
+                            },
+                            icon: const Icon(Icons.shopping_cart),
+                            label: const Text('New Order'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.green,
+                              foregroundColor: Colors.white,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: () async {
+                              // Test chat message notification (should use system sound)
+                              await _notificationService.testChatMessageNotification();
+                            },
+                            icon: const Icon(Icons.chat),
+                            label: const Text('Chat Message'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.blue,
+                              foregroundColor: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 8),
-                    ElevatedButton.icon(
-                      onPressed: () async {
-                        // Test audio playback directly
-                        await _notificationService.testAudioPlayback();
-                      },
-                      icon: const Icon(Icons.volume_up),
-                      label: const Text('Test Audio Only'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.purple,
-                        foregroundColor: Colors.white,
+                    Row(
+                      children: [
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: () async {
+                              // Test generic notification
+                              await _notificationService.testNotification();
+                            },
+                            icon: const Icon(Icons.notifications),
+                            label: const Text('Generic Test'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.orange,
+                              foregroundColor: Colors.white,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: () async {
+                              // Test audio playback directly
+                              await _notificationService.testAudioPlayback();
+                            },
+                            icon: const Icon(Icons.volume_up),
+                            label: const Text('Audio Only'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.purple,
+                              foregroundColor: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.blue),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            '🔔 Notification Type Behavior:',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: Colors.blue,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          const Text(
+                            '• New Order: Custom ringtone + extended playback\n'
+                            '• Chat Message: System default sound only\n'
+                            '• Generic: System default sound only',
+                            style: TextStyle(fontSize: 12),
+                          ),
+                        ],
                       ),
                     ),
                   ],

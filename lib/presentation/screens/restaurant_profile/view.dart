@@ -202,405 +202,406 @@ class _BodyState extends State<_Body> {
     final side = w * 0.04;
     final vert = h * 0.02;
 
-    return Scaffold(
-      key: _scaffoldKey,
-      backgroundColor: ColorManager.background,
-      drawer: SidebarDrawer(
-        activePage: 'profile',
-        restaurantName: _restaurantInfo?['name'] ?? 'Restaurant',
-        restaurantSlogan: _restaurantInfo?['slogan'] ?? 'Manage your profile',
-        restaurantImageUrl: _restaurantInfo?['imageUrl'],
-      ),
-      appBar: AppBar(
-        leading: null,
-        automaticallyImplyLeading: false,
-        elevation: 0,
-        backgroundColor: Colors.white,
-        title: Row(
-          children: [
-            InkWell(
-              borderRadius: BorderRadius.circular(40),
-              onTap: _openSidebar,
-              child: const Padding(
-                padding: EdgeInsets.all(8.0),
-                child: Icon(
-                  Icons.menu_rounded,
-                  color: Colors.black87,
-                  size: 24.0,
+    return WillPopScope(
+      onWillPop: () async {
+        Navigator.of(context).pushNamedAndRemoveUntil(
+          '/home',
+          (route) => false,
+        );
+        return false;
+      },
+      child: Scaffold(
+        key: _scaffoldKey,
+        backgroundColor: ColorManager.background,
+        drawer: SidebarDrawer(
+          activePage: 'profile',
+          restaurantName: _restaurantInfo?['name'] ?? 'Restaurant',
+          restaurantSlogan: _restaurantInfo?['slogan'] ?? 'Manage your profile',
+          restaurantImageUrl: _restaurantInfo?['imageUrl'],
+        ),
+        appBar: AppBar(
+          leading: null,
+          automaticallyImplyLeading: false,
+          elevation: 0,
+          backgroundColor: Colors.white,
+          title: Row(
+            children: [
+              InkWell(
+                borderRadius: BorderRadius.circular(40),
+                onTap: _openSidebar,
+                child: const Padding(
+                  padding: EdgeInsets.all(8.0),
+                  child: Icon(
+                    Icons.menu_rounded,
+                    color: Colors.black87,
+                    size: 24.0,
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(width: 12),
-            Text(
-              'Restaurant Profile',
-              style: TextStyle(
-                fontFamily: FontConstants.fontFamily,
-                fontSize: FontSize.s18,
-                fontWeight: FontWeightManager.semiBold,
-                color: ColorManager.black,
+              const SizedBox(width: 12),
+              Text(
+                'Restaurant Profile',
+                style: TextStyle(
+                  fontFamily: FontConstants.fontFamily,
+                  fontSize: FontSize.s18,
+                  fontWeight: FontWeightManager.semiBold,
+                  color: ColorManager.black,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
-      ),
-      body: BlocConsumer<RestaurantProfileBloc, RestaurantProfileState>(
-        listenWhen: (previous, current) {
-          // Only update when certain state parts change to avoid excessive rebuilds
-          return previous.ownerName != current.ownerName ||
-                 previous.ownerMobile != current.ownerMobile ||
-                 previous.ownerEmail != current.ownerEmail ||
-                 previous.ownerAddress != current.ownerAddress ||
-                 previous.restaurantName != current.restaurantName ||
-                 previous.description != current.description ||
-                 previous.cookingTime != current.cookingTime ||
-                 previous.deliveryRadius != current.deliveryRadius || // 👈 NEW FIELD ADDED
-                 previous.latitude != current.latitude ||
-                 previous.longitude != current.longitude ||
-                 previous.submissionMessage != current.submissionMessage ||
-                 previous.errorMessage != current.errorMessage;
-        },
-        listener: (context, state) {
-          // Update text fields when state changes
-          _updateTextFields(state);
-          
-          // Show success/error messages
-          if (state.submissionMessage != null) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(state.submissionMessage!),
-                backgroundColor: state.submissionSuccess == true 
-                    ? Colors.green 
-                    : Colors.red,
-              ),
-            );
-          }
-          if (state.errorMessage != null) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(state.errorMessage!),
-                backgroundColor: Colors.red,
-              ),
-            );
-          }
-        },
-        builder: (context, st) {
-          // Update text fields with current state values
-          _updateTextFields(st);
-          
-          return SafeArea(
-            child: Stack(
-              children: [
-                // Main content
-                SingleChildScrollView(
-                  padding: EdgeInsets.symmetric(horizontal: side, vertical: vert),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Restaurant Image
-                      Stack(
-                        children: [
-                          Container(
-                            height: w * 0.5,
-                            width: double.infinity,
-                            decoration: BoxDecoration(
-                              color: Colors.grey.shade300,
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: _buildRestaurantImage(st),
-                          ),
-                          Positioned(
-                            right: 12,
-                            top: 12,
-                            child: InkWell(
-                              onTap: () => bloc.add(SelectImagePressed()),
-                              child: Container(
-                                decoration: const BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: Color(0xFFFCB56E),
-                                ),
-                                padding: const EdgeInsets.all(8),
-                                child: const Icon(Icons.photo, color: Colors.white),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      SizedBox(height: vert),
-
-                      _sectionHeader('Owner Details', Icons.person_outline),
-                      SizedBox(height: vert * 0.5),
-
-                      CustomTextField(
-                        controller: _ownerNameCtrl,
-                        label: 'Owner Name',
-                        hintText: 'Enter owner name',
-                        onChanged: (v) => bloc.add(OwnerNameChanged(v)),
-                      ),
-                      SizedBox(height: vert * .8),
-                      CustomTextField(
-                        controller: _ownerMobileCtrl,
-                        label: 'Mobile Number',
-                        hintText: 'Enter mobile number',
-                        keyboardType: TextInputType.phone,
-                        onChanged: (v) => bloc.add(OwnerMobileChanged(v)),
-                      ),
-                      SizedBox(height: vert * .8),
-                      CustomTextField(
-                        controller: _ownerEmailCtrl,
-                        label: 'Email',
-                        hintText: 'Enter email address',
-                        keyboardType: TextInputType.emailAddress,
-                        onChanged: (v) => bloc.add(OwnerEmailChanged(v)),
-                      ),
-                      SizedBox(height: vert * .8),
-                      
-                      // Location picker button and address display
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Address',
-                            style: TextStyle(
-                              fontFamily: FontConstants.fontFamily,
-                              fontSize: FontSize.s14,
-                              fontWeight: FontWeightManager.medium,
-                              color: Colors.grey.shade800,
-                            ),
-                          ),
-                          SizedBox(height: 8),
-                          CustomButtonSlim(
-                            label: 'Select Location',
-                            suffixIcon: Icons.location_on_outlined,
-                            onPressed: _openLocationPicker,
-                          ),
-                          SizedBox(height: 8),
-                          if (_selectedAddress.isNotEmpty)
+        body: BlocConsumer<RestaurantProfileBloc, RestaurantProfileState>(
+          listenWhen: (previous, current) {
+            // Only update when submissionMessage or errorMessage changes
+            return previous.submissionMessage != current.submissionMessage ||
+                   previous.errorMessage != current.errorMessage;
+          },
+          listener: (context, state) {
+            // Update text fields when state changes
+            _updateTextFields(state);
+            
+            // Show success/error messages
+            if (state.submissionMessage != null) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(state.submissionMessage!),
+                  backgroundColor: state.submissionSuccess == true 
+                      ? Colors.green 
+                      : Colors.red,
+                ),
+              );
+              // Clear the submission message after showing the SnackBar
+              context.read<RestaurantProfileBloc>().add(ClearSubmissionMessage());
+            }
+            if (state.errorMessage != null) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(state.errorMessage!),
+                  backgroundColor: Colors.red,
+                ),
+              );
+            }
+          },
+          builder: (context, st) {
+            // Update text fields with current state values
+            _updateTextFields(st);
+            
+            return SafeArea(
+              child: Stack(
+                children: [
+                  // Main content
+                  SingleChildScrollView(
+                    padding: EdgeInsets.symmetric(horizontal: side, vertical: vert),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Restaurant Image
+                        Stack(
+                          children: [
                             Container(
+                              height: w * 0.5,
                               width: double.infinity,
-                              padding: EdgeInsets.all(12),
                               decoration: BoxDecoration(
-                                color: Colors.grey.shade50,
-                                borderRadius: BorderRadius.circular(6),
-                                border: Border.all(color: Colors.grey.shade300),
+                                color: Colors.grey.shade300,
+                                borderRadius: BorderRadius.circular(8),
                               ),
-                              child: Text(
-                                _selectedAddress,
-                                style: TextStyle(
-                                  fontSize: FontSize.s14,
-                                  color: Colors.grey.shade800,
+                              child: _buildRestaurantImage(st),
+                            ),
+                            Positioned(
+                              right: 12,
+                              top: 12,
+                              child: InkWell(
+                                onTap: () => bloc.add(SelectImagePressed()),
+                                child: Container(
+                                  decoration: const BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: Color(0xFFFCB56E),
+                                  ),
+                                  padding: const EdgeInsets.all(8),
+                                  child: const Icon(Icons.photo, color: Colors.white),
                                 ),
                               ),
                             ),
-                        ],
-                      ),
-                      
-                      SizedBox(height: vert * 1.2),
+                          ],
+                        ),
+                        SizedBox(height: vert),
 
-                      _sectionHeader('Restaurant Details', Icons.restaurant_menu_outlined),
-                      SizedBox(height: vert * 0.5),
+                        _sectionHeader('Owner Details', Icons.person_outline),
+                        SizedBox(height: vert * 0.5),
 
-                      CustomTextField(
-                        controller: _restNameCtrl,
-                        label: 'Restaurant Name',
-                        hintText: 'Enter restaurant name',
-                        onChanged: (v) => bloc.add(RestaurantNameChanged(v)),
-                      ),
-                      SizedBox(height: vert * .8),
-                      CustomTextField(
-                        controller: _descriptionCtrl,
-                        label: 'Description',
-                        hintText: 'Enter restaurant description',
-                        maxLines: 3,
-                        onChanged: (v) => bloc.add(DescriptionChanged(v)),
-                      ),
-                      SizedBox(height: vert * .8),
-                      CustomTextField(
-                        controller: _cookTimeCtrl,
-                        label: 'Average Cooking Time (minutes)',
-                        hintText: 'Enter cooking time',
-                        keyboardType: TextInputType.number,
-                        onChanged: (v) => bloc.add(CookingTimeChanged(v)),
-                      ),
-                      SizedBox(height: vert * .8),
-                      
-                      // 👈 NEW DELIVERY RADIUS FIELD ADDED
-                      CustomTextField(
-                        controller: _deliveryRadiusCtrl,
-                        label: 'Delivery Radius (km)',
-                        hintText: 'Enter delivery radius in kilometers',
-                        keyboardType: TextInputType.number,
-                        onChanged: (v) => bloc.add(DeliveryRadiusChanged(v)),
-                      ),
-                      SizedBox(height: vert * 1.2),
-
-                      _sectionHeader('Restaurant Type', Icons.restaurant_outlined),
-                      Row(
-                        children: [
-                          _typeChip(
-                            ctx: context,
-                            label: 'Vegetarian',
-                            selected: st.type == RestaurantType.veg,
-                            onTap: () => bloc.add(const TypeChanged(RestaurantType.veg)),
-                          ),
-                          const SizedBox(width: 12),
-                          _typeChip(
-                            ctx: context,
-                            label: 'Non-Vegetarian',
-                            selected: st.type == RestaurantType.nonVeg,
-                            onTap: () => bloc.add(const TypeChanged(RestaurantType.nonVeg)),
-                          ),
-                        ],
-                      ),
-                      
-                      // Restaurant Type Dropdown - NEW SECTION
-                      SizedBox(height: vert * 1.2),
-                      _sectionHeader('Kitchen Type', Icons.store_outlined),
-                      SizedBox(height: vert * 0.5),
-
-                      BlocBuilder<RestaurantProfileBloc, RestaurantProfileState>(
-                        buildWhen: (previous, current) =>
-                          previous.restaurantTypes != current.restaurantTypes ||
-                          previous.selectedRestaurantType != current.selectedRestaurantType ||
-                          previous.isLoadingRestaurantTypes != current.isLoadingRestaurantTypes,
-                        builder: (context, state) {
-                          if (state.isLoadingRestaurantTypes) {
-                            return Container(
-                              height: 50,
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: Colors.grey.shade300),
+                        CustomTextField(
+                          controller: _ownerNameCtrl,
+                          label: 'Owner Name',
+                          hintText: 'Enter owner name',
+                          onChanged: (v) => bloc.add(OwnerNameChanged(v)),
+                        ),
+                        SizedBox(height: vert * .8),
+                        CustomTextField(
+                          controller: _ownerMobileCtrl,
+                          label: 'Mobile Number',
+                          hintText: 'Enter mobile number',
+                          keyboardType: TextInputType.phone,
+                          onChanged: (v) => bloc.add(OwnerMobileChanged(v)),
+                        ),
+                        SizedBox(height: vert * .8),
+                        CustomTextField(
+                          controller: _ownerEmailCtrl,
+                          label: 'Email',
+                          hintText: 'Enter email address',
+                          keyboardType: TextInputType.emailAddress,
+                          onChanged: (v) => bloc.add(OwnerEmailChanged(v)),
+                        ),
+                        SizedBox(height: vert * .8),
+                        
+                        // Location picker button and address display
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Address',
+                              style: TextStyle(
+                                fontFamily: FontConstants.fontFamily,
+                                fontSize: FontSize.s14,
+                                fontWeight: FontWeightManager.medium,
+                                color: Colors.grey.shade800,
                               ),
-                              child: Center(
-                                child: SizedBox(
-                                  width: 24,
-                                  height: 24,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: ColorManager.primary,
+                            ),
+                            SizedBox(height: 8),
+                            CustomButtonSlim(
+                              label: 'Select Location',
+                              suffixIcon: Icons.location_on_outlined,
+                              onPressed: _openLocationPicker,
+                            ),
+                            SizedBox(height: 8),
+                            if (_selectedAddress.isNotEmpty)
+                              Container(
+                                width: double.infinity,
+                                padding: EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: Colors.grey.shade50,
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(color: Colors.grey.shade300),
+                                ),
+                                child: Text(
+                                  _selectedAddress,
+                                  style: TextStyle(
+                                    fontSize: FontSize.s14,
+                                    color: Colors.grey.shade800,
                                   ),
                                 ),
                               ),
-                            );
-                          }
-                          
-                          if (state.restaurantTypes.isEmpty) {
-                            return Container(
-                              padding: EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: Colors.grey.shade300),
-                              ),
-                              child: Text(
-                                'No restaurant types available',
-                                style: TextStyle(
-                                  color: Colors.grey.shade600,
-                                  fontSize: FontSize.s14,
-                                ),
-                              ),
-                            );
-                          }
-                          
-                          return Container(
-                            padding: EdgeInsets.symmetric(horizontal: 12),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: Colors.grey.shade300),
+                          ],
+                        ),
+                        
+                        SizedBox(height: vert * 1.2),
+
+                        _sectionHeader('Restaurant Details', Icons.restaurant_menu_outlined),
+                        SizedBox(height: vert * 0.5),
+
+                        CustomTextField(
+                          controller: _restNameCtrl,
+                          label: 'Restaurant Name',
+                          hintText: 'Enter restaurant name',
+                          onChanged: (v) => bloc.add(RestaurantNameChanged(v)),
+                        ),
+                        SizedBox(height: vert * .8),
+                        CustomTextField(
+                          controller: _descriptionCtrl,
+                          label: 'Description',
+                          hintText: 'Enter restaurant description',
+                          maxLines: 3,
+                          onChanged: (v) => bloc.add(DescriptionChanged(v)),
+                        ),
+                        SizedBox(height: vert * .8),
+                        CustomTextField(
+                          controller: _cookTimeCtrl,
+                          label: 'Average Cooking Time (minutes)',
+                          hintText: 'Enter cooking time',
+                          keyboardType: TextInputType.number,
+                          onChanged: (v) => bloc.add(CookingTimeChanged(v)),
+                        ),
+                        SizedBox(height: vert * .8),
+                        
+                        // 👈 NEW DELIVERY RADIUS FIELD ADDED
+                        CustomTextField(
+                          controller: _deliveryRadiusCtrl,
+                          label: 'Delivery Radius (km)',
+                          hintText: 'Enter delivery radius in kilometers',
+                          keyboardType: TextInputType.number,
+                          onChanged: (v) => bloc.add(DeliveryRadiusChanged(v)),
+                        ),
+                        SizedBox(height: vert * 1.2),
+
+                        _sectionHeader('Restaurant Type', Icons.restaurant_outlined),
+                        Row(
+                          children: [
+                            _typeChip(
+                              ctx: context,
+                              label: 'Vegetarian',
+                              selected: st.type == RestaurantType.veg,
+                              onTap: () => bloc.add(const TypeChanged(RestaurantType.veg)),
                             ),
-                            child: DropdownButtonHideUnderline(
-                              child: DropdownButton<Map<String, dynamic>>(
-                                isExpanded: true,
-                                value: state.selectedRestaurantType,
-                                hint: Text(
-                                  'Select restaurant type',
+                            const SizedBox(width: 12),
+                            _typeChip(
+                              ctx: context,
+                              label: 'Non-Vegetarian',
+                              selected: st.type == RestaurantType.nonVeg,
+                              onTap: () => bloc.add(const TypeChanged(RestaurantType.nonVeg)),
+                            ),
+                          ],
+                        ),
+                        
+                        // Restaurant Type Dropdown - NEW SECTION
+                        SizedBox(height: vert * 1.2),
+                        _sectionHeader('Kitchen Type', Icons.store_outlined),
+                        SizedBox(height: vert * 0.5),
+
+                        BlocBuilder<RestaurantProfileBloc, RestaurantProfileState>(
+                          buildWhen: (previous, current) =>
+                            previous.restaurantTypes != current.restaurantTypes ||
+                            previous.selectedRestaurantType != current.selectedRestaurantType ||
+                            previous.isLoadingRestaurantTypes != current.isLoadingRestaurantTypes,
+                          builder: (context, state) {
+                            if (state.isLoadingRestaurantTypes) {
+                              return Container(
+                                height: 50,
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: Colors.grey.shade300),
+                                ),
+                                child: Center(
+                                  child: SizedBox(
+                                    width: 24,
+                                    height: 24,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: ColorManager.primary,
+                                    ),
+                                  ),
+                                ),
+                              );
+                            }
+                            
+                            if (state.restaurantTypes.isEmpty) {
+                              return Container(
+                                padding: EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: Colors.grey.shade300),
+                                ),
+                                child: Text(
+                                  'No restaurant types available',
                                   style: TextStyle(
                                     color: Colors.grey.shade600,
                                     fontSize: FontSize.s14,
                                   ),
                                 ),
-                                items: state.restaurantTypes.map<DropdownMenuItem<Map<String, dynamic>>>(
-                                  (Map<String, dynamic> type) {
-                                    return DropdownMenuItem<Map<String, dynamic>>(
-                                      value: type,
-                                      child: Text(
-                                        type['name'],
-                                        style: TextStyle(
-                                          fontSize: FontSize.s14,
-                                          color: ColorManager.black,
-                                        ),
-                                      ),
-                                    );
-                                  },
-                                ).toList(),
-                                onChanged: (Map<String, dynamic>? selectedType) {
-                                  if (selectedType != null) {
-                                    context.read<RestaurantProfileBloc>().add(
-                                      RestaurantTypeChanged(selectedType),
-                                    );
-                                  }
-                                },
+                              );
+                            }
+                            
+                            return Container(
+                              padding: EdgeInsets.symmetric(horizontal: 12),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: Colors.grey.shade300),
                               ),
-                            ),
-                          );
-                        },
-                      ),
-                      SizedBox(height: vert * 1.2),
-
-                      _sectionHeader('Working Hours', Icons.access_time_outlined),
-                      for (int i = 0; i < st.hours.length; i++) ...[
-                        OperationalHourCard(
-                          index: i,
-                          day: st.hours[i],
-                          onToggleEnabled: () => bloc.add(ToggleDayEnabledEvent(i)),
-                          onPickStart: () => _pickTime(
-                            context,
-                            st.hours[i].start,
-                            (t) => bloc.add(UpdateStartTimeEvent(i, t)),
-                          ),
-                          onPickEnd: () => _pickTime(
-                            context,
-                            st.hours[i].end,
-                            (t) => bloc.add(UpdateEndTimeEvent(i, t)),
-                          ),
+                              child: DropdownButtonHideUnderline(
+                                child: DropdownButton<Map<String, dynamic>>(
+                                  isExpanded: true,
+                                  value: state.selectedRestaurantType,
+                                  hint: Text(
+                                    'Select restaurant type',
+                                    style: TextStyle(
+                                      color: Colors.grey.shade600,
+                                      fontSize: FontSize.s14,
+                                    ),
+                                  ),
+                                  items: state.restaurantTypes.map<DropdownMenuItem<Map<String, dynamic>>>(
+                                    (Map<String, dynamic> type) {
+                                      return DropdownMenuItem<Map<String, dynamic>>(
+                                        value: type,
+                                        child: Text(
+                                          type['name'],
+                                          style: TextStyle(
+                                            fontSize: FontSize.s14,
+                                            color: ColorManager.black,
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                  ).toList(),
+                                  onChanged: (Map<String, dynamic>? selectedType) {
+                                    if (selectedType != null) {
+                                      context.read<RestaurantProfileBloc>().add(
+                                        RestaurantTypeChanged(selectedType),
+                                      );
+                                    }
+                                  },
+                                ),
+                              ),
+                            );
+                          },
                         ),
-                        SizedBox(height: vert * .1),
-                      ],
-                      SizedBox(height: vert * 1),
+                        SizedBox(height: vert * 1.2),
 
-                      ProfileButton(
-                        label: st.isSubmitting ? 'Updating...' : 'Update Profile',
-                        icon: Icons.save_outlined,
-                        style: ProfileButtonStyle.filled,
-                        onPressed: st.isValid && !st.isSubmitting
-                            ? () => bloc.add(const UpdateProfilePressed())
-                            : null,
+                        _sectionHeader('Working Hours', Icons.access_time_outlined),
+                        for (int i = 0; i < st.hours.length; i++) ...[
+                          OperationalHourCard(
+                            index: i,
+                            day: st.hours[i],
+                            onToggleEnabled: () => bloc.add(ToggleDayEnabledEvent(i)),
+                            onPickStart: () => _pickTime(
+                              context,
+                              st.hours[i].start,
+                              (t) => bloc.add(UpdateStartTimeEvent(i, t)),
+                            ),
+                            onPickEnd: () => _pickTime(
+                              context,
+                              st.hours[i].end,
+                              (t) => bloc.add(UpdateEndTimeEvent(i, t)),
+                            ),
+                          ),
+                          SizedBox(height: vert * .1),
+                        ],
+                        SizedBox(height: vert * 1),
+
+                        ProfileButton(
+                          label: st.isSubmitting ? 'Updating...' : 'Update Profile',
+                          icon: Icons.save_outlined,
+                          style: ProfileButtonStyle.filled,
+                          onPressed: st.isValid && !st.isSubmitting
+                              ? () => bloc.add(const UpdateProfilePressed())
+                              : null,
+                        ),
+                        SizedBox(height: vert),
+                      ],
+                    ),
+                  ),
+                  
+                  // Overlays
+                  if (st.isLoading)
+                    Container(
+                      color: Colors.black.withOpacity(0.3),
+                      child: const Center(
+                        child: CircularProgressIndicator(),
                       ),
-                      SizedBox(height: vert),
-                    ],
-                  ),
-                ),
-                
-                // Overlays
-                if (st.isLoading)
-                  Container(
-                    color: Colors.black.withOpacity(0.3),
-                    child: const Center(
-                      child: CircularProgressIndicator(),
                     ),
-                  ),
-                if (st.isSubmitting)
-                  Container(
-                    color: Colors.black.withOpacity(0.3),
-                    child: const Center(
-                      child: CircularProgressIndicator(),
+                  if (st.isSubmitting)
+                    Container(
+                      color: Colors.black.withOpacity(0.3),
+                      child: const Center(
+                        child: CircularProgressIndicator(),
+                      ),
                     ),
-                  ),
-              ],
-            ),
-          );
-        },
+                ],
+              ),
+            );
+          },
+        ),
       ),
     );
   }

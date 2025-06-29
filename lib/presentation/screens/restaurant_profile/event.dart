@@ -85,3 +85,6 @@ class UpdateProfilePressed extends RestaurantProfileEvent {
   const UpdateProfilePressed();
 }
 class LoadInitialData extends RestaurantProfileEvent {}
+
+// Add at the end of the file, after all other event classes
+class ClearSubmissionMessage extends RestaurantProfileEvent {}

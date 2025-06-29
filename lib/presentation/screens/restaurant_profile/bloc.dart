@@ -46,20 +46,20 @@ class RestaurantProfileBloc
     on<SelectImagePressed>(_onSelectImage);
     
     // Owner fields
-    on<OwnerNameChanged>((e, emit) => emit(state.copyWith(ownerName: e.value)));
-    on<OwnerMobileChanged>((e, emit) => emit(state.copyWith(ownerMobile: e.v)));
-    on<OwnerEmailChanged>((e, emit) => emit(state.copyWith(ownerEmail: e.v)));
-    on<OwnerAddressChanged>((e, emit) => emit(state.copyWith(ownerAddress: e.v)));
+    on<OwnerNameChanged>((e, emit) => emit(state.copyWith(ownerName: e.value, submissionMessage: null)));
+    on<OwnerMobileChanged>((e, emit) => emit(state.copyWith(ownerMobile: e.v, submissionMessage: null)));
+    on<OwnerEmailChanged>((e, emit) => emit(state.copyWith(ownerEmail: e.v, submissionMessage: null)));
+    on<OwnerAddressChanged>((e, emit) => emit(state.copyWith(ownerAddress: e.v, submissionMessage: null)));
 
     // Restaurant fields
-    on<RestaurantNameChanged>((e, emit) => emit(state.copyWith(restaurantName: e.value)));
-    on<DescriptionChanged>((e, emit) => emit(state.copyWith(description: e.v)));
-    on<CookingTimeChanged>((e, emit) => emit(state.copyWith(cookingTime: e.v)));
-    on<DeliveryRadiusChanged>((e, emit) => emit(state.copyWith(deliveryRadius: e.v))); // 👈 NEW EVENT HANDLER
+    on<RestaurantNameChanged>((e, emit) => emit(state.copyWith(restaurantName: e.value, submissionMessage: null)));
+    on<DescriptionChanged>((e, emit) => emit(state.copyWith(description: e.v, submissionMessage: null)));
+    on<CookingTimeChanged>((e, emit) => emit(state.copyWith(cookingTime: e.v, submissionMessage: null)));
+    on<DeliveryRadiusChanged>((e, emit) => emit(state.copyWith(deliveryRadius: e.v, submissionMessage: null)));
 
     // Location fields
-    on<LatitudeChanged>((e, emit) => emit(state.copyWith(latitude: e.v)));
-    on<LongitudeChanged>((e, emit) => emit(state.copyWith(longitude: e.v)));
+    on<LatitudeChanged>((e, emit) => emit(state.copyWith(latitude: e.v, submissionMessage: null)));
+    on<LongitudeChanged>((e, emit) => emit(state.copyWith(longitude: e.v, submissionMessage: null)));
 
     // Type
     on<TypeChanged>((e, emit) => emit(state.copyWith(type: e.type)));
@@ -88,6 +88,9 @@ class RestaurantProfileBloc
     add(LoadInitialData());
     // Load restaurant types
     add(LoadRestaurantTypesEvent());
+
+    // Add new event
+    on<ClearSubmissionMessage>((event, emit) => emit(state.copyWith(submissionMessage: null)));
   }
 
   Future<void> _onLoadRestaurantTypes(
@@ -309,8 +312,8 @@ class RestaurantProfileBloc
         
         // Determine restaurant type
         RestaurantType restaurantType = RestaurantType.veg;
-        if (data['veg-nonveg'] != null) {
-          final String vegNonveg = data['veg-nonveg'].toString().toLowerCase();
+        if (data['veg_nonveg'] != null) {
+          final String vegNonveg = data['veg_nonveg'].toString().toLowerCase();
           if (vegNonveg.contains('non') || vegNonveg == 'nonveg') {
             restaurantType = RestaurantType.nonVeg;
           }

@@ -49,6 +49,16 @@ class MarkAsRead extends ChatEvent {
   List<Object> get props => [roomId];
 }
 
+// NEW: Mark individual message as seen event
+class MarkMessageAsSeen extends ChatEvent {
+  final String messageId;
+
+  const MarkMessageAsSeen(this.messageId);
+
+  @override
+  List<Object> get props => [messageId];
+}
+
 // Order-related events
 class ShowOrderOptions extends ChatEvent {
   final String orderId;

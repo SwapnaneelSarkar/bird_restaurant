@@ -575,37 +575,6 @@ class _StatusChangeBottomSheetState extends State<StatusChangeBottomSheet> {
     });
 
     Navigator.of(context).pop();
-    
-    // Show success message
-    Future.delayed(const Duration(milliseconds: 100), () {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                const Icon(Icons.check_circle, color: Colors.white, size: 20),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    'Order status updated successfully!',
-                    style: const TextStyle(
-                      fontWeight: FontWeightManager.medium,
-                      fontSize: 14,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            duration: const Duration(seconds: 3),
-            backgroundColor: Colors.green,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
-            ),
-          ),
-        );
-      }
-    });
   }
 
   void _handleError(String message) {
@@ -616,37 +585,6 @@ class _StatusChangeBottomSheetState extends State<StatusChangeBottomSheet> {
     });
 
     Navigator.of(context).pop();
-    
-    // Show error message
-    Future.delayed(const Duration(milliseconds: 100), () {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                const Icon(Icons.error_outline, color: Colors.white, size: 20),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    message,
-                    style: const TextStyle(
-                      fontWeight: FontWeightManager.medium,
-                      fontSize: 14,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            duration: const Duration(seconds: 5),
-            backgroundColor: Colors.red,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
-            ),
-          ),
-        );
-      }
-    });
   }
 
   @override

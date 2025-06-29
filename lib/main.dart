@@ -15,6 +15,9 @@ import 'presentation/screens/signin/bloc.dart';
 import 'presentation/screens/chat/bloc.dart'; // Add this import
 import 'services/restaurant_info_service.dart';
 
+// Global navigator key for notification navigation
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+
 // Global error handler
 void _handleError(Object error, StackTrace stackTrace) {
   developer.log('🚨 GLOBAL ERROR: $error', name: 'BirdRestaurant');
@@ -196,6 +199,7 @@ class MyApp extends StatelessWidget {
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
         title: 'Bird Partner',
+        navigatorKey: navigatorKey,
         theme: ThemeData(
           scaffoldBackgroundColor: Colors.black,
           useMaterial3: true,

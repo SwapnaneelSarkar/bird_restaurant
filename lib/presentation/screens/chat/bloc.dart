@@ -20,6 +20,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
   String? _fullOrderId;
   StreamSubscription? _chatServiceSubscription;
   StreamSubscription? _messageStreamSubscription;
+  StreamSubscription? _readStatusStreamSubscription;
   List<ChatMessage> _lastEmittedMessages = [];
 
   ChatBloc({SocketChatService? chatService}) 
@@ -47,6 +48,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     on<_UpdateConnectionStatus>(_onUpdateConnectionStatus);
     on<_AddIncomingMessage>(_onAddIncomingMessage);
     on<MarkAsRead>(_onMarkAsRead);
+    // on<MarkMessageAsSeen>(_onMarkMessageAsSeen);
 
     debugPrint('ChatBloc: ✅ Setup complete');
   }
@@ -81,6 +83,95 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       },
       onError: (error) {
         debugPrint('ChatBloc: ❌ Error in message stream: $error');
+      },
+    );
+
+    // NEW: Listen to real-time read status stream for blue tick updates
+    _readStatusStreamSubscription = _chatService.readStatusStream.listen(
+      (readStatusData) {
+        debugPrint('ChatBloc: 🔵 Received read status update: ${readStatusData['type']}');
+        
+        if (!isClosed && state is ChatLoaded) {
+          final currentState = state as ChatLoaded;
+          
+          // Handle different types of read status updates
+          if (readStatusData['type'] == 'typing_blue_tick_update') {
+            // NEW: Handle typing-based blue tick updates
+            debugPrint('ChatBloc: 🔵 Processing typing blue tick update');
+            
+            // Update messages with new read status
+            final updatedMessages = currentState.messages.map((chatMsg) {
+              // Find corresponding API message
+              final apiMessage = _chatService.messages.firstWhere(
+                (apiMsg) => apiMsg.id == chatMsg.id,
+                orElse: () => ApiChatMessage(
+                  id: chatMsg.id,
+                  roomId: '',
+                  senderId: '',
+                  senderType: '',
+                  content: chatMsg.message,
+                  messageType: 'text',
+                  readBy: [],
+                  createdAt: DateTime.now(),
+                ),
+              );
+              
+              // Update read status - use the isRead property directly
+              final isRead = apiMessage.isRead;
+              
+              return ChatMessage(
+                id: chatMsg.id,
+                message: chatMsg.message,
+                isUserMessage: chatMsg.isUserMessage,
+                time: chatMsg.time,
+                isRead: isRead, // Updated read status
+              );
+            }).toList();
+            
+            // Emit updated state with new read status
+            emit(currentState.copyWith(messages: updatedMessages));
+            
+            debugPrint('ChatBloc: 🔵 Updated ${updatedMessages.length} messages with typing blue tick update');
+          } else {
+            // Handle regular message seen updates
+            // Update messages with new read status
+            final updatedMessages = currentState.messages.map((chatMsg) {
+              // Find corresponding API message
+              final apiMessage = _chatService.messages.firstWhere(
+                (apiMsg) => apiMsg.id == chatMsg.id,
+                orElse: () => ApiChatMessage(
+                  id: chatMsg.id,
+                  roomId: '',
+                  senderId: '',
+                  senderType: '',
+                  content: chatMsg.message,
+                  messageType: 'text',
+                  readBy: [],
+                  createdAt: DateTime.now(),
+                ),
+              );
+              
+              // Update read status - use the isRead property directly
+              final isRead = apiMessage.isRead;
+              
+              return ChatMessage(
+                id: chatMsg.id,
+                message: chatMsg.message,
+                isUserMessage: chatMsg.isUserMessage,
+                time: chatMsg.time,
+                isRead: isRead, // Updated read status
+              );
+            }).toList();
+            
+            // Emit updated state with new read status
+            emit(currentState.copyWith(messages: updatedMessages));
+            
+            debugPrint('ChatBloc: 🔵 Updated ${updatedMessages.length} messages with new read status');
+          }
+        }
+      },
+      onError: (error) {
+        debugPrint('ChatBloc: ❌ Error in read status stream: $error');
       },
     );
 
@@ -187,8 +278,8 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
         // Use the actual isFromCurrentUser method from ApiChatMessage
         final isFromCurrentUser = apiMsg.isFromCurrentUser(_currentUserId);
         
-        // Determine read status: blue tick if read by others, grey if not
-        final isRead = apiMsg.isReadByOthers(apiMsg.senderId);
+        // Determine read status: use the isRead property directly
+        final isRead = apiMsg.isRead;
         
         return ChatMessage(
           id: apiMsg.id,
@@ -569,6 +660,19 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
         emit(currentState.copyWith(
           messages: updatedMessages,
         ));
+        
+        // NEW: Emit typing when new message is received (partner is reading)
+        if (!isFromCurrentUser) {
+          debugPrint('ChatBloc: ⌨️ Emitting typing for new incoming message');
+          add(const StartTyping());
+          
+          // Stop typing after 3 seconds
+          Timer(const Duration(seconds: 3), () {
+            if (!isClosed) {
+              add(const StopTyping());
+            }
+          });
+        }
       } else {
         debugPrint('ChatBloc: 🔄 Message already exists, skipping duplicate');
       }
@@ -621,31 +725,43 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
   }
 
   Future<void> _onStartTyping(StartTyping event, Emitter<ChatState> emit) async {
+    debugPrint('ChatBloc: 🔍 StartTyping event received');
+    debugPrint('ChatBloc: 🔍 Current room ID: $_currentRoomId');
+    
     if (_currentRoomId != null) {
       try {
+        debugPrint('ChatBloc: 📡 Calling sendTyping for room: $_currentRoomId');
         _chatService.sendTyping(_currentRoomId!);
         
         // Cancel any existing timer
         _typingTimer?.cancel();
         
-        // Set a timer to auto-stop typing after 3 seconds
-        _typingTimer = Timer(const Duration(seconds: 3), () {
-          add(StopTyping());
-        });
+        // Note: Timer is now controlled by the view layer for page lifecycle management
+        // The view handles when to stop typing based on page open/close and new message events
+        debugPrint('ChatBloc: ✅ StartTyping completed successfully');
       } catch (e) {
         debugPrint('ChatBloc: ❌ Error starting typing: $e');
       }
+    } else {
+      debugPrint('ChatBloc: ❌ Cannot start typing - no current room ID');
     }
   }
 
   Future<void> _onStopTyping(StopTyping event, Emitter<ChatState> emit) async {
+    debugPrint('ChatBloc: 🔍 StopTyping event received');
+    debugPrint('ChatBloc: 🔍 Current room ID: $_currentRoomId');
+    
     if (_currentRoomId != null) {
       try {
+        debugPrint('ChatBloc: 📡 Calling sendStopTyping for room: $_currentRoomId');
         _chatService.sendStopTyping(_currentRoomId!);
         _typingTimer?.cancel();
+        debugPrint('ChatBloc: ✅ StopTyping completed successfully');
       } catch (e) {
         debugPrint('ChatBloc: ❌ Error stopping typing: $e');
       }
+    } else {
+      debugPrint('ChatBloc: ❌ Cannot stop typing - no current room ID');
     }
   }
 
@@ -789,6 +905,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     // Cancel subscriptions
     _chatServiceSubscription?.cancel();
     _messageStreamSubscription?.cancel();
+    _readStatusStreamSubscription?.cancel();
     
     // Disconnect and dispose chat service
     _chatService.removeListener(_onChatServiceUpdate);
