@@ -25,6 +25,16 @@
             android:name="firebase_appcheck_debug_token"
             android:value="true" />
             
+        <!-- *** IMPORTANT: Add this to prevent automatic notification display *** -->
+        <meta-data
+            android:name="firebase_messaging_auto_init_enabled"
+            android:value="false" />
+            
+        <!-- *** IMPORTANT: Add this to disable default notification handling *** -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_handled"
+            android:value="false" />
+            
         <!-- FCM Default notification channel ID -->
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"

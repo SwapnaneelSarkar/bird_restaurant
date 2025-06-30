@@ -48,6 +48,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     on<_UpdateConnectionStatus>(_onUpdateConnectionStatus);
     on<_AddIncomingMessage>(_onAddIncomingMessage);
     on<MarkAsRead>(_onMarkAsRead);
+    on<AppResume>(_onAppResume);
     // on<MarkMessageAsSeen>(_onMarkMessageAsSeen);
 
     debugPrint('ChatBloc: ✅ Setup complete');
@@ -820,23 +821,67 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
   }
 
   Future<void> _onMarkAsRead(MarkAsRead event, Emitter<ChatState> emit) async {
+    if (_currentRoomId == null) {
+      debugPrint('ChatBloc: ❌ Cannot mark as read - no current room ID');
+      return;
+    }
+
     try {
-      debugPrint('ChatBloc: 📖 Marking messages as read for room: ${event.roomId}');
+      debugPrint('ChatBloc: 📖 Marking messages as read for room: $_currentRoomId');
       debugPrint('ChatBloc: 📖 Using hybrid approach (Socket + API fallback)');
       
-      final success = await _chatService.markAsRead(event.roomId);
+      // Use the chat service to mark messages as read
+      final success = await _chatService.markAsRead(_currentRoomId!);
       
       if (success) {
         debugPrint('ChatBloc: ✅ Messages marked as read successfully via socket/API');
-        
-        // The read status will be updated automatically via socket events
-        // No need to manually refresh messages - socket handles it real-time
         debugPrint('ChatBloc: 📖 Read status will update automatically via socket events');
       } else {
-        debugPrint('ChatBloc: ⚠️ Failed to mark messages as read');
+        debugPrint('ChatBloc: ❌ Failed to mark messages as read');
       }
     } catch (e) {
       debugPrint('ChatBloc: ❌ Error marking messages as read: $e');
+    }
+  }
+
+  Future<void> _onAppResume(AppResume event, Emitter<ChatState> emit) async {
+    debugPrint('ChatBloc: 📱 App resume event received');
+    
+    try {
+      // Handle app resume in the chat service
+      await _chatService.handleAppResume();
+      
+      // If we're in a loaded state, refresh the messages
+      if (state is ChatLoaded && _currentRoomId != null) {
+        debugPrint('ChatBloc: 🔄 Refreshing messages after app resume');
+        
+        // Force refresh messages from the service
+        await _chatService.refreshMessages();
+        
+        // Update the state with refreshed messages
+        final currentState = state as ChatLoaded;
+        final updatedMessages = _chatService.messages.map((apiMsg) {
+          final isFromCurrentUser = apiMsg.isFromCurrentUser(_currentUserId);
+          final isRead = apiMsg.isReadByOthers(apiMsg.senderId);
+          
+          return ChatMessage(
+            id: apiMsg.id,
+            message: apiMsg.content,
+            isUserMessage: isFromCurrentUser,
+            time: _formatTime(apiMsg.createdAt),
+            isRead: isRead,
+          );
+        }).toList();
+        
+        emit(currentState.copyWith(
+          messages: updatedMessages,
+          lastUpdateTimestamp: DateTime.now(),
+        ));
+        
+        debugPrint('ChatBloc: ✅ Messages refreshed after app resume');
+      }
+    } catch (e) {
+      debugPrint('ChatBloc: ❌ Error handling app resume: $e');
     }
   }
 

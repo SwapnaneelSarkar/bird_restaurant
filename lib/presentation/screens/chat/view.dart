@@ -24,17 +24,21 @@ class ChatView extends StatefulWidget {
   State<ChatView> createState() => _ChatViewState();
 }
 
-class _ChatViewState extends State<ChatView> {
+class _ChatViewState extends State<ChatView> with WidgetsBindingObserver {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   Timer? _markAsReadDebounceTimer;
   int _previousMessageCount = 0;
   bool _shouldAutoScroll = true;
   bool _hasMarkedAsRead = false;
+  bool _isAppInBackground = false;
 
   @override
   void initState() {
     super.initState();
+    
+    // Add observer to listen to app lifecycle changes
+    WidgetsBinding.instance.addObserver(this);
     
     // Load chat data when the widget initializes
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -76,7 +80,52 @@ class _ChatViewState extends State<ChatView> {
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    
+    debugPrint('ChatView: 📱 App lifecycle state changed: $state');
+    
+    switch (state) {
+      case AppLifecycleState.paused:
+      case AppLifecycleState.inactive:
+        debugPrint('ChatView: 📱 App going to background');
+        _isAppInBackground = true;
+        break;
+        
+      case AppLifecycleState.resumed:
+        debugPrint('ChatView: 📱 App resumed from background');
+        _isAppInBackground = false;
+        
+        // Refresh chat data when app resumes to ensure we have the latest messages
+        if (mounted) {
+          debugPrint('ChatView: 🔄 Refreshing chat data on app resume');
+          context.read<ChatBloc>().add(const RefreshChat());
+          context.read<ChatBloc>().add(const AppResume());
+          
+          // Mark messages as read after refresh
+          Future.delayed(const Duration(milliseconds: 1500), () {
+            if (mounted) {
+              _markMessagesAsReadOnView();
+            }
+          });
+        }
+        break;
+        
+      case AppLifecycleState.detached:
+        debugPrint('ChatView: 📱 App detached');
+        break;
+        
+      case AppLifecycleState.hidden:
+        debugPrint('ChatView: 📱 App hidden');
+        break;
+    }
+  }
+
+  @override
   void dispose() {
+    // Remove observer
+    WidgetsBinding.instance.removeObserver(this);
+    
     // NEW: Stop typing when leaving chat page to clean up typing state
     try {
       if (mounted) {

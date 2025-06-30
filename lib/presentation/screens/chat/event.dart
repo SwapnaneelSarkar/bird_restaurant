@@ -31,6 +31,10 @@ class RefreshChat extends ChatEvent {
   const RefreshChat();
 }
 
+class AppResume extends ChatEvent {
+  const AppResume();
+}
+
 class StartTyping extends ChatEvent {
   const StartTyping();
 }

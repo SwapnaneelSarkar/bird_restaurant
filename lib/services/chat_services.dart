@@ -641,14 +641,40 @@ class SocketChatService extends ChangeNotifier {
   }
 
   void _handleReconnection() {
-    if (_isDisposed || _reconnectAttempts >= _maxReconnectAttempts) return;
+    if (_isDisposed || _reconnectAttempts >= _maxReconnectAttempts) {
+      debugPrint('SocketChatService: ❌ Max reconnection attempts reached or service disposed');
+      return;
+    }
+
+    _reconnectAttempts++;
+    final delay = Duration(seconds: _reconnectAttempts * 2); // Exponential backoff
+    
+    debugPrint('SocketChatService: 🔄 Reconnection attempt $_reconnectAttempts/$_maxReconnectAttempts in ${delay.inSeconds}s');
     
     _reconnectTimer?.cancel();
-    _reconnectTimer = Timer(Duration(seconds: 3 * (_reconnectAttempts + 1)), () {
-      if (!_isDisposed && !_isConnected) {
-        _reconnectAttempts++;
-        debugPrint('SocketChatService: 🔄 Reconnection attempt $_reconnectAttempts/$_maxReconnectAttempts');
-        _socket?.connect();
+    _reconnectTimer = Timer(delay, () async {
+      if (_isDisposed) return;
+      
+      try {
+        debugPrint('SocketChatService: 🔌 Attempting to reconnect...');
+        await connect();
+        
+        if (_isConnected) {
+          debugPrint('SocketChatService: ✅ Reconnection successful');
+          _reconnectAttempts = 0; // Reset attempts on successful connection
+          
+          // Rejoin current room if we have one
+          if (_currentRoomId != null) {
+            await joinRoom(_currentRoomId!);
+            debugPrint('SocketChatService: 🏠 Rejoined room after reconnection: $_currentRoomId');
+          }
+        } else {
+          debugPrint('SocketChatService: ❌ Reconnection failed, will retry');
+          _handleReconnection(); // Retry
+        }
+      } catch (e) {
+        debugPrint('SocketChatService: ❌ Reconnection error: $e');
+        _handleReconnection(); // Retry
       }
     });
   }
@@ -1371,6 +1397,43 @@ class SocketChatService extends ChangeNotifier {
     } else {
       debugPrint('SocketChatService: ❌ Cannot update blue ticks - missing room or user ID');
     }
+  }
+
+  // NEW: Handle app resume to ensure message synchronization
+  Future<void> handleAppResume() async {
+    if (_isDisposed) return;
+    
+    debugPrint('SocketChatService: 📱 App resumed, handling message synchronization...');
+    
+    try {
+      // Check if socket is connected
+      if (_socket == null || !_socket!.connected) {
+        debugPrint('SocketChatService: 🔌 Socket not connected, attempting to reconnect...');
+        await connect();
+      }
+      
+      // If we have a current room, rejoin it and refresh messages
+      if (_currentRoomId != null) {
+        debugPrint('SocketChatService: 🏠 Rejoining room: $_currentRoomId');
+        await joinRoom(_currentRoomId!);
+        
+        // Force refresh messages from server to ensure we have the latest
+        debugPrint('SocketChatService: 🔄 Force refreshing messages on app resume');
+        await loadChatHistory(_currentRoomId!);
+      }
+      
+      debugPrint('SocketChatService: ✅ App resume handling completed');
+    } catch (e) {
+      debugPrint('SocketChatService: ❌ Error handling app resume: $e');
+    }
+  }
+
+  // NEW: Handle app going to background
+  void handleAppBackground() {
+    debugPrint('SocketChatService: 📱 App going to background');
+    
+    // Don't disconnect the socket immediately, let it handle reconnection
+    // The socket will automatically handle disconnection and reconnection
   }
 }
 

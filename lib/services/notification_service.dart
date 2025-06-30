@@ -25,93 +25,103 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   debugPrint('Body: ${message.notification?.body}');
   debugPrint('Data: ${message.data}');
   
-  // Initialize local notifications for background messages
-  final FlutterLocalNotificationsPlugin localNotifications = FlutterLocalNotificationsPlugin();
-  
-  // Get notification type from data
-  final notificationType = message.data['type'];
-  debugPrint('🔔 Background notification type: $notificationType');
-  
-  // Use custom sound only for 'new_order' type notifications
-  final useCustomSound = notificationType == 'new_order';
-  final isChatMessage = notificationType == 'chat_message';
-  
-  NotificationDetails notificationDetails;
-  
-  if (useCustomSound) {
-    // Use custom sound for new order notifications
-    const androidDetails = AndroidNotificationDetails(
-      'bird_partner_channel',
-      'Bird Partner Notifications',
-      channelDescription: 'Notifications for Bird Partner app',
-      importance: Importance.high,
-      priority: Priority.high,
-      icon: '@mipmap/ic_launcher',
-      playSound: true,
-      sound: RawResourceAndroidNotificationSound('notification_ringtone'),
-    );
+  // Only show notification if it doesn't have a notification payload
+  // (to avoid duplicates with system notifications)
+  if (message.notification == null) {
+    // Initialize local notifications for background messages
+    final FlutterLocalNotificationsPlugin localNotifications = FlutterLocalNotificationsPlugin();
+    
+    // Get notification type from data
+    final notificationType = message.data['type'];
+    debugPrint('🔔 Background notification type: $notificationType');
+    
+    // Use custom sound only for 'new_order' type notifications
+    final useCustomSound = notificationType == 'new_order';
+    final isChatMessage = notificationType == 'chat_message';
+    
+    NotificationDetails notificationDetails;
+    
+    if (useCustomSound) {
+      // Use custom sound for new order notifications
+      const androidDetails = AndroidNotificationDetails(
+        'bird_partner_channel',
+        'Bird Partner Notifications',
+        channelDescription: 'Notifications for Bird Partner app',
+        importance: Importance.high,
+        priority: Priority.high,
+        icon: '@mipmap/ic_launcher',
+        playSound: true,
+        sound: RawResourceAndroidNotificationSound('notification_ringtone'),
+      );
 
-    const iosDetails = DarwinNotificationDetails(
-      presentAlert: true,
-      presentBadge: true,
-      presentSound: true,
-      sound: 'notification_ringtone.ogg',
-    );
+      const iosDetails = DarwinNotificationDetails(
+        presentAlert: true,
+        presentBadge: true,
+        presentSound: true,
+        sound: 'notification_ringtone.ogg',
+      );
 
-    notificationDetails = const NotificationDetails(
-      android: androidDetails,
-      iOS: iosDetails,
-    );
-  } else if (isChatMessage) {
-    const androidDetails = AndroidNotificationDetails(
-      'bird_partner_chat_channel',
-      'Bird Partner Chat Notifications',
-      channelDescription: 'Chat notifications for Bird Partner app',
-      importance: Importance.high,
-      priority: Priority.high,
-      icon: '@mipmap/ic_launcher',
-      playSound: false,
-    );
-    const iosDetails = DarwinNotificationDetails(
-      presentAlert: true,
-      presentBadge: true,
-      presentSound: false,
-    );
-    notificationDetails = const NotificationDetails(
-      android: androidDetails,
-      iOS: iosDetails,
+      notificationDetails = const NotificationDetails(
+        android: androidDetails,
+        iOS: iosDetails,
+      );
+    } else if (isChatMessage) {
+      const androidDetails = AndroidNotificationDetails(
+        'bird_partner_chat_channel',
+        'Bird Partner Chat Notifications',
+        channelDescription: 'Chat notifications for Bird Partner app',
+        importance: Importance.high,
+        priority: Priority.high,
+        icon: '@mipmap/ic_launcher',
+        playSound: false,
+      );
+      const iosDetails = DarwinNotificationDetails(
+        presentAlert: true,
+        presentBadge: true,
+        presentSound: false,
+      );
+      notificationDetails = const NotificationDetails(
+        android: androidDetails,
+        iOS: iosDetails,
+      );
+    } else {
+      // Completely disable sound for chat messages and other notifications
+      const androidDetails = AndroidNotificationDetails(
+        'bird_partner_channel',
+        'Bird Partner Notifications',
+        channelDescription: 'Notifications for Bird Partner app',
+        importance: Importance.high,
+        priority: Priority.high,
+        icon: '@mipmap/ic_launcher',
+        playSound: true,
+      );
+
+      const iosDetails = DarwinNotificationDetails(
+        presentAlert: true,
+        presentBadge: true,
+        presentSound: true,
+      );
+
+      notificationDetails = const NotificationDetails(
+        android: androidDetails,
+        iOS: iosDetails,
+      );
+    }
+
+    // Use data to create notification title and body
+    final title = message.data['title'] ?? 'Bird Partner';
+    final body = message.data['body'] ?? 'You have a new notification';
+
+    await localNotifications.show(
+      message.hashCode,
+      title,
+      body,
+      notificationDetails,
+      payload: jsonEncode(message.data),
     );
   } else {
-    // Completely disable sound for chat messages and other notifications
-    const androidDetails = AndroidNotificationDetails(
-      'bird_partner_channel',
-      'Bird Partner Notifications',
-      channelDescription: 'Notifications for Bird Partner app',
-      importance: Importance.high,
-      priority: Priority.high,
-      icon: '@mipmap/ic_launcher',
-      playSound: true,
-    );
-
-    const iosDetails = DarwinNotificationDetails(
-      presentAlert: true,
-      presentBadge: true,
-      presentSound: true,
-    );
-
-    notificationDetails = const NotificationDetails(
-      android: androidDetails,
-      iOS: iosDetails,
-    );
+    debugPrint('🔔 Background message has notification payload - letting system handle it');
   }
-
-  await localNotifications.show(
-    message.hashCode,
-    message.notification?.title ?? 'Bird Partner',
-    message.notification?.body ?? 'You have a new notification',
-    notificationDetails,
-    payload: jsonEncode(message.data),
-  );
 }
 
 class NotificationService {
@@ -126,6 +136,9 @@ class NotificationService {
   String? _fcmToken;
   bool _isInitialized = false;
   bool _isPlayingRingtone = false;
+  
+  // Keep track of processed notifications to prevent duplicates
+  final Set<String> _processedNotifications = <String>{};
 
   // Getters
   String? get fcmToken => _fcmToken;
@@ -218,8 +231,30 @@ class NotificationService {
       debugPrint('Body: ${message.notification?.body}');
       debugPrint('Data: ${message.data}');
 
+      // Check if we've already processed this notification
+      final messageId = message.messageId ?? message.hashCode.toString();
+      if (_processedNotifications.contains(messageId)) {
+        debugPrint('🔔 Duplicate notification detected, skipping: $messageId');
+        return;
+      }
+
+      // Add to processed notifications
+      _processedNotifications.add(messageId);
+
+      // Clean up old processed notifications (keep only last 100)
+      if (_processedNotifications.length > 100) {
+        final oldIds = _processedNotifications.take(_processedNotifications.length - 100);
+        _processedNotifications.removeAll(oldIds);
+      }
+
       // Show local notification when app is in foreground
-      _showLocalNotification(message);
+      // Only if the message doesn't already have a notification payload
+      if (message.notification == null) {
+        _showLocalNotification(message);
+      } else {
+        debugPrint('🔔 Message has notification payload - showing custom notification');
+        _showLocalNotification(message);
+      }
     });
 
     // Handle notification tap when app is opened from background
@@ -284,10 +319,14 @@ class NotificationService {
       // Create notification details based on type
       final notificationDetails = _createNotificationDetails(notificationType: notificationType);
 
+      // Use notification payload if available, otherwise use data
+      final title = message.notification?.title ?? message.data['title'] ?? 'Bird Partner';
+      final body = message.notification?.body ?? message.data['body'] ?? 'You have a new notification';
+
       await _localNotifications.show(
         message.hashCode,
-        message.notification?.title ?? 'Bird Partner',
-        message.notification?.body ?? 'You have a new notification',
+        title,
+        body,
         notificationDetails,
         payload: jsonEncode(message.data),
       );
@@ -598,6 +637,9 @@ class NotificationService {
       await _stopCustomRingtone();
       await _audioPlayer.dispose();
       
+      // Clear processed notifications
+      _processedNotifications.clear();
+      
       // Cancel any ongoing operations
       _isInitialized = false;
       debugPrint('🔔 NotificationService disposed');
@@ -700,6 +742,7 @@ class NotificationService {
           body: 'This is a test notification with custom ringtone',
         ),
         data: {'type': 'test'},
+        messageId: 'test_${DateTime.now().millisecondsSinceEpoch}',
       );
       
       await _showLocalNotification(testMessage);
@@ -717,6 +760,7 @@ class NotificationService {
           body: 'You have received a new order #12345',
         ),
         data: {'type': 'new_order', 'order_id': '12345'},
+        messageId: 'test_order_${DateTime.now().millisecondsSinceEpoch}',
       );
       
       await _showLocalNotification(testMessage);
@@ -734,6 +778,7 @@ class NotificationService {
           body: 'You have received a new message from customer',
         ),
         data: {'type': 'chat_message', 'message_id': 'msg_123'},
+        messageId: 'test_chat_${DateTime.now().millisecondsSinceEpoch}',
       );
       
       await _showLocalNotification(testMessage);
