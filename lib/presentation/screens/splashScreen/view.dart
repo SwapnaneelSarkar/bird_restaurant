@@ -2,6 +2,7 @@
 
 import 'dart:async';
 import 'dart:math';
+import 'package:bird_restaurant/services/delivery_partner_services/delivery_partner_auth_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -10,7 +11,6 @@ import 'dart:convert';
 import 'package:google_fonts/google_fonts.dart';
 import 'dart:developer' as developer;
 import '../../resources/colors.dart';
-
 import '../../resources/router/router.dart';
 
 class SplashView extends StatefulWidget {
@@ -306,16 +306,28 @@ class _SplashViewState extends State<SplashView> with TickerProviderStateMixin {
     developer.log('🔐 Starting authentication check', name: 'BirdRestaurant');
     
     try {
+      // Check for restaurant partner authentication
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('token');
       final mobileNumber = prefs.getString('mobile');
       
-      developer.log('Token: ${token != null ? 'exists' : 'null'}', name: 'BirdRestaurant');
-      developer.log('Mobile: $mobileNumber', name: 'BirdRestaurant');
+      // Check for delivery partner authentication
+      final isDeliveryPartnerAuthenticated = await DeliveryPartnerAuthService.isDeliveryPartnerAuthenticated();
       
-      // If no token or mobile number, go to login
+      developer.log('Restaurant Token: ${token != null ? 'exists' : 'null'}', name: 'BirdRestaurant');
+      developer.log('Restaurant Mobile: $mobileNumber', name: 'BirdRestaurant');
+      developer.log('Delivery Partner Authenticated: $isDeliveryPartnerAuthenticated', name: 'BirdRestaurant');
+      
+      // If delivery partner is authenticated, navigate to delivery partner home
+      if (isDeliveryPartnerAuthenticated) {
+        developer.log('✅ Delivery partner authenticated, navigating to delivery partner home', name: 'BirdRestaurant');
+        _navigateToDeliveryPartnerHome();
+        return;
+      }
+      
+      // If no restaurant token or mobile number, go to partner selection
       if (token == null || token.isEmpty || mobileNumber == null || mobileNumber.isEmpty) {
-        developer.log('No token or mobile, going to sign in', name: 'BirdRestaurant');
+        developer.log('No restaurant token or mobile, going to partner selection', name: 'BirdRestaurant');
         _navigateToLoginScreen();
         return;
       }
@@ -389,10 +401,10 @@ class _SplashViewState extends State<SplashView> with TickerProviderStateMixin {
     if (_isDisposed || !mounted) return;
     
     try {
-      developer.log('🔄 Navigating to login screen', name: 'BirdRestaurant');
-      Navigator.of(context).pushReplacementNamed(Routes.signin);
+      developer.log('🔄 Navigating to partner selection screen', name: 'BirdRestaurant');
+      Navigator.of(context).pushReplacementNamed(Routes.partnerSelection);
     } catch (e) {
-      developer.log('❌ Error navigating to login: $e', name: 'BirdRestaurant');
+      developer.log('❌ Error navigating to partner selection: $e', name: 'BirdRestaurant');
     }
   }
 
@@ -418,6 +430,19 @@ class _SplashViewState extends State<SplashView> with TickerProviderStateMixin {
       );
     } catch (e) {
       developer.log('❌ Error navigating to application status: $e', name: 'BirdRestaurant');
+    }
+  }
+
+  void _navigateToDeliveryPartnerHome() {
+    if (_isDisposed || !mounted) return;
+    
+    try {
+      developer.log('🔄 Navigating to delivery partner home screen', name: 'BirdRestaurant');
+      // TODO: Navigate to delivery partner home screen when implemented
+      // For now, navigate to auth success page
+      Navigator.of(context).pushReplacementNamed(Routes.deliveryPartnerAuthSuccess);
+    } catch (e) {
+      developer.log('❌ Error navigating to delivery partner home: $e', name: 'BirdRestaurant');
     }
   }
 

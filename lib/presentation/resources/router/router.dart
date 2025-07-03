@@ -1,5 +1,9 @@
 // lib/presentation/resources/router/router.dart - FIXED VERSION
 
+import 'package:bird_restaurant/presentation/partner_selection/view.dart';
+import 'package:bird_restaurant/presentation/screens/delivery_partner_pages/auth_success/view.dart';
+import 'package:bird_restaurant/presentation/screens/delivery_partner_pages/otp/view.dart';
+import 'package:bird_restaurant/presentation/screens/delivery_partner_pages/signin/view.dart';
 import 'package:bird_restaurant/presentation/screens/add_product/view.dart';
 import 'package:bird_restaurant/presentation/screens/add_resturant_info/view.dart';
 import 'package:bird_restaurant/presentation/screens/attributes/view.dart';
@@ -47,6 +51,13 @@ class Routes {
   static const String privacy = '/privacy';
   static const String terms = '/terms';
   static const String contact = '/contact';
+
+  static const String partnerSelection = '/partnerSelection';
+
+  static const String deliveryPartnerSignin = '/delivery-partner-signin';
+  static const String deliveryPartnerOtp = '/delivery-partner-otp';
+  static const String deliveryPartnerAuthSuccess = '/delivery-partner-auth-success';
+
   static const String blank = '/blank';
 }
 
@@ -163,6 +174,22 @@ class RouteGenerator {
             builder: (_) => const ContactUsView(),
             settings: routeSettings,
           );
+
+        case Routes.partnerSelection:
+          return MaterialPageRoute(builder: (_) => const PartnerSelectionView());
+
+        case Routes.deliveryPartnerSignin:
+          return MaterialPageRoute(builder: (_) => const DeliveryPartnerSigninView());
+
+        case Routes.deliveryPartnerOtp:
+          final String? phoneNumber = routeSettings.arguments as String?;
+          return MaterialPageRoute(
+            builder: (_) => DeliveryPartnerOtpView(mobileNumber: phoneNumber),
+            settings: routeSettings,
+          );
+
+        case Routes.deliveryPartnerAuthSuccess:
+          return MaterialPageRoute(builder: (_) => const DeliveryPartnerAuthSuccessView());
 
         default:
           return unDefinedRoute();
