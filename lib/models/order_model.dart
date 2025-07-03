@@ -252,3 +252,74 @@ class OrderItem {
     };
   }
 }
+
+class DeliveryPartnerOrder {
+  final String orderId;
+  final String partnerId;
+  final String userId;
+  final String totalPrice;
+  final String address;
+  final String deliveryFees;
+  final String subtotal;
+  final String? paymentMode;
+  final String orderStatus;
+  final String createdAt;
+  final String updatedAt;
+  final String latitude;
+  final String longitude;
+  final String? deliveryPartnerId;
+
+  DeliveryPartnerOrder({
+    required this.orderId,
+    required this.partnerId,
+    required this.userId,
+    required this.totalPrice,
+    required this.address,
+    required this.deliveryFees,
+    required this.subtotal,
+    required this.paymentMode,
+    required this.orderStatus,
+    required this.createdAt,
+    required this.updatedAt,
+    required this.latitude,
+    required this.longitude,
+    required this.deliveryPartnerId,
+  });
+
+  factory DeliveryPartnerOrder.fromJson(Map<String, dynamic> json) {
+    return DeliveryPartnerOrder(
+      orderId: json['order_id'] ?? '',
+      partnerId: json['partner_id'] ?? '',
+      userId: json['user_id'] ?? '',
+      totalPrice: json['total_price'] ?? '',
+      address: json['address'] ?? '',
+      deliveryFees: json['delivery_fees'] ?? '',
+      subtotal: json['subtotal'] ?? '',
+      paymentMode: json['payment_mode'],
+      orderStatus: json['order_status'] ?? '',
+      createdAt: json['created_at'] ?? '',
+      updatedAt: json['updated_at'] ?? '',
+      latitude: json['latitude'] ?? '',
+      longitude: json['longitude'] ?? '',
+      deliveryPartnerId: json['delivery_partner_id'],
+    );
+  }
+}
+
+class DeliveryPartnerOrderListResponse {
+  final String status;
+  final List<DeliveryPartnerOrder> data;
+
+  DeliveryPartnerOrderListResponse({required this.status, required this.data});
+
+  factory DeliveryPartnerOrderListResponse.fromJson(Map<String, dynamic> json) {
+    return DeliveryPartnerOrderListResponse(
+      status: json['status'] ?? '',
+      data: json['data'] != null
+          ? (json['data'] as List)
+              .map((item) => DeliveryPartnerOrder.fromJson(item))
+              .toList()
+          : [],
+    );
+  }
+}

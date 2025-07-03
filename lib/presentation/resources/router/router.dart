@@ -17,6 +17,8 @@ import 'package:bird_restaurant/presentation/screens/signin/view.dart';
 import 'package:bird_restaurant/presentation/screens/privacy_policy/view.dart';
 import 'package:bird_restaurant/presentation/screens/terms_conditions/view.dart';
 import 'package:bird_restaurant/presentation/screens/contact_us/view.dart';
+import 'package:bird_restaurant/presentation/screens/delivery_partner_pages/dashboard/view.dart';
+import 'package:bird_restaurant/presentation/screens/delivery_partner_pages/profile/view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -189,7 +191,10 @@ class RouteGenerator {
           );
 
         case Routes.deliveryPartnerAuthSuccess:
-          return MaterialPageRoute(builder: (_) => const DeliveryPartnerAuthSuccessView());
+          return MaterialPageRoute(builder: (_) => const DeliveryPartnerDashboardView());
+
+        case '/deliveryPartnerProfile':
+          return MaterialPageRoute(builder: (_) => const DeliveryPartnerProfileView());
 
         default:
           return unDefinedRoute();
