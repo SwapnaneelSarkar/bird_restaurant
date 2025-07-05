@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../../presentation/resources/colors.dart';
 import '../../presentation/resources/font.dart';
+import '../../presentation/resources/router/router.dart';
 
 
 class AppBackHeader extends StatelessWidget {
@@ -31,7 +32,7 @@ class AppBackHeader extends StatelessWidget {
       child: Row(
         children: [
           GestureDetector(
-            onTap: () => Navigator.pop(context),
+            onTap: () => _handleBackNavigation(context),
             child: Icon(
               Icons.chevron_left,
               size: 28,
@@ -50,5 +51,19 @@ class AppBackHeader extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  void _handleBackNavigation(BuildContext context) {
+    // Check if there's a previous route in the navigation stack
+    if (Navigator.of(context).canPop()) {
+      // If there's a previous route, pop normally
+      Navigator.of(context).pop();
+    } else {
+      // If there's no previous route (e.g., navigated from notification), go to home
+      Navigator.of(context).pushNamedAndRemoveUntil(
+        Routes.homePage,
+        (route) => false,
+      );
+    }
   }
 }
