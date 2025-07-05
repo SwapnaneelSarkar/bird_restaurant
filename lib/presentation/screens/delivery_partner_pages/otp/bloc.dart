@@ -280,13 +280,26 @@ class DeliveryPartnerOtpBloc extends Bloc<DeliveryPartnerOtpEvent, DeliveryPartn
       debugPrint('Delivery partner auth API response: $result');
 
       if (result['success']) {
-        // Initialize notification service
-        await _notificationService.initialize();
-
-        emit(state.copyWith(
-          status: OtpStatus.success,
-          apiStatus: 'success',
-        ));
+        final data = result['data'];
+        final action = result['action'] ?? 'login';
+        final deliveryPartnerId = data['delivery_partner_id'] ?? '';
+        final name = data['name'];
+        debugPrint('Auth navigation decision: action=$action, name=$name');
+        if (action == 'signup' || name == null || (name is String && name.trim().isEmpty)) {
+          debugPrint('Navigating to onboarding');
+          emit(state.copyWith(
+            status: OtpStatus.success,
+            apiStatus: 'onboarding',
+            deliveryPartnerId: deliveryPartnerId,
+          ));
+        } else {
+          debugPrint('Navigating to dashboard/homepage');
+          await _notificationService.initialize();
+          emit(state.copyWith(
+            status: OtpStatus.success,
+            apiStatus: 'success',
+          ));
+        }
       } else {
         emit(state.copyWith(
           status: OtpStatus.failure,

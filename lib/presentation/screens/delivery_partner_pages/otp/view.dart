@@ -36,12 +36,25 @@ class DeliveryPartnerOtpView extends StatelessWidget {
         listenWhen: (previous, current) => previous.status != current.status,
         listener: (context, state) {
           if (state.status == OtpStatus.success) {
-            // Navigate to success page
-            Navigator.pushNamedAndRemoveUntil(
-              context,
-              Routes.deliveryPartnerAuthSuccess,
-              (route) => false,
-            );
+            if (state.apiStatus == 'onboarding') {
+              // Navigate to onboarding page
+              Navigator.pushNamedAndRemoveUntil(
+                context,
+                Routes.deliveryPartnerOnboarding,
+                (route) => false,
+                arguments: {
+                  'deliveryPartnerId': state.deliveryPartnerId,
+                  'phone': state.mobileNumber,
+                },
+              );
+            } else {
+              // Navigate to success page
+              Navigator.pushNamedAndRemoveUntil(
+                context,
+                Routes.deliveryPartnerAuthSuccess,
+                (route) => false,
+              );
+            }
           } else if (state.status == OtpStatus.failure) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(

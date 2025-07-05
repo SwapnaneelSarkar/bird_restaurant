@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -28,9 +29,12 @@ class DeliveryPartnerAuthService {
       if (response.statusCode == 200 && data['status'] == 'SUCCESS') {
         // Save authentication data
         await _saveDeliveryPartnerAuthData(data['data']);
+        // Ensure 'action' is included in the returned data
+        final Map<String, dynamic> resultData = Map<String, dynamic>.from(data['data']);
         return {
           'success': true,
-          'data': data['data'],
+          'action': data['action'],
+          'data': resultData,
         };
       } else {
         return {
@@ -94,5 +98,73 @@ class DeliveryPartnerAuthService {
     await prefs.remove(_deliveryPartnerMobileKey);
     
     print('Delivery partner auth data cleared');
+  }
+
+  static Future<Map<String, dynamic>> updateDeliveryPartnerProfile({
+    required String deliveryPartnerId,
+    required String name,
+    required String email,
+    required String vehicleNumber,
+    required String vehicleType,
+    required double latitude,
+    required double longitude,
+    // Add license and vehicle doc params
+    required File? licensePhoto,
+    required File? vehicleDocument,
+  }) async {
+    try {
+      final url = Uri.parse('$_baseUrl/delivery-partner/$deliveryPartnerId');
+      final token = await getDeliveryPartnerToken();
+      var request = http.MultipartRequest('PUT', url);
+      request.headers.addAll({
+        'Content-Type': 'multipart/form-data',
+        if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+      });
+      request.fields['name'] = name;
+      request.fields['email'] = email;
+      request.fields['vehicle_number'] = vehicleNumber;
+      request.fields['vehicle_type'] = vehicleType;
+      request.fields['current_latitude'] = latitude.toString();
+      request.fields['current_longitude'] = longitude.toString();
+      if (licensePhoto != null) {
+        request.files.add(await http.MultipartFile.fromPath('license_photo', licensePhoto.path));
+      }
+      if (vehicleDocument != null) {
+        request.files.add(await http.MultipartFile.fromPath('vehicle_document', vehicleDocument.path));
+      }
+      final streamedResponse = await request.send();
+      final response = await http.Response.fromStream(streamedResponse);
+      final data = json.decode(response.body);
+      if (response.statusCode == 200 && data['status'] == 'SUCCESS') {
+        return {'success': true, 'data': data['data']};
+      } else {
+        return {'success': false, 'message': data['message'] ?? 'Update failed'};
+      }
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: $e'};
+    }
+  }
+
+  // Fetch delivery partner details by ID
+  static Future<Map<String, dynamic>> fetchDeliveryPartnerDetails(String deliveryPartnerId) async {
+    try {
+      final url = Uri.parse('$_baseUrl/delivery-partner/$deliveryPartnerId');
+      final token = await getDeliveryPartnerToken();
+      final response = await http.get(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+        },
+      );
+      final data = json.decode(response.body);
+      if (response.statusCode == 200 && data['status'] == 'SUCCESS') {
+        return {'success': true, 'data': data['data']};
+      } else {
+        return {'success': false, 'message': data['message'] ?? 'Failed to fetch details'};
+      }
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: $e'};
+    }
   }
 } 

@@ -14,6 +14,7 @@ class DeliveryPartnerOrdersService {
       print('[API] Error: No delivery partner token found');
       throw Exception('No delivery partner token found. Please login again.');
     }
+    print('[API] Using token: ${token.substring(0, 20)}...');
     final response = await http.get(
       url,
       headers: {
@@ -24,13 +25,25 @@ class DeliveryPartnerOrdersService {
     print('[API] Response status: \u001b[33m\u001b[1m${response.statusCode}\u001b[0m');
     print('[API] Response body: ${response.body}');
     if (response.statusCode == 200) {
-      final data = json.decode(response.body);
-      final result = DeliveryPartnerOrderListResponse.fromJson(data);
-      print('[API] Orders fetched: ${result.data.length}');
-      return result.data;
+      try {
+        final data = json.decode(response.body);
+        print('[API] Parsed JSON: $data');
+        if (data['status'] == 'SUCCESS') {
+          final result = DeliveryPartnerOrderListResponse.fromJson(data);
+          print('[API] Orders fetched: ${result.data.length}');
+          return result.data;
+        } else {
+          print('[API] API returned non-success status: ${data['status']}');
+          throw Exception('API returned: ${data['message'] ?? 'Unknown error'}');
+        }
+      } catch (e) {
+        print('[API] Error parsing response: $e');
+        throw Exception('Failed to parse response: $e');
+      }
     } else {
       print('[API] Error: Failed to fetch orders: ${response.statusCode}');
-      throw Exception('Failed to fetch orders: ${response.statusCode}');
+      print('[API] Error response: ${response.body}');
+      throw Exception('Failed to fetch orders: ${response.statusCode} - ${response.body}');
     }
   }
 
@@ -45,6 +58,7 @@ class DeliveryPartnerOrdersService {
       print('[API] Error: No delivery partner token found');
       throw Exception('No delivery partner token found. Please login again.');
     }
+    print('[API] Using token: ${token.substring(0, 20)}... and ID: $deliveryPartnerId');
     final url = Uri.parse('$_baseUrl/delivery-partner/orders/assigned?delivery_partner_id=$deliveryPartnerId');
     print('[API] GET: $url');
     final response = await http.get(
@@ -57,13 +71,79 @@ class DeliveryPartnerOrdersService {
     print('[API] Response status: \u001b[33m\u001b[1m${response.statusCode}\u001b[0m');
     print('[API] Response body: ${response.body}');
     if (response.statusCode == 200) {
-      final data = json.decode(response.body);
-      final result = DeliveryPartnerOrderListResponse.fromJson(data);
-      print('[API] Assigned orders fetched: ${result.data.length}');
-      return result.data;
+      try {
+        final data = json.decode(response.body);
+        print('[API] Parsed JSON: $data');
+        if (data['status'] == 'SUCCESS') {
+          final result = DeliveryPartnerOrderListResponse.fromJson(data);
+          print('[API] Assigned orders fetched: ${result.data.length}');
+          return result.data;
+        } else {
+          print('[API] API returned non-success status: ${data['status']}');
+          throw Exception('API returned: ${data['message'] ?? 'Unknown error'}');
+        }
+      } catch (e) {
+        print('[API] Error parsing response: $e');
+        throw Exception('Failed to parse response: $e');
+      }
     } else {
       print('[API] Error: Failed to fetch assigned orders: ${response.statusCode}');
-      throw Exception('Failed to fetch assigned orders: ${response.statusCode}');
+      print('[API] Error response: ${response.body}');
+      throw Exception('Failed to fetch assigned orders: ${response.statusCode} - ${response.body}');
+    }
+  }
+
+  static Future<Map<String, dynamic>> fetchOrderDetailsById(String orderId) async {
+    final url = Uri.parse('$_baseUrl/delivery-partner/orders/$orderId');
+    final token = await DeliveryPartnerAuthService.getDeliveryPartnerToken();
+    if (token == null || token.isEmpty) {
+      return {'success': false, 'message': 'No delivery partner token found. Please login again.'};
+    }
+    final response = await http.get(
+      url,
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+    );
+    final data = json.decode(response.body);
+    if (response.statusCode == 200 && data['status'] == 'SUCCESS') {
+      return {'success': true, 'data': data['data']};
+    } else {
+      return {'success': false, 'message': data['message'] ?? 'Failed to fetch order details'};
+    }
+  }
+
+  static Future<Map<String, dynamic>> acceptOrder({
+    required String deliveryPartnerId,
+    required String orderId,
+  }) async {
+    final url = Uri.parse('$_baseUrl/delivery-partner/orders/accept?delivery_partner_id=$deliveryPartnerId');
+    print('[API] POST: $url');
+    print('[API] Accepting order: $orderId for delivery partner: $deliveryPartnerId');
+    final token = await DeliveryPartnerAuthService.getDeliveryPartnerToken();
+    if (token == null || token.isEmpty) {
+      print('[API] Error: No delivery partner token found');
+      return {'success': false, 'message': 'No delivery partner token found. Please login again.'};
+    }
+    print('[API] Using token: ${token.substring(0, 20)}...');
+    final response = await http.post(
+      url,
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+      body: json.encode({'order_id': orderId}),
+    );
+    print('[API] Accept order response status: ${response.statusCode}');
+    print('[API] Accept order response body: ${response.body}');
+    final data = json.decode(response.body);
+    if (response.statusCode == 200 && data['status'] == 'SUCCESS') {
+      print('[API] Order accepted successfully');
+      return {'success': true, 'data': data['data']};
+    } else {
+      print('[API] Failed to accept order: ${data['message']}');
+      return {'success': false, 'message': data['message'] ?? 'Failed to accept order'};
     }
   }
 } 

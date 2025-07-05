@@ -19,6 +19,8 @@ import 'package:bird_restaurant/presentation/screens/terms_conditions/view.dart'
 import 'package:bird_restaurant/presentation/screens/contact_us/view.dart';
 import 'package:bird_restaurant/presentation/screens/delivery_partner_pages/dashboard/view.dart';
 import 'package:bird_restaurant/presentation/screens/delivery_partner_pages/profile/view.dart';
+import 'package:bird_restaurant/presentation/screens/delivery_partner_pages/onboarding/view.dart';
+import 'package:bird_restaurant/presentation/screens/delivery_partner_pages/order_details/view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -59,6 +61,7 @@ class Routes {
   static const String deliveryPartnerSignin = '/delivery-partner-signin';
   static const String deliveryPartnerOtp = '/delivery-partner-otp';
   static const String deliveryPartnerAuthSuccess = '/delivery-partner-auth-success';
+  static const String deliveryPartnerOnboarding = '/delivery-partner-onboarding';
 
   static const String blank = '/blank';
 }
@@ -193,8 +196,21 @@ class RouteGenerator {
         case Routes.deliveryPartnerAuthSuccess:
           return MaterialPageRoute(builder: (_) => const DeliveryPartnerDashboardView());
 
+        case Routes.deliveryPartnerOnboarding:
+          final args = routeSettings.arguments as Map<String, dynamic>?;
+          return MaterialPageRoute(
+            builder: (_) => DeliveryPartnerOnboardingView(
+              deliveryPartnerId: args?['deliveryPartnerId'],
+              phone: args?['phone'],
+            ),
+            settings: routeSettings,
+          );
+
         case '/deliveryPartnerProfile':
           return MaterialPageRoute(builder: (_) => const DeliveryPartnerProfileView());
+
+        case '/deliveryPartnerOrderDetails':
+          return MaterialPageRoute(builder: (_) => const DeliveryPartnerOrderDetailsView());
 
         default:
           return unDefinedRoute();

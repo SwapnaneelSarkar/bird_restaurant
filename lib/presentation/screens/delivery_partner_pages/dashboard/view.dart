@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../../services/delivery_partner_services/delivery_partner_orders_service.dart';
 import '../../../../models/order_model.dart';
 import 'package:lottie/lottie.dart';
+import '../../../../services/delivery_partner_services/delivery_partner_auth_service.dart';
 
 class DeliveryPartnerDashboardView extends StatefulWidget {
   const DeliveryPartnerDashboardView({Key? key}) : super(key: key);
@@ -21,8 +22,14 @@ class _DeliveryPartnerDashboardViewState extends State<DeliveryPartnerDashboardV
   @override
   void initState() {
     super.initState();
-    _availableOrdersFuture = DeliveryPartnerOrdersService.fetchAvailableOrders();
-    _assignedOrdersFuture = DeliveryPartnerOrdersService.fetchAssignedOrders();
+    _refreshOrders();
+  }
+
+  void _refreshOrders() {
+    setState(() {
+      _availableOrdersFuture = DeliveryPartnerOrdersService.fetchAvailableOrders();
+      _assignedOrdersFuture = DeliveryPartnerOrdersService.fetchAssignedOrders();
+    });
   }
 
   @override
@@ -79,6 +86,23 @@ class _DeliveryPartnerDashboardViewState extends State<DeliveryPartnerDashboardV
               ),
             ),
           ),
+          IconButton(
+            icon: const Icon(Icons.bug_report, color: Colors.white),
+            onPressed: () async {
+              final token = await DeliveryPartnerAuthService.getDeliveryPartnerToken();
+              final id = await DeliveryPartnerAuthService.getDeliveryPartnerId();
+              final mobile = await DeliveryPartnerAuthService.getDeliveryPartnerMobile();
+              final isAuth = await DeliveryPartnerAuthService.isDeliveryPartnerAuthenticated();
+              
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Token: ${token?.substring(0, 20) ?? "null"}...\nID: $id\nMobile: $mobile\nAuth: $isAuth'),
+                  duration: const Duration(seconds: 5),
+                ),
+              );
+            },
+            tooltip: 'Debug Auth',
+          ),
         ],
       ),
       body: Padding(
@@ -98,22 +122,28 @@ class _DeliveryPartnerDashboardViewState extends State<DeliveryPartnerDashboardV
                       child: LottieWidget(),
                     ));
                   } else if (snapshot.hasError) {
-                    return _EmptySection(text: 'Failed to load orders.');
+                    return _EmptySection(text: 'Failed to load orders: ${snapshot.error}');
                   } else if (snapshot.hasData && snapshot.data!.isNotEmpty) {
                     return Column(
-                      children: snapshot.data!.where((order) => order != null).map((order) => _OrderCard(
-                        order: {
-                          'id': order.orderId,
-                          'pickup': order.address,
-                          'drop': order.address, // No drop in API, using address for both
-                          'payment': order.paymentMode ?? 'Unknown',
-                          'status': order.orderStatus,
-                          'total_price': order.totalPrice,
-                          'delivery_fees': order.deliveryFees,
+                      children: snapshot.data!.where((order) => order != null).map((order) => GestureDetector(
+                        onTap: () {
+                          Navigator.pushNamed(context, '/deliveryPartnerOrderDetails', arguments: order.orderId);
                         },
-                        primary: primary,
-                        showAccept: true,
-                        showApiFields: true,
+                        child: _OrderCard(
+                          order: {
+                            'id': order.orderId,
+                            'pickup': order.address,
+                            'drop': order.address, // No drop in API, using address for both
+                            'payment': order.paymentMode ?? 'Unknown',
+                            'status': order.orderStatus,
+                            'total_price': order.totalPrice,
+                            'delivery_fees': order.deliveryFees,
+                          },
+                          primary: primary,
+                          showAccept: true,
+                          showApiFields: true,
+                          onAcceptOrder: _refreshOrders,
+                        ),
                       )).toList(),
                     );
                   } else {
@@ -133,22 +163,28 @@ class _DeliveryPartnerDashboardViewState extends State<DeliveryPartnerDashboardV
                       child: LottieWidget(),
                     ));
                   } else if (snapshot.hasError) {
-                    return _EmptySection(text: 'Failed to load assigned orders.');
+                    return _EmptySection(text: 'Failed to load assigned orders: ${snapshot.error}');
                   } else if (snapshot.hasData && snapshot.data!.isNotEmpty) {
                     return Column(
-                      children: snapshot.data!.where((order) => order != null).map((order) => _OrderCard(
-                        order: {
-                          'id': order.orderId,
-                          'pickup': order.address,
-                          'drop': order.address, // No drop in API, using address for both
-                          'payment': order.paymentMode ?? 'Unknown',
-                          'status': order.orderStatus,
-                          'total_price': order.totalPrice,
-                          'delivery_fees': order.deliveryFees,
+                      children: snapshot.data!.where((order) => order != null).map((order) => GestureDetector(
+                        onTap: () {
+                          Navigator.pushNamed(context, '/deliveryPartnerOrderDetails', arguments: order.orderId);
                         },
-                        primary: primary,
-                        showAccept: false,
-                        showApiFields: true,
+                        child: _OrderCard(
+                          order: {
+                            'id': order.orderId,
+                            'pickup': order.address,
+                            'drop': order.address, // No drop in API, using address for both
+                            'payment': order.paymentMode ?? 'Unknown',
+                            'status': order.orderStatus,
+                            'total_price': order.totalPrice,
+                            'delivery_fees': order.deliveryFees,
+                          },
+                          primary: primary,
+                          showAccept: false,
+                          showApiFields: true,
+                          onAcceptOrder: () {},
+                        ),
                       )).toList(),
                     );
                   } else {
@@ -217,7 +253,8 @@ class _OrderCard extends StatelessWidget {
   final Color primary;
   final bool showAccept;
   final bool showApiFields;
-  const _OrderCard({required this.order, required this.primary, required this.showAccept, this.showApiFields = false});
+  final VoidCallback? onAcceptOrder;
+  const _OrderCard({required this.order, required this.primary, required this.showAccept, this.showApiFields = false, this.onAcceptOrder});
 
   Color _statusColor(String status) {
     switch (status) {
@@ -356,7 +393,150 @@ class _OrderCard extends StatelessWidget {
                       fontWeight: FontWeightManager.semiBold,
                     ),
                   ),
-                  onPressed: () {},
+                  onPressed: () async {
+                    print('[UI] Accept Order button pressed for order: ${order['id']}');
+                    
+                    // Show confirmation dialog
+                    final shouldAccept = await showDialog<bool>(
+                      context: context,
+                      builder: (BuildContext context) {
+                        return AlertDialog(
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          title: Row(
+                            children: [
+                              Icon(Icons.check_circle, color: primary, size: 24),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Accept Order',
+                                style: GoogleFonts.poppins(
+                                  fontWeight: FontWeightManager.semiBold,
+                                  fontSize: FontSize.s16,
+                                ),
+                              ),
+                            ],
+                          ),
+                          content: Text(
+                            'Are you sure you want to accept this order?\n\nOrder #${order['id']}\nTotal: ₹${order['total_price']}',
+                            style: GoogleFonts.poppins(
+                              fontSize: FontSize.s14,
+                            ),
+                          ),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.of(context).pop(false),
+                              child: Text(
+                                'Cancel',
+                                style: GoogleFonts.poppins(
+                                  color: Colors.grey[600],
+                                  fontWeight: FontWeightManager.medium,
+                                ),
+                              ),
+                            ),
+                            ElevatedButton(
+                              onPressed: () => Navigator.of(context).pop(true),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: primary,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                              ),
+                              child: Text(
+                                'Yes, Accept',
+                                style: GoogleFonts.poppins(
+                                  color: Colors.white,
+                                  fontWeight: FontWeightManager.semiBold,
+                                ),
+                              ),
+                            ),
+                          ],
+                        );
+                      },
+                    );
+                    
+                    // If user cancels, return early
+                    if (shouldAccept != true) {
+                      print('[UI] User cancelled order acceptance');
+                      return;
+                    }
+                    
+                    // Show loading indicator
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Row(
+                          children: [
+                            SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Text('Accepting order...'),
+                          ],
+                        ),
+                        duration: const Duration(seconds: 2),
+                      ),
+                    );
+                    
+                    final deliveryPartnerId = await DeliveryPartnerAuthService.getDeliveryPartnerId();
+                    if (deliveryPartnerId == null || deliveryPartnerId.isEmpty) {
+                      print('[UI] Error: Delivery partner ID not found');
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Delivery partner ID not found.'),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                      return;
+                    }
+                    
+                    print('[UI] Calling acceptOrder API with ID: $deliveryPartnerId, orderId: ${order['id']}');
+                    final result = await DeliveryPartnerOrdersService.acceptOrder(
+                      deliveryPartnerId: deliveryPartnerId,
+                      orderId: order['id'] ?? '',
+                    );
+                    print('[UI] Accept order result: $result');
+                    
+                    if (result['success'] == true) {
+                      print('[UI] Order accepted successfully, refreshing orders');
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Row(
+                            children: [
+                              Icon(Icons.check_circle, color: Colors.white),
+                              const SizedBox(width: 8),
+                              Text('Order accepted successfully!'),
+                            ],
+                          ),
+                          backgroundColor: Colors.green,
+                          duration: const Duration(seconds: 3),
+                        ),
+                      );
+                      // Refresh the orders list
+                      if (context.mounted) {
+                        onAcceptOrder?.call();
+                      }
+                    } else {
+                      print('[UI] Failed to accept order: ${result['message']}');
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Row(
+                            children: [
+                              Icon(Icons.error, color: Colors.white),
+                              const SizedBox(width: 8),
+                              Text(result['message'] ?? 'Failed to accept order'),
+                            ],
+                          ),
+                          backgroundColor: Colors.red,
+                          duration: const Duration(seconds: 4),
+                        ),
+                      );
+                    }
+                  },
                 ),
               ),
             if (!showAccept)

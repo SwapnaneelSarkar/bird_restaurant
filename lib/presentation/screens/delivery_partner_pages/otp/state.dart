@@ -10,6 +10,7 @@ class DeliveryPartnerOtpState extends Equatable {
   final String? verificationId;
   final String mobileNumber;
   final String? apiStatus;
+  final String? deliveryPartnerId;
 
   const DeliveryPartnerOtpState({
     this.digits = const ['', '', '', '', '', ''],
@@ -20,6 +21,7 @@ class DeliveryPartnerOtpState extends Equatable {
     this.verificationId,
     this.mobileNumber = '',
     this.apiStatus,
+    this.deliveryPartnerId,
   });
 
   DeliveryPartnerOtpState copyWith({
@@ -31,6 +33,7 @@ class DeliveryPartnerOtpState extends Equatable {
     String? verificationId,
     String? mobileNumber,
     String? apiStatus,
+    String? deliveryPartnerId,
   }) {
     return DeliveryPartnerOtpState(
       digits: digits ?? this.digits,
@@ -41,6 +44,7 @@ class DeliveryPartnerOtpState extends Equatable {
       verificationId: verificationId ?? this.verificationId,
       mobileNumber: mobileNumber ?? this.mobileNumber,
       apiStatus: apiStatus ?? this.apiStatus,
+      deliveryPartnerId: deliveryPartnerId ?? this.deliveryPartnerId,
     );
   }
 
@@ -54,5 +58,6 @@ class DeliveryPartnerOtpState extends Equatable {
         verificationId,
         mobileNumber,
         apiStatus,
+        deliveryPartnerId,
       ];
 } 
