@@ -85,6 +85,9 @@ class AttributeBloc extends Bloc<AttributeEvent, AttributeState> {
           // Show success message
           emit(const AttributeCreationSuccess(message: 'Attribute created successfully!'));
           
+          // Add a small delay to ensure the API has processed the changes
+          await Future.delayed(const Duration(milliseconds: 500));
+          
           // Reload attributes to get the updated list
           add(LoadAttributesEvent(menuId: event.menuId));
         } else {

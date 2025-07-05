@@ -35,11 +35,25 @@ class AttributeService {
 
       debugPrint('Get Attributes Response:');
       debugPrint('Status Code: ${response.statusCode}');
+      debugPrint('Body length: ${response.body.length}');
       debugPrint('Body: ${response.body}');
+      
+      // Check if response is truncated
+      if (response.body.length > 1000) {
+        debugPrint('Response might be truncated. First 500 chars: ${response.body.substring(0, 500)}');
+        debugPrint('Last 500 chars: ${response.body.substring(response.body.length - 500)}');
+      }
 
       if (response.statusCode == 200) {
-        final responseData = jsonDecode(response.body);
-        return AttributeResponse.fromJson(responseData);
+        try {
+          final responseData = jsonDecode(response.body);
+          debugPrint('Successfully parsed JSON response');
+          return AttributeResponse.fromJson(responseData);
+        } catch (e) {
+          debugPrint('Error parsing JSON response: $e');
+          debugPrint('Raw response body: ${response.body}');
+          throw ApiException('Failed to parse API response: $e');
+        }
       } else if (response.statusCode == 401) {
         throw UnauthorizedException('Unauthorized access. Please login again.');
       } else {

@@ -1,5 +1,6 @@
 // lib/models/attribute_model.dart
 import '../presentation/screens/attributes/state.dart';
+import 'package:flutter/foundation.dart';
 
 class AttributeResponse {
   final String status;
@@ -47,7 +48,8 @@ class AttributeGroup {
   });
 
   factory AttributeGroup.fromJson(Map<String, dynamic> json) {
-    return AttributeGroup(
+    debugPrint('Parsing AttributeGroup from JSON: $json');
+    final group = AttributeGroup(
       attributeId: json['attribute_id'] ?? '',
       menuId: json['menu_id'] ?? '',
       name: json['name'] ?? '',
@@ -61,16 +63,35 @@ class AttributeGroup {
             )
           : [],
     );
+    debugPrint('Parsed AttributeGroup: name="${group.name}", type="${group.type}", valuesCount=${group.attributeValues.length}');
+    return group;
   }
 
   // Convert to local Attribute model for UI
   Attribute toAttribute() {
+    debugPrint('Converting AttributeGroup to Attribute:');
+    debugPrint('  Name: $name');
+    debugPrint('  Type: $type');
+    debugPrint('  AttributeValues count: ${attributeValues.length}');
+    
+    // More robust filtering - check for null, empty, and whitespace-only names
+    final validValues = <String>[];
+    for (final value in attributeValues) {
+      debugPrint('  Processing value: name="${value.name}", valueId="${value.valueId}"');
+      if (value.name != null && value.name!.trim().isNotEmpty) {
+        validValues.add(value.name!.trim());
+        debugPrint('    -> Added: "${value.name!.trim()}"');
+      } else {
+        debugPrint('    -> Skipped: name is null or empty');
+      }
+    }
+    
+    debugPrint('  Final valid values count: ${validValues.length}');
+    debugPrint('  Final valid values: $validValues');
+    
     return Attribute(
       name: name,
-      values: attributeValues
-          .where((v) => v.name != null && v.name!.isNotEmpty)
-          .map((v) => v.name!)
-          .toList(),
+      values: validValues,
       isActive: true,
       attributeId: attributeId,
       type: type,
@@ -92,12 +113,54 @@ class AttributeValue {
   });
 
   factory AttributeValue.fromJson(Map<String, dynamic> json) {
-    return AttributeValue(
-      name: json['name'],
-      valueId: json['value_id'],
-      isDefault: json['is_default'],
-      priceAdjustment: json['price_adjustment'],
+    debugPrint('Parsing AttributeValue from JSON: $json');
+    
+    // Handle potential type conversion issues
+    final name = json['name'];
+    final valueId = json['value_id']?.toString();
+    final isDefault = json['is_default'];
+    final priceAdjustment = json['price_adjustment'];
+    
+    // Convert name to string, but preserve null
+    String? nameString;
+    if (name != null) {
+      final nameStr = name.toString();
+      // Only use the string if it's not the literal "null" string
+      if (nameStr != 'null') {
+        nameString = nameStr;
+      }
+    }
+    
+    // Convert isDefault to int, handling both string and int inputs
+    int? isDefaultInt;
+    if (isDefault != null) {
+      if (isDefault is int) {
+        isDefaultInt = isDefault;
+      } else if (isDefault is String) {
+        isDefaultInt = int.tryParse(isDefault);
+      } else if (isDefault is bool) {
+        isDefaultInt = isDefault ? 1 : 0;
+      }
+    }
+    
+    // Convert priceAdjustment to int, handling both string and int inputs
+    int? priceAdjustmentInt;
+    if (priceAdjustment != null) {
+      if (priceAdjustment is int) {
+        priceAdjustmentInt = priceAdjustment;
+      } else if (priceAdjustment is String) {
+        priceAdjustmentInt = int.tryParse(priceAdjustment);
+      }
+    }
+    
+    final value = AttributeValue(
+      name: nameString,
+      valueId: valueId,
+      isDefault: isDefaultInt,
+      priceAdjustment: priceAdjustmentInt,
     );
+    debugPrint('Parsed AttributeValue: name="$nameString", valueId="$valueId", isDefault=$isDefaultInt, priceAdjustment=$priceAdjustmentInt');
+    return value;
   }
 
   Map<String, dynamic> toJson() {

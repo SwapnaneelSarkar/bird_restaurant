@@ -4,7 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../ui_components/plan_card.dart';
 import '../../../ui_components/payment_method_dialog.dart';
 import '../../../ui_components/subscription_success_dialog.dart';
-import '../../../ui_components/active_plan_dialog.dart';
+import '../../../ui_components/subscription_management_dialog.dart';
 import '../../../models/plan_model.dart';
 import '../../../services/subscription_plans_service.dart';
 import '../../../services/token_service.dart';
@@ -80,14 +80,12 @@ class _PlanSelectionScreenState extends State<PlanSelectionScreen> {
       final activeSubscription = await SubscriptionPlansService.getActiveSubscription(partnerId);
       
       if (activeSubscription != null) {
-        // User has active subscription, show dialog and set flag
+        // User has active subscription, allow them to stay on plans page
         setState(() {
           _hasCheckedSubscription = true;
           _hasValidSubscription = true;
         });
-        if (mounted) {
-          _showActivePlanDialog(activeSubscription);
-        }
+        // Don't automatically show dialog - let user choose to view their subscription
       } else {
         // No active subscription, allow access to plans
         setState(() {
@@ -106,43 +104,25 @@ class _PlanSelectionScreenState extends State<PlanSelectionScreen> {
   }
 
   void _showActivePlanDialog(Map<String, dynamic> activeSubscription) {
-    final planName = activeSubscription['plan_name']?.toString() ?? 'Unknown Plan';
-    final planDescription = activeSubscription['plan_description']?.toString() ?? 'No description available';
-    final endDate = activeSubscription['end_date']?.toString() ?? 'Unknown';
-    final status = activeSubscription['status']?.toString().toUpperCase() ?? 'UNKNOWN';
-    
-    // Format the end date for display
-    String formattedEndDate = endDate;
-    try {
-      final date = TimeUtils.parseToIST(endDate);
-      formattedEndDate = TimeUtils.formatPlanDate(date);
-    } catch (e) {
-      debugPrint('Error parsing end date: $e');
-    }
-
-    // Determine dialog title and message based on status
-    String dialogTitle;
-    String dialogMessage;
-    
-    if (status == 'PENDING') {
-      dialogTitle = 'Subscription Pending';
-      dialogMessage = 'Your subscription is currently pending approval. You will be notified once it is activated.';
-    } else {
-      dialogTitle = 'Active Subscription';
-      dialogMessage = 'You already have an active subscription.';
-    }
-
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => ActivePlanDialog(
-        planName: planName,
-        planDescription: planDescription,
-        endDate: formattedEndDate,
-        dialogTitle: dialogTitle,
-        dialogMessage: dialogMessage,
+      builder: (context) => SubscriptionManagementDialog(
+        subscriptionData: activeSubscription,
+        onViewPlans: () {
+          Navigator.of(context).pop(); // Close the dialog
+          // Stay on the plans page to view other plans
+        },
         onGoToHome: () {
           Navigator.of(context).pushNamedAndRemoveUntil('/home', (route) => false);
+        },
+        onRenewSubscription: () {
+          Navigator.of(context).pop(); // Close the dialog
+          // Stay on the plans page to renew
+        },
+        onUpgradeSubscription: () {
+          Navigator.of(context).pop(); // Close the dialog
+          // Stay on the plans page to upgrade
         },
       ),
     );
@@ -162,6 +142,81 @@ class _PlanSelectionScreenState extends State<PlanSelectionScreen> {
     // Get the bloc reference before showing dialog
     final bloc = context.read<PlanSelectionBloc>();
     
+    // Show confirmation dialog for users with active subscriptions
+    if (_hasValidSubscription) {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: Row(
+            children: [
+              Icon(
+                Icons.upgrade,
+                color: ColorManager.primary,
+                size: 28,
+              ),
+              const SizedBox(width: 12),
+              const Text(
+                'Upgrade Subscription',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          content: Text(
+            'You are about to upgrade to the ${plan.title} plan for ₹${plan.price.toStringAsFixed(2)}/month. This will replace your current subscription.',
+            style: TextStyle(
+              fontSize: 16,
+              height: 1.4,
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: const Text(
+                'Cancel',
+                style: TextStyle(
+                  fontSize: 16,
+                  color: Colors.grey,
+                ),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                _showPaymentMethodDialogInternal(context, plan, bloc);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: ColorManager.primary,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              child: const Text(
+                'Continue',
+                style: TextStyle(
+                  fontSize: 16,
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    } else {
+      _showPaymentMethodDialogInternal(context, plan, bloc);
+    }
+  }
+
+  void _showPaymentMethodDialogInternal(BuildContext context, PlanModel plan, PlanSelectionBloc bloc) {
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -294,12 +349,8 @@ class _PlanSelectionScreenState extends State<PlanSelectionScreen> {
 
     return WillPopScope(
       onWillPop: () async {
-        // If user has valid subscription, redirect to home instead of going back
-        if (_hasValidSubscription) {
-          Navigator.of(context).pushNamedAndRemoveUntil('/home', (route) => false);
-          return false; // Prevent default back behavior
-        }
-        return true; // Allow normal back behavior
+        // Allow normal back behavior for all users
+        return true;
       },
       child: Scaffold(
         key: _scaffoldKey,
@@ -311,7 +362,7 @@ class _PlanSelectionScreenState extends State<PlanSelectionScreen> {
           restaurantImageUrl: _restaurantInfo?['imageUrl'],
         ),
         appBar: AppBar(
-          leading: _hasValidSubscription ? null : IconButton(
+          leading: IconButton(
             icon: const Icon(Icons.arrow_back, color: Colors.black87),
             onPressed: () => Navigator.of(context).pop(),
           ),
@@ -333,17 +384,46 @@ class _PlanSelectionScreenState extends State<PlanSelectionScreen> {
                 ),
               ),
               const SizedBox(width: 12),
-              Text(
-                'Subscription Plans',
-                style: TextStyle(
-                  fontFamily: FontConstants.fontFamily,
-                  fontSize: FontSize.s18,
-                  fontWeight: FontWeightManager.semiBold,
-                  color: ColorManager.black,
+              Expanded(
+                child: Text(
+                  'Subscription Plans',
+                  style: TextStyle(
+                    fontFamily: FontConstants.fontFamily,
+                    fontSize: FontSize.s18,
+                    fontWeight: FontWeightManager.semiBold,
+                    color: ColorManager.black,
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             ],
           ),
+          actions: [
+            if (_hasValidSubscription)
+              Padding(
+                padding: const EdgeInsets.only(right: 8.0),
+                child: IconButton(
+                  onPressed: () async {
+                    try {
+                      final partnerId = await TokenService.getUserId();
+                      if (partnerId != null) {
+                        final activeSubscription = await SubscriptionPlansService.getActiveSubscription(partnerId);
+                        if (activeSubscription != null && mounted) {
+                          _showActivePlanDialog(activeSubscription);
+                        }
+                      }
+                    } catch (e) {
+                      debugPrint('Error showing subscription details: $e');
+                    }
+                  },
+                  icon: Icon(
+                    Icons.subscriptions,
+                    color: ColorManager.primary,
+                    size: 24,
+                  ),
+                ),
+              ),
+          ],
         ),
         body: SafeArea(
           child: BlocConsumer<PlanSelectionBloc, PlanSelectionState>(
@@ -449,6 +529,56 @@ class _PlanSelectionScreenState extends State<PlanSelectionScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          // Show current subscription status if user has one
+                          if (_hasValidSubscription) ...[
+                            Container(
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: ColorManager.primary.withOpacity(0.05),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: ColorManager.primary.withOpacity(0.2),
+                                ),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.check_circle,
+                                    color: ColorManager.primary,
+                                    size: 24,
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          'You have an active subscription',
+                                          style: TextStyle(
+                                            fontSize: FontSize.s16,
+                                            fontWeight: FontWeightManager.semiBold,
+                                            color: ColorManager.black,
+                                          ),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          'Tap the subscription icon in the top right to view details',
+                                          style: TextStyle(
+                                            fontSize: FontSize.s14,
+                                            color: ColorManager.textGrey,
+                                          ),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 24),
+                          ],
+                          
                           Text(
                             'Choose Your Plan',
                             style: TextStyle(
@@ -456,14 +586,18 @@ class _PlanSelectionScreenState extends State<PlanSelectionScreen> {
                               fontWeight: FontWeightManager.bold,
                               color: ColorManager.black,
                             ),
+                            overflow: TextOverflow.ellipsis,
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            'Select the best plan for your business',
+                            _hasValidSubscription 
+                              ? 'View other plans or upgrade your current subscription'
+                              : 'Select the best plan for your business',
                             style: TextStyle(
                               fontSize: FontSize.s16,
                               color: ColorManager.textGrey,
                             ),
+                            overflow: TextOverflow.ellipsis,
                           ),
                           const SizedBox(height: 24),
                           

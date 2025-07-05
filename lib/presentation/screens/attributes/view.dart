@@ -816,6 +816,11 @@ class _AttributesScreenState extends State<AttributesScreen> {
   }
 
   Widget _buildAttributeCard(BuildContext context, Attribute attribute, int index) {
+    debugPrint('Building attribute card for: ${attribute.name}');
+    debugPrint('  Attribute values count: ${attribute.values.length}');
+    debugPrint('  Attribute values: ${attribute.values}');
+    debugPrint('Checking if attribute ${attribute.name} has values: ${attribute.values.isNotEmpty} (${attribute.values.length} values)');
+    
     return Container(
       width: double.infinity, // Explicit width to prevent render box issues
       padding: const EdgeInsets.all(16),
@@ -825,7 +830,7 @@ class _AttributesScreenState extends State<AttributesScreen> {
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.05),
-            blurRadius: 8,
+            blurRadius: 10,
             offset: const Offset(0, 2),
           ),
         ],
@@ -834,6 +839,7 @@ class _AttributesScreenState extends State<AttributesScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Expanded(
                 child: Column(
@@ -907,7 +913,7 @@ class _AttributesScreenState extends State<AttributesScreen> {
             ],
           ),
           const SizedBox(height: 12),
-          if (attribute.values.isNotEmpty)
+          if (attribute.values.isNotEmpty) ...[
             Wrap(
               spacing: 8,
               runSpacing: 8,
@@ -932,6 +938,7 @@ class _AttributesScreenState extends State<AttributesScreen> {
                 );
               }).toList(),
             ),
+          ],
         ],
       ),
     );
