@@ -25,6 +25,15 @@ class _DeliveryPartnerDashboardViewState extends State<DeliveryPartnerDashboardV
     _refreshOrders();
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Refresh orders when returning from other screens
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _refreshOrders();
+    });
+  }
+
   void _refreshOrders() {
     setState(() {
       _availableOrdersFuture = DeliveryPartnerOrdersService.fetchAvailableOrders();
@@ -45,63 +54,78 @@ class _DeliveryPartnerDashboardViewState extends State<DeliveryPartnerDashboardV
         elevation: 0,
         title: Row(
           children: [
-            CircleAvatar(
-              backgroundColor: Colors.white,
-              radius: 18,
-              child: Icon(Icons.delivery_dining, color: primary, size: 22),
-            ),
-            const SizedBox(width: 10),
-            Text(
-              'Delivery Dashboard',
-              style: GoogleFonts.poppins(
-                color: Colors.white,
-                fontWeight: FontWeightManager.semiBold,
-                fontSize: FontSize.s18,
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(12),
               ),
+              child: Icon(
+                Icons.delivery_dining,
+                color: Colors.white,
+                size: 24,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Delivery Dashboard',
+                  style: GoogleFonts.poppins(
+                    color: Colors.white,
+                    fontWeight: FontWeightManager.bold,
+                    fontSize: FontSize.s18,
+                  ),
+                ),
+                Text(
+                  'Manage your deliveries',
+                  style: GoogleFonts.poppins(
+                    color: Colors.white.withOpacity(0.8),
+                    fontWeight: FontWeightManager.medium,
+                    fontSize: FontSize.s12,
+                  ),
+                ),
+              ],
             ),
           ],
         ),
         actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 12.0),
+          Container(
+            margin: const EdgeInsets.only(right: 16.0),
             child: GestureDetector(
               onTap: () => Navigator.pushNamed(context, '/deliveryPartnerProfile'),
-              child: Row(
-                children: [
-                  CircleAvatar(
-                    backgroundColor: Colors.white,
-                    radius: 16,
-                    child: Icon(Icons.person, color: primary, size: 20),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: Colors.white.withOpacity(0.3),
+                    width: 1,
                   ),
-                  const SizedBox(width: 6),
-                  Text(
-                    'Profile',
-                    style: GoogleFonts.poppins(
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.person,
                       color: Colors.white,
-                      fontWeight: FontWeightManager.medium,
-                      fontSize: FontSize.s14,
+                      size: 18,
                     ),
-                  ),
-                ],
+                    const SizedBox(width: 6),
+                    Text(
+                      'Profile',
+                      style: GoogleFonts.poppins(
+                        color: Colors.white,
+                        fontWeight: FontWeightManager.semiBold,
+                        fontSize: FontSize.s14,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.bug_report, color: Colors.white),
-            onPressed: () async {
-              final token = await DeliveryPartnerAuthService.getDeliveryPartnerToken();
-              final id = await DeliveryPartnerAuthService.getDeliveryPartnerId();
-              final mobile = await DeliveryPartnerAuthService.getDeliveryPartnerMobile();
-              final isAuth = await DeliveryPartnerAuthService.isDeliveryPartnerAuthenticated();
-              
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('Token: ${token?.substring(0, 20) ?? "null"}...\nID: $id\nMobile: $mobile\nAuth: $isAuth'),
-                  duration: const Duration(seconds: 5),
-                ),
-              );
-            },
-            tooltip: 'Debug Auth',
           ),
         ],
       ),
@@ -184,6 +208,7 @@ class _DeliveryPartnerDashboardViewState extends State<DeliveryPartnerDashboardV
                           showAccept: false,
                           showApiFields: true,
                           onAcceptOrder: () {},
+                          onMarkAsDelivered: _refreshOrders,
                         ),
                       )).toList(),
                     );
@@ -254,7 +279,15 @@ class _OrderCard extends StatelessWidget {
   final bool showAccept;
   final bool showApiFields;
   final VoidCallback? onAcceptOrder;
-  const _OrderCard({required this.order, required this.primary, required this.showAccept, this.showApiFields = false, this.onAcceptOrder});
+  final VoidCallback? onMarkAsDelivered;
+  const _OrderCard({
+    required this.order, 
+    required this.primary, 
+    required this.showAccept, 
+    this.showApiFields = false, 
+    this.onAcceptOrder,
+    this.onMarkAsDelivered,
+  });
 
   Color _statusColor(String status) {
     switch (status) {
@@ -272,6 +305,208 @@ class _OrderCard extends StatelessWidget {
   Color _paymentColor(String payment) {
     if (payment == 'Online') return Colors.green[700]!;
     return Colors.orange[700]!;
+  }
+
+  void _showMarkAsDeliveredDialog(BuildContext context, String orderId) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Row(
+            children: [
+              Icon(Icons.check_circle, color: Colors.green[600], size: 28),
+              SizedBox(width: 12),
+              Text(
+                'Mark as Delivered',
+                style: GoogleFonts.poppins(
+                  fontWeight: FontWeightManager.semiBold,
+                  fontSize: FontSize.s18,
+                ),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Are you sure you want to mark this order as delivered?',
+                style: GoogleFonts.poppins(
+                  fontSize: FontSize.s14,
+                  color: Colors.grey[700],
+                ),
+              ),
+              SizedBox(height: 12),
+              Container(
+                padding: EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.green[50],
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.green[200]!),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.info_outline, color: Colors.green[600], size: 20),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'This action cannot be undone. The order will be marked as completed.',
+                        style: GoogleFonts.poppins(
+                          fontSize: FontSize.s12,
+                          color: Colors.green[700],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: Text(
+                'Cancel',
+                style: GoogleFonts.poppins(
+                  color: Colors.grey[600],
+                  fontWeight: FontWeightManager.medium,
+                ),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                _markAsDelivered(context, orderId);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green[600],
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              child: Text(
+                'Yes, Mark as Delivered',
+                style: GoogleFonts.poppins(
+                  color: Colors.white,
+                  fontWeight: FontWeightManager.semiBold,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _markAsDelivered(BuildContext context, String orderId) async {
+    // Show loading dialog
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          content: Row(
+            children: [
+              SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.green[600]!),
+                ),
+              ),
+              SizedBox(width: 16),
+              Text(
+                'Updating order status...',
+                style: GoogleFonts.poppins(
+                  fontSize: FontSize.s14,
+                  fontWeight: FontWeightManager.medium,
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+
+    try {
+      final result = await DeliveryPartnerOrdersService.updateOrderStatus(orderId, 'DELIVERED');
+      
+      // Close loading dialog
+      if (context.mounted) {
+        Navigator.of(context).pop();
+      }
+
+      if (result['success'] == true) {
+        // Show success message
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Row(
+                children: [
+                  Icon(Icons.check_circle, color: Colors.white),
+                  SizedBox(width: 8),
+                  Text(
+                    'Order marked as delivered successfully!',
+                    style: GoogleFonts.poppins(fontWeight: FontWeightManager.medium),
+                  ),
+                ],
+              ),
+              backgroundColor: Colors.green[600],
+              duration: Duration(seconds: 3),
+            ),
+          );
+          
+          // Call the callback to refresh orders
+          onMarkAsDelivered?.call();
+        }
+      } else {
+        // Show error message
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Row(
+                children: [
+                  Icon(Icons.error, color: Colors.white),
+                  SizedBox(width: 8),
+                  Text(
+                    result['message'] ?? 'Failed to update order status',
+                    style: GoogleFonts.poppins(fontWeight: FontWeightManager.medium),
+                  ),
+                ],
+              ),
+              backgroundColor: Colors.red[600],
+              duration: Duration(seconds: 3),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      // Close loading dialog
+      if (context.mounted) {
+        Navigator.of(context).pop();
+      }
+      
+      // Show error message
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                Icon(Icons.error, color: Colors.white),
+                SizedBox(width: 8),
+                Text(
+                  'Error: $e',
+                  style: GoogleFonts.poppins(fontWeight: FontWeightManager.medium),
+                ),
+              ],
+            ),
+            backgroundColor: Colors.red[600],
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
+    }
   }
 
   @override
@@ -302,7 +537,9 @@ class _OrderCard extends StatelessWidget {
                   ),
                 ),
                 const Spacer(),
-                _StatusChip(status: order['status'] ?? '', color: _statusColor(order['status'] ?? '')),
+                Flexible(
+                  child: _StatusChip(status: order['status'] ?? '', color: _statusColor(order['status'] ?? '')),
+                ),
               ],
             ),
             if (showApiFields) ...[
@@ -540,54 +777,26 @@ class _OrderCard extends StatelessWidget {
                 ),
               ),
             if (!showAccept)
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Icon(Icons.directions, color: primary, size: 20),
-                      const SizedBox(width: 6),
-                      GestureDetector(
-                        onTap: () async {
-                          final url = Uri.parse('https://www.google.com/maps/dir/?api=1&destination=${Uri.encodeComponent(order['drop'] ?? '')}&origin=${Uri.encodeComponent(order['pickup'] ?? '')}');
-                          if (await canLaunchUrl(url)) {
-                            await launchUrl(url, mode: LaunchMode.externalApplication);
-                          }
-                        },
-                        child: Text(
-                          'Navigate',
-                          style: GoogleFonts.poppins(
-                            color: primary,
-                            decoration: TextDecoration.underline,
-                            fontWeight: FontWeightManager.medium,
-                          ),
-                        ),
-                      ),
-                    ],
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green[700],
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    elevation: 0,
                   ),
-                  const SizedBox(height: 14),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.green[700],
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        elevation: 0,
-                      ),
-                      icon: const Icon(Icons.done_all, color: Colors.white),
-                      label: Text(
-                        'Mark as Delivered',
-                        style: GoogleFonts.poppins(
-                          color: Colors.white,
-                          fontWeight: FontWeightManager.semiBold,
-                        ),
-                      ),
-                      onPressed: () {},
+                  icon: const Icon(Icons.done_all, color: Colors.white),
+                  label: Text(
+                    'Mark as Delivered',
+                    style: GoogleFonts.poppins(
+                      color: Colors.white,
+                      fontWeight: FontWeightManager.semiBold,
                     ),
                   ),
-                ],
+                  onPressed: () => _showMarkAsDeliveredDialog(context, order['id'] ?? ''),
+                ),
               ),
           ],
         ),
@@ -616,6 +825,8 @@ class _StatusChip extends StatelessWidget {
           fontWeight: FontWeightManager.medium,
           fontSize: FontSize.s12,
         ),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
       ),
     );
   }
@@ -634,15 +845,20 @@ class _PaymentChip extends StatelessWidget {
         borderRadius: BorderRadius.circular(10),
       ),
       child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
           Icon(payment == 'Online' ? Icons.credit_card : Icons.money, color: color, size: 15),
           const SizedBox(width: 4),
-          Text(
-            payment,
-            style: GoogleFonts.poppins(
-              color: color,
-              fontWeight: FontWeightManager.medium,
-              fontSize: FontSize.s12,
+          Flexible(
+            child: Text(
+              payment,
+              style: GoogleFonts.poppins(
+                color: color,
+                fontWeight: FontWeightManager.medium,
+                fontSize: FontSize.s12,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ),
         ],

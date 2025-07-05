@@ -114,5 +114,25 @@
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
         </intent>
+        <!-- Allow opening external apps like Google Maps -->
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="https" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="geo" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="http" />
+        </intent>
+        <!-- Specific package queries for Google Maps -->
+        <package android:name="com.google.android.apps.maps" />
+        <package android:name="com.google.android.gms" />
+        <!-- Browser packages -->
+        <package android:name="com.android.chrome" />
+        <package android:name="com.google.android.browser" />
+        <package android:name="com.android.browser" />
     </queries>
 </manifest>

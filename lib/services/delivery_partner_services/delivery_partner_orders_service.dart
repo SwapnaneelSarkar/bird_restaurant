@@ -146,4 +146,100 @@ class DeliveryPartnerOrdersService {
       return {'success': false, 'message': data['message'] ?? 'Failed to accept order'};
     }
   }
+
+  static Future<Map<String, dynamic>> fetchUserDetails(String userId) async {
+    final url = Uri.parse('$_baseUrl/user/$userId');
+    print('[API] GET: $url');
+    final token = await DeliveryPartnerAuthService.getDeliveryPartnerToken();
+    if (token == null || token.isEmpty) {
+      print('[API] Error: No delivery partner token found');
+      return {'success': false, 'message': 'No delivery partner token found. Please login again.'};
+    }
+    print('[API] Using token: ${token.substring(0, 20)}...');
+    final response = await http.get(
+      url,
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+    );
+    print('[API] User details response status: ${response.statusCode}');
+    print('[API] User details response body: ${response.body}');
+    final data = json.decode(response.body);
+    if (response.statusCode == 200 && data['status'] == true) {
+      print('[API] User details fetched successfully');
+      return {'success': true, 'data': data['data']};
+    } else {
+      print('[API] Failed to fetch user details: ${data['message']}');
+      return {'success': false, 'message': data['message'] ?? 'Failed to fetch user details'};
+    }
+  }
+
+  static Future<Map<String, dynamic>> fetchRestaurantDetails(String partnerId) async {
+    final url = Uri.parse('$_baseUrl/partner/restaurant/$partnerId');
+    print('[API] GET: $url');
+    final token = await DeliveryPartnerAuthService.getDeliveryPartnerToken();
+    if (token == null || token.isEmpty) {
+      print('[API] Error: No delivery partner token found');
+      return {'success': false, 'message': 'No delivery partner token found. Please login again.'};
+    }
+    print('[API] Using token: ${token.substring(0, 20)}...');
+    final response = await http.get(
+      url,
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+    );
+    print('[API] Restaurant details response status: ${response.statusCode}');
+    print('[API] Restaurant details response body: ${response.body}');
+    final data = json.decode(response.body);
+    if (response.statusCode == 200 && data['status'] == 'SUCCESS') {
+      print('[API] Restaurant details fetched successfully');
+      return {'success': true, 'data': data['data']};
+    } else {
+      print('[API] Failed to fetch restaurant details: ${data['message']}');
+      return {'success': false, 'message': data['message'] ?? 'Failed to fetch restaurant details'};
+    }
+  }
+
+  static Future<Map<String, dynamic>> updateOrderStatus(String orderId, String status) async {
+    final url = Uri.parse('$_baseUrl/partner/orders/$orderId/status');
+    print('[API] PUT: $url');
+    print('[API] Request body: {"status": "$status"}');
+    
+    final token = await DeliveryPartnerAuthService.getDeliveryPartnerToken();
+    if (token == null || token.isEmpty) {
+      print('[API] Error: No delivery partner token found');
+      return {'success': false, 'message': 'No delivery partner token found. Please login again.'};
+    }
+    
+    print('[API] Using token: ${token.substring(0, 20)}...');
+    
+    try {
+      final response = await http.put(
+        url,
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+        body: json.encode({'status': status}),
+      );
+      
+      print('[API] Update order status response status: ${response.statusCode}');
+      print('[API] Update order status response body: ${response.body}');
+      
+      final data = json.decode(response.body);
+      if (response.statusCode == 200 && data['status'] == 'SUCCESS') {
+        print('[API] Order status updated successfully');
+        return {'success': true, 'message': data['message'] ?? 'Order status updated successfully'};
+      } else {
+        print('[API] Failed to update order status: ${data['message']}');
+        return {'success': false, 'message': data['message'] ?? 'Failed to update order status'};
+      }
+    } catch (e) {
+      print('[API] Error updating order status: $e');
+      return {'success': false, 'message': 'Network error: $e'};
+    }
+  }
 } 

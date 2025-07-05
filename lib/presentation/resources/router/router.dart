@@ -62,6 +62,9 @@ class Routes {
   static const String deliveryPartnerOtp = '/delivery-partner-otp';
   static const String deliveryPartnerAuthSuccess = '/delivery-partner-auth-success';
   static const String deliveryPartnerOnboarding = '/delivery-partner-onboarding';
+  static const String deliveryPartnerDashboard = '/deliveryPartnerDashboard';
+  static const String deliveryPartnerProfile = '/deliveryPartnerProfile';
+  static const String deliveryPartnerOrderDetails = '/deliveryPartnerOrderDetails';
 
   static const String blank = '/blank';
 }
@@ -198,19 +201,27 @@ class RouteGenerator {
 
         case Routes.deliveryPartnerOnboarding:
           final args = routeSettings.arguments as Map<String, dynamic>?;
+          final deliveryPartnerId = args?['deliveryPartnerId'] as String?;
           return MaterialPageRoute(
-            builder: (_) => DeliveryPartnerOnboardingView(
-              deliveryPartnerId: args?['deliveryPartnerId'],
-              phone: args?['phone'],
-            ),
+            builder: (_) => DeliveryPartnerOnboardingView(deliveryPartnerId: deliveryPartnerId),
             settings: routeSettings,
           );
 
-        case '/deliveryPartnerProfile':
+        case Routes.deliveryPartnerDashboard:
+          return MaterialPageRoute(builder: (_) => const DeliveryPartnerDashboardView());
+
+        case Routes.deliveryPartnerProfile:
           return MaterialPageRoute(builder: (_) => const DeliveryPartnerProfileView());
 
-        case '/deliveryPartnerOrderDetails':
-          return MaterialPageRoute(builder: (_) => const DeliveryPartnerOrderDetailsView());
+        case Routes.deliveryPartnerOrderDetails:
+          final String? orderId = routeSettings.arguments as String?;
+          return MaterialPageRoute(
+            builder: (_) => DeliveryPartnerOrderDetailsView(),
+            settings: routeSettings,
+          );
+
+        case Routes.blank:
+          return unDefinedRoute();
 
         default:
           return unDefinedRoute();
