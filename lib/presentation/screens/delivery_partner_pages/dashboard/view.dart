@@ -731,9 +731,8 @@ class _OrderCard extends StatelessWidget {
                       return;
                     }
                     
-                    print('[UI] Calling acceptOrder API with ID: $deliveryPartnerId, orderId: ${order['id']}');
+                    print('[UI] Calling acceptOrder API for orderId: ${order['id']}');
                     final result = await DeliveryPartnerOrdersService.acceptOrder(
-                      deliveryPartnerId: deliveryPartnerId,
                       orderId: order['id'] ?? '',
                     );
                     print('[UI] Accept order result: $result');

@@ -15,6 +15,63 @@ class DeliveryPartnerOtpView extends StatelessWidget {
   final String? mobileNumber;
   const DeliveryPartnerOtpView({Key? key, this.mobileNumber}) : super(key: key);
 
+  void _showNotRegisteredDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: Row(
+            children: [
+              Icon(
+                Icons.warning_amber_rounded,
+                color: Colors.orange,
+                size: 28,
+              ),
+              SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Not Registered',
+                  style: GoogleFonts.poppins(
+                    fontSize: FontSize.s18,
+                    fontWeight: FontWeightManager.semiBold,
+                    color: ColorManager.primary,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          content: Text(
+            'You are not registered as a delivery partner. Please contact support to register as a delivery partner.',
+            style: GoogleFonts.poppins(
+              fontSize: FontSize.s14,
+              color: Colors.grey[700],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop(); // Close dialog
+                Navigator.of(context).pop(); // Go back to signin page
+              },
+              child: Text(
+                'OK',
+                style: GoogleFonts.poppins(
+                  fontSize: FontSize.s16,
+                  fontWeight: FontWeightManager.semiBold,
+                  color: ColorManager.primary,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final String? phoneNumber = mobileNumber ?? 
@@ -36,32 +93,24 @@ class DeliveryPartnerOtpView extends StatelessWidget {
         listenWhen: (previous, current) => previous.status != current.status,
         listener: (context, state) {
           if (state.status == OtpStatus.success) {
-            if (state.apiStatus == 'onboarding') {
-              // Navigate to onboarding page
-              Navigator.pushNamedAndRemoveUntil(
-                context,
-                Routes.deliveryPartnerOnboarding,
-                (route) => false,
-                arguments: {
-                  'deliveryPartnerId': state.deliveryPartnerId,
-                  'phone': state.mobileNumber,
-                },
-              );
+            // Navigate to success page
+            Navigator.pushNamedAndRemoveUntil(
+              context,
+              Routes.deliveryPartnerAuthSuccess,
+              (route) => false,
+            );
+          } else if (state.status == OtpStatus.failure) {
+            if (state.apiStatus == 'not_registered') {
+              // Show popup for unregistered users
+              _showNotRegisteredDialog(context);
             } else {
-              // Navigate to success page
-              Navigator.pushNamedAndRemoveUntil(
-                context,
-                Routes.deliveryPartnerAuthSuccess,
-                (route) => false,
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(state.errorMessage ?? 'OTP verification failed'),
+                  backgroundColor: Colors.red,
+                ),
               );
             }
-          } else if (state.status == OtpStatus.failure) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(state.errorMessage ?? 'OTP verification failed'),
-                backgroundColor: Colors.red,
-              ),
-            );
           }
         },
         child: DeliveryPartnerOtpViewContent(),

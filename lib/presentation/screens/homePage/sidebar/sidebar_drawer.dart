@@ -50,7 +50,7 @@ class _SidebarDrawerState extends State<SidebarDrawer> with SingleTickerProvider
   
   // For menu item staggered animation
   late List<Animation<double>> _menuItemAnimations;
-  final int _menuItemCount = 12; // Total number of menu items including logout
+  final int _menuItemCount = 13; // Total number of menu items including logout
 
   // Minimal subscription check utility
   static const List<String> _protectedRoutes = [
@@ -430,6 +430,13 @@ class AnimatedSidebarContent extends StatelessWidget {
                       title: 'Restaurant Profile',
                       isActive: activePage == 'profile',
                       onTap: () => onNavigate('/profile'),
+                    ),
+                    _buildAnimatedMenuItem(
+                      animations[12],
+                      icon: Icons.delivery_dining_outlined,
+                      title: 'Delivery Partners',
+                      isActive: activePage == 'deliveryPartners',
+                      onTap: () => onNavigate('/deliveryPartners'),
                     ),
                     _buildAnimatedMenuItem(
                       animations[7],

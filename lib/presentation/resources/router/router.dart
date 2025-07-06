@@ -19,8 +19,8 @@ import 'package:bird_restaurant/presentation/screens/terms_conditions/view.dart'
 import 'package:bird_restaurant/presentation/screens/contact_us/view.dart';
 import 'package:bird_restaurant/presentation/screens/delivery_partner_pages/dashboard/view.dart';
 import 'package:bird_restaurant/presentation/screens/delivery_partner_pages/profile/view.dart';
-import 'package:bird_restaurant/presentation/screens/delivery_partner_pages/onboarding/view.dart';
 import 'package:bird_restaurant/presentation/screens/delivery_partner_pages/order_details/view.dart';
+import 'package:bird_restaurant/presentation/screens/delivery_partners/view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -33,6 +33,8 @@ import '../../screens/restaurant_details_3/view.dart';
 import '../../screens/restaurant_profile/view.dart';
 import '../../screens/resturant_details_2/view.dart';
 import '../../screens/splashScreen/view.dart';
+import 'package:bird_restaurant/presentation/screens/delivery_partners/bloc.dart';
+import 'package:bird_restaurant/services/delivery_partners_service.dart';
 
 class Routes {
   static const String splash = '/';
@@ -55,13 +57,13 @@ class Routes {
   static const String privacy = '/privacy';
   static const String terms = '/terms';
   static const String contact = '/contact';
+  static const String deliveryPartners = '/deliveryPartners';
 
   static const String partnerSelection = '/partnerSelection';
 
   static const String deliveryPartnerSignin = '/delivery-partner-signin';
   static const String deliveryPartnerOtp = '/delivery-partner-otp';
   static const String deliveryPartnerAuthSuccess = '/delivery-partner-auth-success';
-  static const String deliveryPartnerOnboarding = '/delivery-partner-onboarding';
   static const String deliveryPartnerDashboard = '/deliveryPartnerDashboard';
   static const String deliveryPartnerProfile = '/deliveryPartnerProfile';
   static const String deliveryPartnerOrderDetails = '/deliveryPartnerOrderDetails';
@@ -199,14 +201,6 @@ class RouteGenerator {
         case Routes.deliveryPartnerAuthSuccess:
           return MaterialPageRoute(builder: (_) => const DeliveryPartnerDashboardView());
 
-        case Routes.deliveryPartnerOnboarding:
-          final args = routeSettings.arguments as Map<String, dynamic>?;
-          final deliveryPartnerId = args?['deliveryPartnerId'] as String?;
-          return MaterialPageRoute(
-            builder: (_) => DeliveryPartnerOnboardingView(deliveryPartnerId: deliveryPartnerId),
-            settings: routeSettings,
-          );
-
         case Routes.deliveryPartnerDashboard:
           return MaterialPageRoute(builder: (_) => const DeliveryPartnerDashboardView());
 
@@ -217,6 +211,17 @@ class RouteGenerator {
           final String? orderId = routeSettings.arguments as String?;
           return MaterialPageRoute(
             builder: (_) => DeliveryPartnerOrderDetailsView(),
+            settings: routeSettings,
+          );
+
+        case Routes.deliveryPartners:
+          return MaterialPageRoute(
+            builder: (_) => BlocProvider<DeliveryPartnersBloc>(
+              create: (context) => DeliveryPartnersBloc(
+                deliveryPartnersService: DeliveryPartnersService(),
+              ),
+              child: const DeliveryPartnersView(),
+            ),
             settings: routeSettings,
           );
 

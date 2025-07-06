@@ -8,6 +8,7 @@ class DeliveryPartnerAuthService {
   static const String _deliveryPartnerTokenKey = 'delivery_partner_token';
   static const String _deliveryPartnerIdKey = 'delivery_partner_id';
   static const String _deliveryPartnerMobileKey = 'delivery_partner_mobile';
+  static const String _deliveryPartnerPartnerIdKey = 'delivery_partner_partner_id';
 
   // Authenticate delivery partner after OTP verification
   static Future<Map<String, dynamic>> authenticateDeliveryPartner(String phone) async {
@@ -25,6 +26,7 @@ class DeliveryPartnerAuthService {
       );
 
       final data = json.decode(response.body);
+      print('Raw API response: $data');
       
       if (response.statusCode == 200 && data['status'] == 'SUCCESS') {
         // Save authentication data
@@ -43,6 +45,7 @@ class DeliveryPartnerAuthService {
         };
       }
     } catch (e) {
+      print('Error in authenticateDeliveryPartner: $e');
       return {
         'success': false,
         'message': 'Network error: $e',
@@ -54,9 +57,16 @@ class DeliveryPartnerAuthService {
   static Future<void> _saveDeliveryPartnerAuthData(Map<String, dynamic> data) async {
     final prefs = await SharedPreferences.getInstance();
     
-    await prefs.setString(_deliveryPartnerTokenKey, data['token']);
-    await prefs.setString(_deliveryPartnerIdKey, data['delivery_partner_id']);
-    await prefs.setString(_deliveryPartnerMobileKey, data['phone']);
+    print('Saving auth data: $data');
+    print('Token: ${data['token']}');
+    print('Delivery Partner ID: ${data['delivery_partner_id']}');
+    print('Phone: ${data['phone']}');
+    print('Partner ID: ${data['partner_id']}');
+    
+    await prefs.setString(_deliveryPartnerTokenKey, data['token'] ?? '');
+    await prefs.setString(_deliveryPartnerIdKey, data['delivery_partner_id'] ?? '');
+    await prefs.setString(_deliveryPartnerMobileKey, data['phone'] ?? '');
+    await prefs.setString(_deliveryPartnerPartnerIdKey, data['partner_id'] ?? '');
     
     print('Delivery partner auth data saved successfully');
   }
@@ -79,6 +89,12 @@ class DeliveryPartnerAuthService {
     return prefs.getString(_deliveryPartnerMobileKey);
   }
 
+  // Get delivery partner partner ID
+  static Future<String?> getDeliveryPartnerPartnerId() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_deliveryPartnerPartnerIdKey);
+  }
+
   // Check if delivery partner is authenticated
   static Future<bool> isDeliveryPartnerAuthenticated() async {
     final token = await getDeliveryPartnerToken();
@@ -96,6 +112,7 @@ class DeliveryPartnerAuthService {
     await prefs.remove(_deliveryPartnerTokenKey);
     await prefs.remove(_deliveryPartnerIdKey);
     await prefs.remove(_deliveryPartnerMobileKey);
+    await prefs.remove(_deliveryPartnerPartnerIdKey);
     
     print('Delivery partner auth data cleared');
   }

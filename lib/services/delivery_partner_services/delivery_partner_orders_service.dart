@@ -7,14 +7,19 @@ class DeliveryPartnerOrdersService {
   static const String _baseUrl = 'https://api.bird.delivery/api';
 
   static Future<List<DeliveryPartnerOrder>> fetchAvailableOrders() async {
-    final url = Uri.parse('$_baseUrl/delivery-partner/orders/available');
-    print('[API] GET: $url');
+    final deliveryPartnerId = await DeliveryPartnerAuthService.getDeliveryPartnerId();
     final token = await DeliveryPartnerAuthService.getDeliveryPartnerToken();
+    if (deliveryPartnerId == null || deliveryPartnerId.isEmpty) {
+      print('[API] Error: No delivery partner ID found');
+      throw Exception('No delivery partner ID found. Please login again.');
+    }
     if (token == null || token.isEmpty) {
       print('[API] Error: No delivery partner token found');
       throw Exception('No delivery partner token found. Please login again.');
     }
-    print('[API] Using token: ${token.substring(0, 20)}...');
+    print('[API] Using token: ${token.substring(0, 20)}... and ID: $deliveryPartnerId');
+    final url = Uri.parse('$_baseUrl/delivery-partner/orders/available?delivery_partner_id=$deliveryPartnerId');
+    print('[API] GET: $url');
     final response = await http.get(
       url,
       headers: {
@@ -94,11 +99,13 @@ class DeliveryPartnerOrdersService {
   }
 
   static Future<Map<String, dynamic>> fetchOrderDetailsById(String orderId) async {
-    final url = Uri.parse('$_baseUrl/delivery-partner/orders/$orderId');
     final token = await DeliveryPartnerAuthService.getDeliveryPartnerToken();
     if (token == null || token.isEmpty) {
       return {'success': false, 'message': 'No delivery partner token found. Please login again.'};
     }
+    final url = Uri.parse('$_baseUrl/delivery-partner/orders/$orderId');
+    print('[API] GET: $url');
+    print('[API] Fetching order details for order ID: $orderId');
     final response = await http.get(
       url,
       headers: {
@@ -106,26 +113,34 @@ class DeliveryPartnerOrdersService {
         'Content-Type': 'application/json',
       },
     );
+    print('[API] Order details response status: ${response.statusCode}');
+    print('[API] Order details response body: ${response.body}');
     final data = json.decode(response.body);
     if (response.statusCode == 200 && data['status'] == 'SUCCESS') {
+      print('[API] Order details fetched successfully');
       return {'success': true, 'data': data['data']};
     } else {
+      print('[API] Failed to fetch order details: ${data['message']}');
       return {'success': false, 'message': data['message'] ?? 'Failed to fetch order details'};
     }
   }
 
   static Future<Map<String, dynamic>> acceptOrder({
-    required String deliveryPartnerId,
     required String orderId,
   }) async {
-    final url = Uri.parse('$_baseUrl/delivery-partner/orders/accept?delivery_partner_id=$deliveryPartnerId');
-    print('[API] POST: $url');
-    print('[API] Accepting order: $orderId for delivery partner: $deliveryPartnerId');
+    final deliveryPartnerId = await DeliveryPartnerAuthService.getDeliveryPartnerId();
     final token = await DeliveryPartnerAuthService.getDeliveryPartnerToken();
+    if (deliveryPartnerId == null || deliveryPartnerId.isEmpty) {
+      print('[API] Error: No delivery partner ID found');
+      return {'success': false, 'message': 'No delivery partner ID found. Please login again.'};
+    }
     if (token == null || token.isEmpty) {
       print('[API] Error: No delivery partner token found');
       return {'success': false, 'message': 'No delivery partner token found. Please login again.'};
     }
+    final url = Uri.parse('$_baseUrl/delivery-partner/orders/accept?delivery_partner_id=$deliveryPartnerId');
+    print('[API] POST: $url');
+    print('[API] Accepting order: $orderId for delivery partner: $deliveryPartnerId');
     print('[API] Using token: ${token.substring(0, 20)}...');
     final response = await http.post(
       url,

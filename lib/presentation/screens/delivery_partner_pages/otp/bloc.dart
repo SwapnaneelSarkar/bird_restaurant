@@ -282,15 +282,16 @@ class DeliveryPartnerOtpBloc extends Bloc<DeliveryPartnerOtpEvent, DeliveryPartn
       if (result['success']) {
         final data = result['data'];
         final action = result['action'] ?? 'login';
-        final deliveryPartnerId = data['delivery_partner_id'] ?? '';
+        final partnerId = data['partner_id'];
         final name = data['name'];
-        debugPrint('Auth navigation decision: action=$action, name=$name');
-        if (action == 'signup' || name == null || (name is String && name.trim().isEmpty)) {
-          debugPrint('Navigating to onboarding');
+        debugPrint('Auth navigation decision: action=$action, name=$name, partner_id=$partnerId');
+        
+        if (action == 'signup' || partnerId == null) {
+          debugPrint('User is not registered as delivery partner (action: $action, partner_id: $partnerId)');
           emit(state.copyWith(
-            status: OtpStatus.success,
-            apiStatus: 'onboarding',
-            deliveryPartnerId: deliveryPartnerId,
+            status: OtpStatus.failure,
+            errorMessage: 'You are not registered as a delivery partner',
+            apiStatus: 'not_registered',
           ));
         } else {
           debugPrint('Navigating to dashboard/homepage');

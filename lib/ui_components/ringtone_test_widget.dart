@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import '../services/notification_service.dart';
+import '../test/background_notification_debug.dart';
 
 class RingtoneTestWidget extends StatefulWidget {
   const RingtoneTestWidget({super.key});
@@ -352,6 +353,42 @@ class _RingtoneTestWidgetState extends State<RingtoneTestWidget> {
                             label: const Text('Audio Only'),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: Colors.purple,
+                              foregroundColor: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: () async {
+                              // Test background notification simulation
+                              await _notificationService.testBackgroundNotification();
+                            },
+                            icon: const Icon(Icons.notifications_active),
+                            label: const Text('Background Test'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.teal,
+                              foregroundColor: Colors.white,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: () async {
+                              // Run comprehensive debug tests
+                              await BackgroundNotificationDebug.runAllTests();
+                              BackgroundNotificationDebug.checkNotificationFiles();
+                              BackgroundNotificationDebug.printDebugInfo();
+                            },
+                            icon: const Icon(Icons.bug_report),
+                            label: const Text('Debug Tests'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.red,
                               foregroundColor: Colors.white,
                             ),
                           ),

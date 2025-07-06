@@ -31,6 +31,37 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
     // Initialize local notifications for background messages
     final FlutterLocalNotificationsPlugin localNotifications = FlutterLocalNotificationsPlugin();
     
+    // Initialize the plugin for background messages
+    const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const iosSettings = DarwinInitializationSettings();
+    const initSettings = InitializationSettings(android: androidSettings, iOS: iosSettings);
+    await localNotifications.initialize(initSettings);
+    
+    // Create notification channels for Android
+    const androidChannel = AndroidNotificationChannel(
+      'bird_partner_channel',
+      'Bird Partner Notifications',
+      description: 'Notifications for Bird Partner app',
+      importance: Importance.high,
+      playSound: true,
+      sound: RawResourceAndroidNotificationSound('notification_ringtone'),
+    );
+    
+    const androidChatChannel = AndroidNotificationChannel(
+      'bird_partner_chat_channel',
+      'Bird Partner Chat Notifications',
+      description: 'Chat notifications for Bird Partner app',
+      importance: Importance.high,
+      playSound: false,
+    );
+    
+    await localNotifications
+        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
+        ?.createNotificationChannel(androidChannel);
+    await localNotifications
+        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
+        ?.createNotificationChannel(androidChatChannel);
+    
     // Get notification type from data
     final notificationType = message.data['type'];
     debugPrint('🔔 Background notification type: $notificationType');
@@ -85,7 +116,7 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
         iOS: iosDetails,
       );
     } else {
-      // Completely disable sound for chat messages and other notifications
+      // Use system default sound for other notifications
       const androidDetails = AndroidNotificationDetails(
         'bird_partner_channel',
         'Bird Partner Notifications',
@@ -112,6 +143,11 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
     final title = message.data['title'] ?? 'Bird Partner';
     final body = message.data['body'] ?? 'You have a new notification';
 
+    debugPrint('🔔 Showing background notification with custom sound: $useCustomSound');
+    debugPrint('🔔 Notification title: $title');
+    debugPrint('🔔 Notification body: $body');
+    debugPrint('🔔 Notification channel: ${useCustomSound ? 'bird_partner_channel' : (isChatMessage ? 'bird_partner_chat_channel' : 'bird_partner_channel')}');
+    
     await localNotifications.show(
       message.hashCode,
       title,
@@ -119,6 +155,7 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
       notificationDetails,
       payload: jsonEncode(message.data),
     );
+    debugPrint('✅ Background notification shown successfully');
   } else {
     debugPrint('🔔 Background message has notification payload - letting system handle it');
   }
@@ -808,6 +845,31 @@ class NotificationService {
       
     } catch (e) {
       debugPrint('❌ Error testing audio playback: $e');
+    }
+  }
+
+  /// Test background notification simulation (public)
+  Future<void> testBackgroundNotification() async {
+    try {
+      debugPrint('🧪 Testing background notification simulation...');
+      
+      // Create a test message that simulates a background notification
+      final testMessage = RemoteMessage(
+        data: {
+          'type': 'new_order',
+          'title': 'Test Background Order',
+          'body': 'This is a test background order notification',
+          'order_id': 'test_123'
+        },
+        messageId: 'test_background_${DateTime.now().millisecondsSinceEpoch}',
+      );
+      
+      // Call the background handler directly
+      await _firebaseMessagingBackgroundHandler(testMessage);
+      
+      debugPrint('✅ Background notification test completed');
+    } catch (e) {
+      debugPrint('❌ Error testing background notification: $e');
     }
   }
 

@@ -61,6 +61,10 @@ class _DeliveryPartnerProfileViewState extends State<DeliveryPartnerProfileView>
         color = Colors.red;
         icon = Icons.cancel;
         break;
+      case 'BLOCKED':
+        color = Colors.orange;
+        icon = Icons.block;
+        break;
       default:
         color = Colors.grey;
         icon = Icons.help;
