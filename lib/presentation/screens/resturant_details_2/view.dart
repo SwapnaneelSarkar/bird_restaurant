@@ -196,12 +196,21 @@ class _BodyState extends State<_Body> with SingleTickerProviderStateMixin {
                         ),
                       ),
                       SizedBox(height: verticalPadding),
-                      Text(
-                        'Type of Cuisine',
-                        style: TextStyle(
-                          fontFamily: FontConstants.fontFamily,
-                          fontSize: FontSize.s14,
-                          fontWeight: FontWeightManager.medium,
+                      RichText(
+                        text: TextSpan(
+                          text: 'Type of Cuisine',
+                          style: TextStyle(
+                            fontFamily: FontConstants.fontFamily,
+                            fontSize: FontSize.s14,
+                            fontWeight: FontWeightManager.medium,
+                            color: ColorManager.black,
+                          ),
+                          children: [
+                            TextSpan(
+                              text: ' *',
+                              style: TextStyle(color: Colors.red, fontWeight: FontWeightManager.semiBold),
+                            ),
+                          ],
                         ),
                       ),
                       SizedBox(height: h * 0.01),
@@ -264,12 +273,21 @@ class _BodyState extends State<_Body> with SingleTickerProviderStateMixin {
                         ),
                       
                       SizedBox(height: verticalPadding * 1.5),
-                      Text(
-                        'Operational Hours',
-                        style: TextStyle(
-                          fontFamily: FontConstants.fontFamily,
-                          fontSize: FontSize.s14,
-                          fontWeight: FontWeightManager.medium,
+                      RichText(
+                        text: TextSpan(
+                          text: 'Operational Hours',
+                          style: TextStyle(
+                            fontFamily: FontConstants.fontFamily,
+                            fontSize: FontSize.s14,
+                            fontWeight: FontWeightManager.medium,
+                            color: ColorManager.black,
+                          ),
+                          children: [
+                            TextSpan(
+                              text: ' *',
+                              style: TextStyle(color: Colors.red, fontWeight: FontWeightManager.semiBold),
+                            ),
+                          ],
                         ),
                       ),
                       SizedBox(height: h * 0.01),

@@ -102,6 +102,8 @@ class DeliveryPartnersService {
     required String partnerId,
     required String phone,
     required String name,
+    required String username,
+    required String password,
     String? licensePhotoPath,
     String? vehicleDocumentPath,
     required String token,
@@ -113,6 +115,8 @@ class DeliveryPartnersService {
       request.fields['partner_id'] = partnerId;
       request.fields['phone'] = phone;
       request.fields['name'] = name;
+      request.fields['username'] = username;
+      request.fields['password'] = password;
       
       if (licensePhotoPath != null && licensePhotoPath.isNotEmpty) {
         request.files.add(await http.MultipartFile.fromPath('license_photo', licensePhotoPath));

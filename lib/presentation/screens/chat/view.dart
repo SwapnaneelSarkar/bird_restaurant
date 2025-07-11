@@ -14,10 +14,12 @@ import 'state.dart' as chat_state;
 
 class ChatView extends StatefulWidget {
   final String orderId;
+  final bool isOrderActive;
   
   const ChatView({
     Key? key,
     required this.orderId,
+    required this.isOrderActive,
   }) : super(key: key);
 
   @override
@@ -589,7 +591,7 @@ class _ChatViewState extends State<ChatView> with WidgetsBindingObserver {
           const Expanded(
             child: AppBackHeader(title: 'Chat'),
           ),
-          // Connection status indicator
+          // Show Live/Inactive based on isOrderActive
           Container(
             margin: const EdgeInsets.only(right: 8),
             child: Row(
@@ -599,16 +601,16 @@ class _ChatViewState extends State<ChatView> with WidgetsBindingObserver {
                   width: 8,
                   height: 8,
                   decoration: BoxDecoration(
-                    color: state.isConnected ? Colors.green : Colors.orange,
+                    color: widget.isOrderActive ? Colors.green : Colors.grey,
                     shape: BoxShape.circle,
                   ),
                 ),
                 const SizedBox(width: 4),
                 Text(
-                  state.isConnected ? 'Live' : 'Offline',
+                  widget.isOrderActive ? 'Live' : 'Inactive',
                   style: TextStyle(
                     fontSize: 12,
-                    color: state.isConnected ? Colors.green : Colors.orange,
+                    color: widget.isOrderActive ? Colors.green : Colors.grey,
                     fontWeight: FontWeight.w500,
                   ),
                 ),

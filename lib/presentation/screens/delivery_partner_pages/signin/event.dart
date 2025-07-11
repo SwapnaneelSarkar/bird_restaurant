@@ -1,4 +1,3 @@
-import 'package:bird_restaurant/models/country.dart';
 import 'package:equatable/equatable.dart';
 
 abstract class DeliveryPartnerSigninEvent extends Equatable {
@@ -8,27 +7,27 @@ abstract class DeliveryPartnerSigninEvent extends Equatable {
   List<Object?> get props => [];
 }
 
-/// fired on each change in the text field
-class DeliveryPartnerMobileNumberChanged extends DeliveryPartnerSigninEvent {
-  final String mobileNumber;
+/// fired on each change in the username field
+class DeliveryPartnerUsernameChanged extends DeliveryPartnerSigninEvent {
+  final String username;
   
-  const DeliveryPartnerMobileNumberChanged(this.mobileNumber);
+  const DeliveryPartnerUsernameChanged(this.username);
 
   @override
-  List<Object?> get props => [mobileNumber];
+  List<Object?> get props => [username];
 }
 
-/// fired when user selects a different country
-class DeliveryPartnerCountryChanged extends DeliveryPartnerSigninEvent {
-  final Country country;
+/// fired on each change in the password field
+class DeliveryPartnerPasswordChanged extends DeliveryPartnerSigninEvent {
+  final String password;
   
-  const DeliveryPartnerCountryChanged(this.country);
+  const DeliveryPartnerPasswordChanged(this.password);
 
   @override
-  List<Object?> get props => [country];
+  List<Object?> get props => [password];
 }
 
-/// fired when user taps "Send OTP"
-class DeliveryPartnerSendOtpPressed extends DeliveryPartnerSigninEvent {
-  const DeliveryPartnerSendOtpPressed();
+/// fired when user taps "Sign In"
+class DeliveryPartnerSignInPressed extends DeliveryPartnerSigninEvent {
+  const DeliveryPartnerSignInPressed();
 } 

@@ -45,8 +45,8 @@ class OrderService {
         },
       );
       print('OrderService: GET $partnerUrl');
-      print('OrderService: Response status: ${response.statusCode}');
-      print('OrderService: Response body: ${response.body}');
+      print('OrderService: Response status:  [33m${response.statusCode} [0m');
+      print('OrderService: RAW response body: ${response.body}'); // <-- Added raw response print
       if (response.statusCode == 200) {
         final Map<String, dynamic> responseBody = json.decode(response.body);
         if (responseBody['status'] == 'SUCCESS' && responseBody['data'] != null) {
@@ -104,7 +104,7 @@ class OrderService {
 
     // Use the FULL order ID - do not truncate or format it
     final fullOrderId = _getFullOrderId(orderId);
-    final url = Uri.parse('$baseUrl/partner/orders/$fullOrderId/status');
+    final url = Uri.parse('$baseUrl/partner/orders/$fullOrderId/status?partner_id=$partnerId');
     
     final requestBody = {
       'status': newStatus.toUpperCase(),

@@ -25,10 +25,10 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   debugPrint('Body: ${message.notification?.body}');
   debugPrint('Data: ${message.data}');
   
-  // Only show notification if it doesn't have a notification payload
-  // (to avoid duplicates with system notifications)
-  if (message.notification == null) {
-    // Initialize local notifications for background messages
+    // Always handle the notification ourselves to control the channel and sound
+  // This ensures we use the correct channel for each notification type
+  
+  // Initialize local notifications for background messages
     final FlutterLocalNotificationsPlugin localNotifications = FlutterLocalNotificationsPlugin();
     
     // Initialize the plugin for background messages
@@ -38,15 +38,24 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
     await localNotifications.initialize(initSettings);
     
     // Create notification channels for Android
-    const androidChannel = AndroidNotificationChannel(
+    const androidDefaultChannel = AndroidNotificationChannel(
       'bird_partner_channel',
       'Bird Partner Notifications',
-      description: 'Notifications for Bird Partner app',
+      description: 'Default notifications for Bird Partner app',
+      importance: Importance.high,
+      playSound: true,
+      // DO NOT set sound property here! This uses system default sound
+    );
+
+    const androidOrderChannel = AndroidNotificationChannel(
+      'bird_partner_order_channel',
+      'Bird Partner Order Notifications',
+      description: 'Order notifications with custom ringtone',
       importance: Importance.high,
       playSound: true,
       sound: RawResourceAndroidNotificationSound('notification_ringtone'),
     );
-    
+
     const androidChatChannel = AndroidNotificationChannel(
       'bird_partner_chat_channel',
       'Bird Partner Chat Notifications',
@@ -57,7 +66,10 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
     
     await localNotifications
         .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
-        ?.createNotificationChannel(androidChannel);
+        ?.createNotificationChannel(androidDefaultChannel);
+    await localNotifications
+        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
+        ?.createNotificationChannel(androidOrderChannel);
     await localNotifications
         .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
         ?.createNotificationChannel(androidChatChannel);
@@ -66,37 +78,30 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
     final notificationType = message.data['type'];
     debugPrint('🔔 Background notification type: $notificationType');
     
-    // Use custom sound only for 'new_order' type notifications
-    final useCustomSound = notificationType == 'new_order';
-    final isChatMessage = notificationType == 'chat_message';
-    
     NotificationDetails notificationDetails;
-    
-    if (useCustomSound) {
+    if (notificationType == 'new_order') {
       // Use custom sound for new order notifications
       const androidDetails = AndroidNotificationDetails(
-        'bird_partner_channel',
-        'Bird Partner Notifications',
-        channelDescription: 'Notifications for Bird Partner app',
+        'bird_partner_order_channel',
+        'Bird Partner Order Notifications',
+        channelDescription: 'Order notifications with custom ringtone',
         importance: Importance.high,
         priority: Priority.high,
         icon: '@mipmap/ic_launcher',
         playSound: true,
         sound: RawResourceAndroidNotificationSound('notification_ringtone'),
       );
-
       const iosDetails = DarwinNotificationDetails(
         presentAlert: true,
         presentBadge: true,
         presentSound: true,
         sound: 'notification_ringtone.ogg',
       );
-
       notificationDetails = const NotificationDetails(
         android: androidDetails,
         iOS: iosDetails,
       );
-    } else if (isChatMessage) {
+    } else if (notificationType == 'chat_message') {
       const androidDetails = AndroidNotificationDetails(
         'bird_partner_chat_channel',
         'Bird Partner Chat Notifications',
@@ -120,19 +125,17 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
       const androidDetails = AndroidNotificationDetails(
         'bird_partner_channel',
         'Bird Partner Notifications',
-        channelDescription: 'Notifications for Bird Partner app',
+        channelDescription: 'Default notifications for Bird Partner app',
         importance: Importance.high,
         priority: Priority.high,
         icon: '@mipmap/ic_launcher',
         playSound: true,
       );
-
       const iosDetails = DarwinNotificationDetails(
         presentAlert: true,
         presentBadge: true,
         presentSound: true,
       );
-
       notificationDetails = const NotificationDetails(
         android: androidDetails,
         iOS: iosDetails,
@@ -143,11 +146,11 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
     final title = message.data['title'] ?? 'Bird Partner';
     final body = message.data['body'] ?? 'You have a new notification';
 
-    debugPrint('🔔 Showing background notification with custom sound: $useCustomSound');
     debugPrint('🔔 Notification title: $title');
     debugPrint('🔔 Notification body: $body');
-    debugPrint('🔔 Notification channel: ${useCustomSound ? 'bird_partner_channel' : (isChatMessage ? 'bird_partner_chat_channel' : 'bird_partner_channel')}');
-    
+    debugPrint('🔔 Notification channel: '
+      '${notificationType == 'new_order' ? 'bird_partner_order_channel' : (notificationType == 'chat_message' ? 'bird_partner_chat_channel' : 'bird_partner_channel')}');
+
     await localNotifications.show(
       message.hashCode,
       title,
@@ -156,10 +159,7 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
       payload: jsonEncode(message.data),
     );
     debugPrint('✅ Background notification shown successfully');
-  } else {
-    debugPrint('🔔 Background message has notification payload - letting system handle it');
   }
-}
 
 class NotificationService {
   static final NotificationService _instance = NotificationService._internal();
@@ -232,6 +232,44 @@ class NotificationService {
       initSettings,
       onDidReceiveNotificationResponse: _handleNotificationTap,
     );
+
+    // Create notification channels for Android
+    if (Platform.isAndroid) {
+      const androidChannel = AndroidNotificationChannel(
+        'bird_partner_channel',
+        'Bird Partner Notifications',
+        description: 'Notifications for Bird Partner app',
+        importance: Importance.high,
+        playSound: true,
+        sound: RawResourceAndroidNotificationSound('notification_ringtone'),
+      );
+      
+      const androidChatChannel = AndroidNotificationChannel(
+        'bird_partner_chat_channel',
+        'Bird Partner Chat Notifications',
+        description: 'Chat notifications for Bird Partner app',
+        importance: Importance.high,
+        playSound: false,
+      );
+      
+      const androidDefaultChannel = AndroidNotificationChannel(
+        'bird_partner_default_channel',
+        'Bird Partner Default Notifications',
+        description: 'Default notifications for Bird Partner app',
+        importance: Importance.high,
+        playSound: true,
+      );
+      
+      await _localNotifications
+          .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
+          ?.createNotificationChannel(androidChannel);
+      await _localNotifications
+          .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
+          ?.createNotificationChannel(androidChatChannel);
+      await _localNotifications
+          .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
+          ?.createNotificationChannel(androidDefaultChannel);
+    }
 
     debugPrint('🔔 Local notifications initialized');
   }
@@ -928,9 +966,9 @@ class NotificationService {
     } else {
       // Fallback for other types: system default sound, default channel
       const androidDetails = AndroidNotificationDetails(
-        'bird_partner_channel',
-        'Bird Partner Notifications',
-        channelDescription: 'Notifications for Bird Partner app',
+        'bird_partner_default_channel',
+        'Bird Partner Default Notifications',
+        channelDescription: 'Default notifications for Bird Partner app',
         importance: Importance.high,
         priority: Priority.high,
         icon: '@mipmap/ic_launcher',

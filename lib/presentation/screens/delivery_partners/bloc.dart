@@ -81,6 +81,8 @@ class DeliveryPartnersBloc extends Bloc<DeliveryPartnersEvent, DeliveryPartnersS
         partnerId: event.partnerId,
         phone: event.phone,
         name: event.name,
+        username: event.username,
+        password: event.password,
         licensePhotoPath: event.licensePhotoPath,
         vehicleDocumentPath: event.vehicleDocumentPath,
         token: token,

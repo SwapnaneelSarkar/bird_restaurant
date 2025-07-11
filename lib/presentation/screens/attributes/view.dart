@@ -997,6 +997,11 @@ class _AttributesScreenState extends State<AttributesScreen> {
     if (menuId == null || attributeId == null) {
       return;
     }
+    
+    // Track changes for bulk save
+    List<AttributeValueWithPrice> updatedValues = [];
+    List<String> deletedValueIds = [];
+    
     showDialog(
       context: parentContext,
       builder: (dialogContext) {
@@ -1079,211 +1084,147 @@ class _AttributesScreenState extends State<AttributesScreen> {
                           );
                         }
                         final group = snapshot.data!;
-                        return ListView.builder(
-                          shrinkWrap: true,
-                          itemCount: group.attributeValues.length,
-                          itemBuilder: (context, index) {
-                            final value = group.attributeValues[index].toValueWithPrice();
-                            final nameController = TextEditingController(text: value.name);
-                            final priceController = TextEditingController(text: value.priceAdjustment.toString());
-                            bool isDefault = value.isDefault;
-                            return StatefulBuilder(
-                              builder: (context, setState) {
-                                return Card(
-                                  margin: EdgeInsets.symmetric(vertical: isSmallScreen ? 4 : 6),
-                                  child: Padding(
-                                    padding: EdgeInsets.all(isSmallScreen ? 10.0 : 12.0),
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        // Name field
-                                        TextField(
-                                          controller: nameController,
-                                          style: TextStyle(
-                                            fontSize: isSmallScreen ? FontSize.s12 : FontSize.s12,
-                                          ),
-                                          decoration: InputDecoration(
-                                            labelText: 'Name',
-                                            labelStyle: TextStyle(
-                                              fontSize: isSmallScreen ? FontSize.s12 : FontSize.s12,
-                                            ),
-                                            contentPadding: EdgeInsets.symmetric(
-                                              horizontal: isSmallScreen ? 8 : 12,
-                                              vertical: isSmallScreen ? 8 : 10,
-                                            ),
-                                          ),
-                                        ),
-                                        SizedBox(height: isSmallScreen ? 8 : 10),
-                                        
-                                        // Price field
-                                        TextField(
-                                          controller: priceController,
-                                          style: TextStyle(
-                                            fontSize: isSmallScreen ? FontSize.s12 : FontSize.s12,
-                                          ),
-                                          decoration: InputDecoration(
-                                            labelText: 'Price Adjustment',
-                                            labelStyle: TextStyle(
-                                              fontSize: isSmallScreen ? FontSize.s12 : FontSize.s12,
-                                            ),
-                                            contentPadding: EdgeInsets.symmetric(
-                                              horizontal: isSmallScreen ? 8 : 12,
-                                              vertical: isSmallScreen ? 8 : 10,
-                                            ),
-                                          ),
-                                          keyboardType: TextInputType.number,
-                                        ),
-                                        SizedBox(height: isSmallScreen ? 8 : 10),
-                                        
-                                        // Default checkbox and buttons
-                                        Row(
-                                          children: [
-                                            Checkbox(
-                                              value: isDefault,
-                                              onChanged: (val) {
-                                                setState(() {
-                                                  isDefault = val ?? false;
-                                                });
-                                              },
-                                            ),
-                                            Text(
-                                              'Default',
-                                              style: TextStyle(
-                                                fontSize: MediaQuery.of(context).size.width < 400 ? FontSize.s12 : FontSize.s12,
-                                              ),
-                                            ),
-                                            const Spacer(),
-                                            if (MediaQuery.of(context).size.width < 400) ...[
-                                              // Stack vertically for small screens
-                                              Column(
-                                                crossAxisAlignment: CrossAxisAlignment.end,
+                        return StatefulBuilder(
+                          builder: (context, setDialogState) {
+                            return Column(
+                              children: [
+                                Expanded(
+                                  child: ListView.builder(
+                                    shrinkWrap: true,
+                                    itemCount: group.attributeValues.length,
+                                    itemBuilder: (context, index) {
+                                      final value = group.attributeValues[index].toValueWithPrice();
+                                      final nameController = TextEditingController(text: value.name);
+                                      final priceController = TextEditingController(text: value.priceAdjustment.toString());
+                                      bool isDefault = value.isDefault;
+                                      bool isDeleted = false;
+                                      
+                                      return StatefulBuilder(
+                                        builder: (context, setState) {
+                                          if (isDeleted) {
+                                            return const SizedBox.shrink();
+                                          }
+                                          
+                                          return Card(
+                                            margin: EdgeInsets.symmetric(vertical: isSmallScreen ? 4 : 6),
+                                            child: Padding(
+                                              padding: EdgeInsets.all(isSmallScreen ? 10.0 : 12.0),
+                                              child: Column(
+                                                crossAxisAlignment: CrossAxisAlignment.start,
                                                 children: [
-                                                  SizedBox(
-                                                    width: 80,
-                                                    height: 40,
-                                                    child: ElevatedButton(
-                                                      onPressed: () {
-                                                        Navigator.of(parentContext).pop();
-                                                        parentContext.read<AttributeBloc>().add(
-                                                          UpdateAttributeValueEvent(
-                                                            menuId: menuId,
-                                                            attributeId: attributeId,
-                                                            valueId: value.valueId!,
+                                                  // Name field
+                                                  TextField(
+                                                    controller: nameController,
+                                                    style: TextStyle(
+                                                      fontSize: isSmallScreen ? FontSize.s12 : FontSize.s12,
+                                                    ),
+                                                    decoration: InputDecoration(
+                                                      labelText: 'Name',
+                                                      labelStyle: TextStyle(
+                                                        fontSize: isSmallScreen ? FontSize.s12 : FontSize.s12,
+                                                      ),
+                                                      contentPadding: EdgeInsets.symmetric(
+                                                        horizontal: isSmallScreen ? 8 : 12,
+                                                        vertical: isSmallScreen ? 8 : 10,
+                                                      ),
+                                                    ),
+                                                    onChanged: (newValue) {
+                                                      // Track changes for bulk save
+                                                      final updatedValue = AttributeValueWithPrice(
+                                                        valueId: value.valueId,
+                                                        name: newValue,
+                                                        priceAdjustment: int.tryParse(priceController.text.trim()) ?? 0,
+                                                        isDefault: isDefault,
+                                                      );
+                                                      _updateOrAddToUpdatedValues(updatedValues, updatedValue);
+                                                    },
+                                                  ),
+                                                  SizedBox(height: isSmallScreen ? 8 : 10),
+                                                  
+                                                  // Price field
+                                                  TextField(
+                                                    controller: priceController,
+                                                    style: TextStyle(
+                                                      fontSize: isSmallScreen ? FontSize.s12 : FontSize.s12,
+                                                    ),
+                                                    decoration: InputDecoration(
+                                                      labelText: 'Price Adjustment',
+                                                      labelStyle: TextStyle(
+                                                        fontSize: isSmallScreen ? FontSize.s12 : FontSize.s12,
+                                                      ),
+                                                      contentPadding: EdgeInsets.symmetric(
+                                                        horizontal: isSmallScreen ? 8 : 12,
+                                                        vertical: isSmallScreen ? 8 : 10,
+                                                      ),
+                                                    ),
+                                                    keyboardType: TextInputType.number,
+                                                    onChanged: (newValue) {
+                                                      // Track changes for bulk save
+                                                      final updatedValue = AttributeValueWithPrice(
+                                                        valueId: value.valueId,
+                                                        name: nameController.text.trim(),
+                                                        priceAdjustment: int.tryParse(newValue.trim()) ?? 0,
+                                                        isDefault: isDefault,
+                                                      );
+                                                      _updateOrAddToUpdatedValues(updatedValues, updatedValue);
+                                                    },
+                                                  ),
+                                                  SizedBox(height: isSmallScreen ? 8 : 10),
+                                                  
+                                                  // Default checkbox and delete button
+                                                  Row(
+                                                    children: [
+                                                      Checkbox(
+                                                        value: isDefault,
+                                                        onChanged: (val) {
+                                                          setState(() {
+                                                            isDefault = val ?? false;
+                                                          });
+                                                          // Track changes for bulk save
+                                                          final updatedValue = AttributeValueWithPrice(
+                                                            valueId: value.valueId,
                                                             name: nameController.text.trim(),
                                                             priceAdjustment: int.tryParse(priceController.text.trim()) ?? 0,
-                                                            isDefault: isDefault,
-                                                          ),
-                                                        );
-                                                      },
-                                                      style: ElevatedButton.styleFrom(
-                                                        backgroundColor: const Color(0xFFCD6E32),
-                                                        foregroundColor: Colors.white,
-                                                        shape: RoundedRectangleBorder(
-                                                          borderRadius: BorderRadius.circular(8),
+                                                            isDefault: val ?? false,
+                                                          );
+                                                          _updateOrAddToUpdatedValues(updatedValues, updatedValue);
+                                                        },
+                                                      ),
+                                                      Text(
+                                                        'Default',
+                                                        style: TextStyle(
+                                                          fontSize: MediaQuery.of(context).size.width < 400 ? FontSize.s12 : FontSize.s12,
                                                         ),
                                                       ),
-                                                      child: Text(
-                                                        'Save',
-                                                        style: TextStyle(fontSize: 12, fontWeight: FontWeightManager.medium),
+                                                      const Spacer(),
+                                                      IconButton(
+                                                        tooltip: 'Delete value',
+                                                        icon: Icon(Icons.delete_outline, color: Colors.red),
+                                                        onPressed: () {
+                                                          setState(() {
+                                                            isDeleted = true;
+                                                          });
+                                                          setDialogState(() {});
+                                                          // Track for deletion
+                                                          if (value.valueId != null) {
+                                                            deletedValueIds.add(value.valueId!);
+                                                          }
+                                                          // Remove from updated values if it was there
+                                                          updatedValues.removeWhere((v) => v.valueId == value.valueId);
+                                                        },
                                                       ),
-                                                    ),
-                                                  ),
-                                                  SizedBox(height: 4),
-                                                  SizedBox(
-                                                    width: 80,
-                                                    height: 40,
-                                                    child: ElevatedButton(
-                                                      style: ElevatedButton.styleFrom(
-                                                        backgroundColor: Colors.red,
-                                                        foregroundColor: Colors.white,
-                                                        shape: RoundedRectangleBorder(
-                                                          borderRadius: BorderRadius.circular(8),
-                                                        ),
-                                                      ),
-                                                      onPressed: () {
-                                                        Navigator.of(parentContext).pop();
-                                                        parentContext.read<AttributeBloc>().add(
-                                                          DeleteAttributeValueEvent(
-                                                            menuId: menuId,
-                                                            attributeId: attributeId,
-                                                            valueId: value.valueId!,
-                                                          ),
-                                                        );
-                                                      },
-                                                      child: Text(
-                                                        'Delete',
-                                                        style: TextStyle(fontSize: 12, fontWeight: FontWeightManager.medium),
-                                                      ),
-                                                    ),
+                                                    ],
                                                   ),
                                                 ],
                                               ),
-                                            ] else ...[
-                                              // Side by side for larger screens
-                                              SizedBox(
-                                                height: 44,
-                                                child: ElevatedButton(
-                                                  onPressed: () {
-                                                    Navigator.of(parentContext).pop();
-                                                    parentContext.read<AttributeBloc>().add(
-                                                      UpdateAttributeValueEvent(
-                                                        menuId: menuId,
-                                                        attributeId: attributeId,
-                                                        valueId: value.valueId!,
-                                                        name: nameController.text.trim(),
-                                                        priceAdjustment: int.tryParse(priceController.text.trim()) ?? 0,
-                                                        isDefault: isDefault,
-                                                      ),
-                                                    );
-                                                  },
-                                                  style: ElevatedButton.styleFrom(
-                                                    backgroundColor: const Color(0xFFCD6E32),
-                                                    foregroundColor: Colors.white,
-                                                    shape: RoundedRectangleBorder(
-                                                      borderRadius: BorderRadius.circular(8),
-                                                    ),
-                                                  ),
-                                                  child: Text(
-                                                    'Save',
-                                                    style: TextStyle(fontSize: 14, fontWeight: FontWeightManager.medium),
-                                                  ),
-                                                ),
-                                              ),
-                                              SizedBox(width: 8),
-                                              SizedBox(
-                                                height: 44,
-                                                child: ElevatedButton(
-                                                  style: ElevatedButton.styleFrom(
-                                                    backgroundColor: Colors.red,
-                                                    foregroundColor: Colors.white,
-                                                    shape: RoundedRectangleBorder(
-                                                      borderRadius: BorderRadius.circular(8),
-                                                    ),
-                                                  ),
-                                                  onPressed: () {
-                                                    Navigator.of(parentContext).pop();
-                                                    parentContext.read<AttributeBloc>().add(
-                                                      DeleteAttributeValueEvent(
-                                                        menuId: menuId,
-                                                        attributeId: attributeId,
-                                                        valueId: value.valueId!,
-                                                      ),
-                                                    );
-                                                  },
-                                                  child: Text(
-                                                    'Delete',
-                                                    style: TextStyle(fontSize: 14, fontWeight: FontWeightManager.medium),
-                                                  ),
-                                                ),
-                                              ),
-                                            ],
-                                          ],
-                                        ),
-                                      ],
-                                    ),
+                                            ),
+                                          );
+                                        },
+                                      );
+                                    },
                                   ),
-                                );
-                              },
+                                ),
+                              ],
                             );
                           },
                         );
@@ -1303,7 +1244,7 @@ class _AttributesScreenState extends State<AttributesScreen> {
                     ),
                   ),
                   child: Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       SizedBox(
                         height: buttonHeight,
@@ -1315,11 +1256,41 @@ class _AttributesScreenState extends State<AttributesScreen> {
                             ),
                           ),
                           child: Text(
-                            "Close",
+                            "Cancel",
                             style: TextStyle(
                               fontSize: buttonFontSize,
                               fontWeight: FontWeightManager.medium,
                               color: Colors.grey.shade700,
+                            ),
+                          ),
+                        ),
+                      ),
+                      SizedBox(
+                        height: buttonHeight,
+                        child: ElevatedButton(
+                          onPressed: () {
+                            Navigator.pop(dialogContext);
+                            parentContext.read<AttributeBloc>().add(
+                              BulkUpdateAttributeValuesEvent(
+                                menuId: menuId,
+                                attributeId: attributeId,
+                                updatedValues: updatedValues,
+                                deletedValueIds: deletedValueIds,
+                              ),
+                            );
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFFCD6E32),
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          child: Text(
+                            "Save All Changes",
+                            style: TextStyle(
+                              fontSize: buttonFontSize,
+                              fontWeight: FontWeightManager.medium,
                             ),
                           ),
                         ),
@@ -1333,6 +1304,15 @@ class _AttributesScreenState extends State<AttributesScreen> {
         );
       },
     );
+  }
+
+  void _updateOrAddToUpdatedValues(List<AttributeValueWithPrice> updatedValues, AttributeValueWithPrice newValue) {
+    final existingIndex = updatedValues.indexWhere((v) => v.valueId == newValue.valueId);
+    if (existingIndex != -1) {
+      updatedValues[existingIndex] = newValue;
+    } else {
+      updatedValues.add(newValue);
+    }
   }
 
   Future<AttributeGroup?> _getAttributeGroupById(String menuId, String attributeId) async {
@@ -1372,7 +1352,9 @@ class _AttributesScreenState extends State<AttributesScreen> {
               onPressed: () => Navigator.pop(dialogContext),
               child: const Text("Cancel"),
             ),
-            ElevatedButton(
+            IconButton(
+              tooltip: 'Delete attribute',
+              icon: Icon(Icons.delete_outline, color: Colors.red),
               onPressed: () {
                 if (attribute.attributeId != null && _selectedMenuItem != null) {
                   context.read<AttributeBloc>().add(
@@ -1384,11 +1366,6 @@ class _AttributesScreenState extends State<AttributesScreen> {
                 }
                 Navigator.pop(dialogContext);
               },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red,
-                foregroundColor: Colors.white,
-              ),
-              child: const Text("Delete"),
             ),
           ],
         );

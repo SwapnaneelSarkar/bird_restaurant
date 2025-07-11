@@ -12,6 +12,8 @@ import 'state.dart';
 import '../../../services/restaurant_info_service.dart';
 import '../../../ui_components/order_options_bottom_sheet_for_orders_page.dart';
 import '../../../presentation/resources/router/router.dart';
+import '../../../services/order_service.dart';
+import '../../../services/delivery_partner_services/delivery_partner_orders_service.dart';
 
 // Wrapper widget that provides OrdersBloc
 class OrdersScreen extends StatelessWidget {
@@ -507,24 +509,76 @@ class _OrdersViewState extends State<OrdersView> {
               delegate: SliverChildBuilderDelegate(
                 (context, index) {
                   final order = state.filteredOrders[index];
-                  return OrderCard(
-                    orderId: order.id,
-                    customerName: order.displayCustomerName,
-                    amount: order.amount,
-                    date: order.date,
-                    status: order.orderStatus,
-                    customerPhone: order.customerPhone,
-                    deliveryAddress: order.deliveryAddress,
-                    onTap: () {
-                      final ordersBloc = context.read<OrdersBloc>();
-                      showModalBottomSheet(
-                        context: context,
-                        isScrollControlled: true,
-                        backgroundColor: Colors.transparent,
-                        builder: (context) => OrderOptionsBottomSheetForOrdersPage(order: order, ordersBloc: ordersBloc),
-                      );
-                    },
-                  );
+                  if (order.customerName.isNotEmpty) {
+                    return OrderCard(
+                      orderId: order.id,
+                      amount: order.amount,
+                      date: order.date,
+                      status: order.orderStatus,
+                      customerPhone: order.customerPhone,
+                      deliveryAddress: order.deliveryAddress,
+                      onTap: () {
+                        final ordersBloc = context.read<OrdersBloc>();
+                        showModalBottomSheet(
+                          context: context,
+                          isScrollControlled: true,
+                          backgroundColor: Colors.transparent,
+                          builder: (context) => OrderOptionsBottomSheetForOrdersPage(order: order, ordersBloc: ordersBloc),
+                        );
+                      },
+                    );
+                  } else {
+                    // Fetch username using user/{userId} API
+                    return FutureBuilder<Map<String, dynamic>?> (
+                      future: DeliveryPartnerOrdersService.fetchUserDetails(order.userId),
+                      builder: (context, snapshot) {
+                        print('FutureBuilder snapshot for userId: \'${order.userId}\' data: \'${snapshot.data}\', error: \'${snapshot.error}\', state: \'${snapshot.connectionState}\'');
+                        if (snapshot.connectionState == ConnectionState.waiting) {
+                          return OrderCard(
+                            orderId: order.id,
+                            amount: order.amount,
+                            date: order.date,
+                            status: order.orderStatus,
+                            customerPhone: order.customerPhone,
+                            deliveryAddress: order.deliveryAddress,
+                            onTap: () {
+                              final ordersBloc = context.read<OrdersBloc>();
+                              showModalBottomSheet(
+                                context: context,
+                                isScrollControlled: true,
+                                backgroundColor: Colors.transparent,
+                                builder: (context) => OrderOptionsBottomSheetForOrdersPage(order: order, ordersBloc: ordersBloc),
+                              );
+                            },
+                          );
+                        }
+                        String displayName = '';
+                        if (snapshot.hasData && snapshot.data != null && (snapshot.data!['status'] == true || snapshot.data!['success'] == true)) {
+                          displayName = snapshot.data!['data']['username'] ?? '';
+                        }
+                        if (snapshot.hasError) {
+                          print('FutureBuilder error for userId: ${order.userId}: ${snapshot.error}');
+                        }
+                        return OrderCard(
+                          orderId: order.id,
+                          amount: order.amount,
+                          date: order.date,
+                          status: order.orderStatus,
+                          customerPhone: order.customerPhone,
+                          deliveryAddress: order.deliveryAddress,
+                          onTap: () {
+                            final ordersBloc = context.read<OrdersBloc>();
+                            showModalBottomSheet(
+                              context: context,
+                              isScrollControlled: true,
+                              backgroundColor: Colors.transparent,
+                              builder: (context) => OrderOptionsBottomSheetForOrdersPage(order: order, ordersBloc: ordersBloc),
+                            );
+                          },
+                        );
+                      },
+                    );
+                  }
                 },
                 childCount: state.filteredOrders.length,
               ),

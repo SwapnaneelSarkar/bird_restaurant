@@ -1,4 +1,4 @@
-// lib/models/partner_summary_model.dart - New file to create
+// lib/models/partner_summary_model.dart - Updated with new fields
 
 class PartnerSummaryModel {
   final int ordersCount;
@@ -7,6 +7,10 @@ class PartnerSummaryModel {
   final double rating;
   final List<SalesDataPoint> salesData;
   final bool acceptingOrders;
+  final String totalSales;
+  final double orderAcceptanceRate;
+  final double orderCancellationRate;
+  final List<TopSellingItem> topSellingItems;
 
   const PartnerSummaryModel({
     required this.ordersCount,
@@ -15,20 +19,31 @@ class PartnerSummaryModel {
     required this.rating,
     required this.salesData,
     required this.acceptingOrders,
+    required this.totalSales,
+    required this.orderAcceptanceRate,
+    required this.orderCancellationRate,
+    required this.topSellingItems,
   });
 
   factory PartnerSummaryModel.fromJson(Map<String, dynamic> json) {
     final salesDataList = json['salesData'] as List<dynamic>? ?? [];
+    final topSellingItemsList = json['topSellingItems'] as List<dynamic>? ?? [];
     
     return PartnerSummaryModel(
-      ordersCount: json['ordersCount'] as int? ?? 0,
-      productsCount: json['productsCount'] as int? ?? 0,
-      tagsCount: json['tagsCount'] as int? ?? 0,
+      ordersCount: (json['ordersCount'] as num?)?.toInt() ?? 0,
+      productsCount: (json['productsCount'] as num?)?.toInt() ?? 0,
+      tagsCount: (json['tagsCount'] as num?)?.toInt() ?? 0,
       rating: double.tryParse(json['rating']?.toString() ?? '0.0') ?? 0.0,
       salesData: salesDataList
           .map((item) => SalesDataPoint.fromJson(item as Map<String, dynamic>))
           .toList(),
-      acceptingOrders: json['acceptingOrders'] as bool? ?? false,
+      acceptingOrders: json['acceptingOrders'] == true,
+      totalSales: json['totalSales']?.toString() ?? '0.00',
+      orderAcceptanceRate: double.tryParse(json['orderAcceptanceRate']?.toString() ?? '0.0') ?? 0.0,
+      orderCancellationRate: double.tryParse(json['orderCancellationRate']?.toString() ?? '0.0') ?? 0.0,
+      topSellingItems: topSellingItemsList
+          .map((item) => TopSellingItem.fromJson(item as Map<String, dynamic>))
+          .toList(),
     );
   }
 
@@ -40,6 +55,10 @@ class PartnerSummaryModel {
       'rating': rating.toString(),
       'salesData': salesData.map((item) => item.toJson()).toList(),
       'acceptingOrders': acceptingOrders,
+      'totalSales': totalSales,
+      'orderAcceptanceRate': orderAcceptanceRate.toString(),
+      'orderCancellationRate': orderCancellationRate.toString(),
+      'topSellingItems': topSellingItems.map((item) => item.toJson()).toList(),
     };
   }
 
@@ -47,7 +66,9 @@ class PartnerSummaryModel {
   String toString() {
     return 'PartnerSummaryModel(ordersCount: $ordersCount, productsCount: $productsCount, '
            'tagsCount: $tagsCount, rating: $rating, salesDataPoints: ${salesData.length}, '
-           'acceptingOrders: $acceptingOrders)';
+           'acceptingOrders: $acceptingOrders, totalSales: $totalSales, '
+           'orderAcceptanceRate: $orderAcceptanceRate, orderCancellationRate: $orderCancellationRate, '
+           'topSellingItems: ${topSellingItems.length})';
   }
 }
 
@@ -62,8 +83,8 @@ class SalesDataPoint {
 
   factory SalesDataPoint.fromJson(Map<String, dynamic> json) {
     return SalesDataPoint(
-      date: json['date'] as String? ?? '',
-      sales: json['sales'] as int? ?? 0,
+      date: json['date']?.toString() ?? '',
+      sales: (json['sales'] as num?)?.toInt() ?? 0,
     );
   }
 
@@ -77,6 +98,39 @@ class SalesDataPoint {
   @override
   String toString() {
     return 'SalesDataPoint(date: $date, sales: $sales)';
+  }
+}
+
+class TopSellingItem {
+  final String menuId;
+  final String name;
+  final String totalSold;
+
+  const TopSellingItem({
+    required this.menuId,
+    required this.name,
+    required this.totalSold,
+  });
+
+  factory TopSellingItem.fromJson(Map<String, dynamic> json) {
+    return TopSellingItem(
+      menuId: json['menu_id']?.toString() ?? '',
+      name: json['name']?.toString() ?? '',
+      totalSold: json['total_sold']?.toString() ?? '0',
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'menu_id': menuId,
+      'name': name,
+      'total_sold': totalSold,
+    };
+  }
+
+  @override
+  String toString() {
+    return 'TopSellingItem(menuId: $menuId, name: $name, totalSold: $totalSold)';
   }
 }
 

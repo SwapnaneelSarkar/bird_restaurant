@@ -198,6 +198,7 @@ class ChatMessage {
 class OrderDetails {
   final String orderId;
   final String userId;
+  final String userName;
   final List<String> itemIds;
   final List<OrderItem> items;
   final String totalAmount;
@@ -207,6 +208,7 @@ class OrderDetails {
   const OrderDetails({
     required this.orderId,
     required this.userId,
+    required this.userName,
     required this.itemIds,
     required this.items,
     required this.totalAmount,
@@ -218,6 +220,7 @@ class OrderDetails {
     return OrderDetails(
       orderId: json['order_id'] ?? '',
       userId: json['user_id'] ?? '',
+      userName: json['user_name'] ?? '',
       itemIds: List<String>.from(json['item_ids'] ?? []),
       items: (json['items'] as List<dynamic>?)
           ?.map((item) => OrderItem.fromJson(item))
@@ -231,6 +234,7 @@ class OrderDetails {
   OrderDetails copyWith({
     String? orderId,
     String? userId,
+    String? userName,
     List<String>? itemIds,
     List<OrderItem>? items,
     String? totalAmount,
@@ -240,6 +244,7 @@ class OrderDetails {
     return OrderDetails(
       orderId: orderId ?? this.orderId,
       userId: userId ?? this.userId,
+      userName: userName ?? this.userName,
       itemIds: itemIds ?? this.itemIds,
       items: items ?? this.items,
       totalAmount: totalAmount ?? this.totalAmount,

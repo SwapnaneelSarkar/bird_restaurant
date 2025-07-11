@@ -9,6 +9,8 @@ import '../../../constants/api_constants.dart';
 import 'event.dart';
 import 'state.dart';
 import '../../../services/restaurant_info_service.dart';
+import '../../../services/api_service.dart';
+import '../../../models/food_type_model.dart';
 
 class RestaurantDetailsBloc
     extends Bloc<RestaurantDetailsEvent, RestaurantDetailsState> {
@@ -25,6 +27,10 @@ class RestaurantDetailsBloc
     // New event handlers
     on<FetchRestaurantTypesEvent>(_onFetchRestaurantTypes);
     on<RestaurantTypeChanged>(_onRestaurantTypeChanged);
+    
+    // Food types event handlers
+    on<FetchFoodTypesEvent>(_onFetchFoodTypes);
+    on<FoodTypeChanged>(_onFoodTypeChanged);
   }
 
   void _onNameChanged(
@@ -38,6 +44,7 @@ class RestaurantDetailsBloc
         phoneNumber: state.phoneNumber,
         email: state.email,
         restaurantType: state.selectedRestaurantType,
+        foodType: state.selectedFoodType,
       ),
     ));
     _saveData();
@@ -54,6 +61,7 @@ class RestaurantDetailsBloc
         phoneNumber: state.phoneNumber,
         email: state.email,
         restaurantType: state.selectedRestaurantType,
+        foodType: state.selectedFoodType,
       ),
     ));
     _saveData();
@@ -70,6 +78,7 @@ class RestaurantDetailsBloc
         phoneNumber: phone,
         email: state.email,
         restaurantType: state.selectedRestaurantType,
+        foodType: state.selectedFoodType,
       ),
     ));
     _saveData();
@@ -86,6 +95,7 @@ class RestaurantDetailsBloc
         phoneNumber: state.phoneNumber,
         email: email,
         restaurantType: state.selectedRestaurantType,
+        foodType: state.selectedFoodType,
       ),
     ));
     _saveData();
@@ -109,6 +119,7 @@ class RestaurantDetailsBloc
         phoneNumber: state.phoneNumber,
         email: state.email,
         restaurantType: state.selectedRestaurantType,
+        foodType: state.selectedFoodType,
       ),
     ));
     
@@ -194,6 +205,7 @@ class RestaurantDetailsBloc
             phoneNumber: state.phoneNumber,
             email: state.email,
             restaurantType: state.selectedRestaurantType,
+            foodType: state.selectedFoodType,
           ),
         ));
         _saveData();
@@ -225,6 +237,13 @@ class RestaurantDetailsBloc
         debugPrint('Restaurant Type: ${state.selectedRestaurantType!['name']} (ID: ${state.selectedRestaurantType!['id']})');
       } else {
         debugPrint('Restaurant Type: Not selected');
+      }
+      
+      // Log food type data
+      if (state.selectedFoodType != null) {
+        debugPrint('Food Type: ${state.selectedFoodType!.name} (ID: ${state.selectedFoodType!.restaurantFoodTypeId})');
+      } else {
+        debugPrint('Food Type: Not selected');
       }
       
       // The navigation now happens in the UI
@@ -282,13 +301,14 @@ class RestaurantDetailsBloc
             
             emit(state.copyWith(
               selectedRestaurantType: savedType,
-              isFormValid: _validateForm(
-                name: state.name,
-                address: state.address,
-                phoneNumber: state.phoneNumber,
-                email: state.email,
-                restaurantType: savedType,
-              ),
+                          isFormValid: _validateForm(
+              name: state.name,
+              address: state.address,
+              phoneNumber: state.phoneNumber,
+              email: state.email,
+              restaurantType: savedType,
+              foodType: state.selectedFoodType,
+            ),
             ));
           }
         } else {
@@ -315,18 +335,20 @@ class RestaurantDetailsBloc
         phoneNumber: state.phoneNumber,
         email: state.email,
         restaurantType: event.restaurantType,
+        foodType: state.selectedFoodType,
       ),
     ));
     _saveData();
   }
 
-  // Update validation function to include restaurant type
+  // Update validation function to include restaurant type and food type
   bool _validateForm({
     required String name,
     required String address,
     required String phoneNumber,
     required String email,
     Map<String, dynamic>? restaurantType,
+    FoodTypeModel? foodType,
   }) {
     final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
     
@@ -334,7 +356,8 @@ class RestaurantDetailsBloc
         address.isNotEmpty &&
         email.isNotEmpty &&
         emailRegex.hasMatch(email) &&
-        restaurantType != null; // Add restaurant type validation
+        restaurantType != null &&
+        foodType != null; // Add food type validation
   }
 
   Future<void> _onLoadSavedData(
@@ -351,8 +374,9 @@ class RestaurantDetailsBloc
       isDataLoaded: true,
     ));
     
-    // Fetch restaurant types after loading saved data
+    // Fetch restaurant types and food types after loading saved data
     add(FetchRestaurantTypesEvent());
+    add(FetchFoodTypesEvent());
   }
 
   // Update _saveData method to include restaurant type
@@ -372,6 +396,12 @@ class RestaurantDetailsBloc
       await prefs.setString('restaurant_type_name', state.selectedRestaurantType!['name']);
     }
     
+    // Save food type
+    if (state.selectedFoodType != null) {
+      await prefs.setString('restaurant_food_type_id', state.selectedFoodType!.restaurantFoodTypeId);
+      await prefs.setString('restaurant_food_type_name', state.selectedFoodType!.name);
+    }
+    
     // Update restaurant info service cache
     RestaurantInfoService.updateRestaurantInfo(
       name: state.name,
@@ -380,5 +410,68 @@ class RestaurantDetailsBloc
     
     debugPrint('Saved restaurant data to SharedPreferences');
     debugPrint('Latitude: ${state.latitude}, Longitude: ${state.longitude}');
+  }
+
+  // Food types methods
+  Future<void> _onFetchFoodTypes(
+      FetchFoodTypesEvent event, Emitter<RestaurantDetailsState> emit) async {
+    emit(state.copyWith(isLoadingFoodTypes: true));
+    
+    try {
+      final apiService = ApiServices();
+      final response = await apiService.getRestaurantFoodTypes();
+      
+      if (response.status == 'SUCCESS') {
+        emit(state.copyWith(
+          foodTypes: response.data,
+          isLoadingFoodTypes: false,
+        ));
+        
+        // Load selected food type from shared preferences if available
+        final prefs = await SharedPreferences.getInstance();
+        final savedFoodTypeId = prefs.getString('restaurant_food_type_id');
+        
+        if (savedFoodTypeId != null && response.data.isNotEmpty) {
+          final savedFoodType = response.data.firstWhere(
+            (type) => type.restaurantFoodTypeId == savedFoodTypeId,
+            orElse: () => response.data.first,
+          );
+          
+          emit(state.copyWith(
+            selectedFoodType: savedFoodType,
+            isFormValid: _validateForm(
+              name: state.name,
+              address: state.address,
+              phoneNumber: state.phoneNumber,
+              email: state.email,
+              restaurantType: state.selectedRestaurantType,
+              foodType: savedFoodType,
+            ),
+          ));
+        }
+      } else {
+        debugPrint('Failed to fetch food types: ${response.message}');
+      }
+    } catch (e) {
+      debugPrint('Error fetching food types: $e');
+    }
+    
+    emit(state.copyWith(isLoadingFoodTypes: false));
+  }
+
+  void _onFoodTypeChanged(
+      FoodTypeChanged event, Emitter<RestaurantDetailsState> emit) {
+    emit(state.copyWith(
+      selectedFoodType: event.foodType,
+      isFormValid: _validateForm(
+        name: state.name,
+        address: state.address,
+        phoneNumber: state.phoneNumber,
+        email: state.email,
+        restaurantType: state.selectedRestaurantType,
+        foodType: event.foodType,
+      ),
+    ));
+    _saveData();
   }
 }

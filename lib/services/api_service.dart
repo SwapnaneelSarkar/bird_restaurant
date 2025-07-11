@@ -11,6 +11,7 @@ import 'package:mime/mime.dart';
 import 'package:path/path.dart' as path;
 import '../constants/api_constants.dart';
 import '../models/partner_summary_model.dart';
+import '../models/food_type_model.dart';
 import 'api_responses.dart';
 import 'api_exception.dart';
 import 'token_service.dart';
@@ -273,6 +274,7 @@ Future<ApiResponse> updatePartnerWithAllFields({
   required String vegNonveg,
   required String cookingTime,
   String? restaurantType,
+  String? restaurantFoodType,
   File? fssaiLicense,
   File? gstCertificate,
   File? panCard,
@@ -324,6 +326,11 @@ Future<ApiResponse> updatePartnerWithAllFields({
     if (restaurantType != null && restaurantType.isNotEmpty) {
       request.fields['restaurant_type'] = restaurantType;
       debugPrint('Adding restaurant_type to API request: $restaurantType');
+    }
+    
+    if (restaurantFoodType != null && restaurantFoodType.isNotEmpty) {
+      request.fields['restaurantFoodType'] = restaurantFoodType;
+      debugPrint('Adding restaurantFoodType to API request: $restaurantFoodType');
     }
     
     final prefs = await SharedPreferences.getInstance();
@@ -433,6 +440,7 @@ Future<ApiResponse> updatePartnerWithAllFields({
             vegNonveg: vegNonveg,
             cookingTime: cookingTime,
             restaurantType: restaurantType,
+            restaurantFoodType: restaurantFoodType,
             fssaiLicense: fssaiLicense,
             gstCertificate: gstCertificate,
             panCard: panCard,
@@ -456,6 +464,7 @@ Future<ApiResponse> updatePartnerWithAllFields({
           vegNonveg: vegNonveg,
           cookingTime: cookingTime,
           restaurantType: restaurantType,
+          restaurantFoodType: restaurantFoodType,
           fssaiLicense: null,
           gstCertificate: null,
           panCard: null,
@@ -900,6 +909,34 @@ Future<ApiResponse> updateOrderAcceptance({
     throw ApiException('Failed to update order acceptance status: $e');
   }
 }
+
+  // Get restaurant food types
+  Future<FoodTypesResponse> getRestaurantFoodTypes() async {
+    try {
+      final url = Uri.parse('${ApiConstants.baseUrl}/admin/restaurantFoodTypes');
+      debugPrint('Calling Restaurant Food Types API: $url');
+      
+      final response = await _client.get(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      );
+      
+      debugPrint('Restaurant Food Types Response Status: ${response.statusCode}');
+      debugPrint('Restaurant Food Types Response Body: ${response.body}');
+      
+      if (response.statusCode == 200) {
+        final responseBody = jsonDecode(response.body);
+        return FoodTypesResponse.fromJson(responseBody);
+      } else {
+        throw ApiException('Failed to fetch food types. Status: ${response.statusCode}');
+      }
+    } catch (e) {
+      debugPrint('Error fetching restaurant food types: $e');
+      throw ApiException('Failed to fetch restaurant food types: $e');
+    }
+  }
 }
 
 class UnauthorizedException implements Exception {

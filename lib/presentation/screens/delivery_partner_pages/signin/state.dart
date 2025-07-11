@@ -1,4 +1,3 @@
-import 'package:bird_restaurant/models/country.dart';
 import 'package:equatable/equatable.dart';
 
 enum DeliveryPartnerSigninStatus {
@@ -9,17 +8,15 @@ enum DeliveryPartnerSigninStatus {
 }
 
 class DeliveryPartnerSigninState extends Equatable {
-  final String mobileNumber;
-  final String? formattedPhoneNumber;
-  final Country selectedCountry;
+  final String username;
+  final String password;
   final DeliveryPartnerSigninStatus status;
   final String? errorMessage;
   final bool isValid;
 
   const DeliveryPartnerSigninState({
-    required this.mobileNumber,
-    this.formattedPhoneNumber,
-    required this.selectedCountry,
+    required this.username,
+    required this.password,
     required this.status,
     this.errorMessage,
     required this.isValid,
@@ -27,25 +24,23 @@ class DeliveryPartnerSigninState extends Equatable {
 
   factory DeliveryPartnerSigninState.initial() {
     return DeliveryPartnerSigninState(
-      mobileNumber: '',
-      selectedCountry: CountryData.defaultCountry, // India as default
+      username: '',
+      password: '',
       status: DeliveryPartnerSigninStatus.initial,
       isValid: false,
     );
   }
 
   DeliveryPartnerSigninState copyWith({
-    String? mobileNumber,
-    String? formattedPhoneNumber,
-    Country? selectedCountry,
+    String? username,
+    String? password,
     DeliveryPartnerSigninStatus? status,
     String? errorMessage,
     bool? isValid,
   }) {
     return DeliveryPartnerSigninState(
-      mobileNumber: mobileNumber ?? this.mobileNumber,
-      formattedPhoneNumber: formattedPhoneNumber ?? this.formattedPhoneNumber,
-      selectedCountry: selectedCountry ?? this.selectedCountry,
+      username: username ?? this.username,
+      password: password ?? this.password,
       status: status ?? this.status,
       errorMessage: errorMessage ?? this.errorMessage,
       isValid: isValid ?? this.isValid,
@@ -54,9 +49,8 @@ class DeliveryPartnerSigninState extends Equatable {
 
   @override
   List<Object?> get props => [
-        mobileNumber,
-        formattedPhoneNumber,
-        selectedCountry,
+        username,
+        password,
         status,
         errorMessage,
         isValid,

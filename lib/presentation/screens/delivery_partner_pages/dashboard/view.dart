@@ -52,6 +52,7 @@ class _DeliveryPartnerDashboardViewState extends State<DeliveryPartnerDashboardV
       appBar: AppBar(
         backgroundColor: primary,
         elevation: 0,
+        automaticallyImplyLeading: false,
         title: Row(
           children: [
             Container(
@@ -67,26 +68,32 @@ class _DeliveryPartnerDashboardViewState extends State<DeliveryPartnerDashboardV
               ),
             ),
             const SizedBox(width: 12),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Delivery Dashboard',
-                  style: GoogleFonts.poppins(
-                    color: Colors.white,
-                    fontWeight: FontWeightManager.bold,
-                    fontSize: FontSize.s18,
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Delivery Dashboard',
+                    style: GoogleFonts.poppins(
+                      color: Colors.white,
+                      fontWeight: FontWeightManager.bold,
+                      fontSize: FontSize.s18,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                ),
-                Text(
-                  'Manage your deliveries',
-                  style: GoogleFonts.poppins(
-                    color: Colors.white.withOpacity(0.8),
-                    fontWeight: FontWeightManager.medium,
-                    fontSize: FontSize.s12,
+                  Text(
+                    'Manage your deliveries',
+                    style: GoogleFonts.poppins(
+                      color: Colors.white.withOpacity(0.8),
+                      fontWeight: FontWeightManager.medium,
+                      fontSize: FontSize.s12,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ],
         ),

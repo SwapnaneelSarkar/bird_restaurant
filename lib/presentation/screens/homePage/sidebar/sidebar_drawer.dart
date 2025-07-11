@@ -9,6 +9,7 @@ import '../../../../services/restaurant_info_service.dart';
 import '../../../../services/subscription_lock_service.dart';
 import '../../../../ui_components/subscription_lock_dialog.dart';
 import '../../../../services/subscription_plans_service.dart';
+import '../../../resources/router/router.dart';
 
 class SidebarDrawer extends StatefulWidget {
   final String? activePage;
@@ -755,10 +756,10 @@ class AnimatedSidebarContent extends StatelessWidget {
       // Navigate to login and remove all previous routes
       if (context.mounted) {
         Navigator.of(context).pushNamedAndRemoveUntil(
-          '/signin',
+          Routes.partnerSelection,
           (route) => false,
         );
-        debugPrint('Logout: Navigated to sign in screen');
+        debugPrint('Logout: Navigated to partner selection screen');
       }
     } catch (e) {
       debugPrint('Logout: Error during logout: $e');
@@ -776,7 +777,7 @@ class AnimatedSidebarContent extends StatelessWidget {
       // Still attempt to navigate
       if (context.mounted) {
         Navigator.of(context).pushNamedAndRemoveUntil(
-          '/signin',
+          Routes.partnerSelection,
           (route) => false,
         );
       }

@@ -51,53 +51,47 @@ class _DeliveryPartnerProfileViewState extends State<DeliveryPartnerProfileView>
   Widget _statusBadge(String? status) {
     Color color;
     IconData icon;
-    String text = status ?? '-';
-    switch (status?.toUpperCase()) {
+    String text = status?.toUpperCase() ?? '-';
+    String label = 'Status: ';
+    switch (text) {
       case 'ACTIVE':
         color = Colors.green;
         icon = Icons.check_circle;
+        label += 'ACTIVE';
         break;
       case 'INACTIVE':
         color = Colors.red;
         icon = Icons.cancel;
+        label += 'INACTIVE';
         break;
       case 'BLOCKED':
         color = Colors.orange;
         icon = Icons.block;
+        label += 'BLOCKED';
         break;
       default:
         color = Colors.grey;
         icon = Icons.help;
+        label += text;
     }
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [color.withOpacity(0.1), color.withOpacity(0.05)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        border: Border.all(color: color.withOpacity(0.3)),
+        color: color.withOpacity(0.85),
+        border: Border.all(color: color.withOpacity(0.5)),
         borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: color.withOpacity(0.1),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, color: color, size: 16),
-          const SizedBox(width: 6),
+          Icon(icon, color: Colors.white, size: 18),
+          const SizedBox(width: 8),
           Text(
-            text,
+            label,
             style: GoogleFonts.poppins(
-              color: color,
-              fontWeight: FontWeightManager.semiBold,
-              fontSize: FontSize.s12,
+              color: Colors.white,
+              fontWeight: FontWeightManager.medium,
+              fontSize: 14,
             ),
           ),
         ],
@@ -315,19 +309,42 @@ class _DeliveryPartnerProfileViewState extends State<DeliveryPartnerProfileView>
                           ),
                           const SizedBox(height: 16),
                           
-                          // Name
-                                                      Text(
-                              profile['name'] ?? 'Delivery Partner',
-                              style: GoogleFonts.poppins(
-                                fontSize: FontSize.s25,
-                                fontWeight: FontWeightManager.bold,
-                                color: Colors.white,
+                          // Name + Edit Button Row
+                          Stack(
+                            alignment: Alignment.center,
+                            children: [
+                              Center(
+                                child: Text(
+                                  profile['name'] ?? 'Delivery Partner',
+                                  style: GoogleFonts.poppins(
+                                    fontSize: FontSize.s25,
+                                    fontWeight: FontWeightManager.bold,
+                                    color: Colors.white,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
                               ),
-                              textAlign: TextAlign.center,
-                            ),
+                              Positioned(
+                                right: 0,
+                                child: IconButton(
+                                  icon: Icon(Icons.edit, color: Colors.white, size: 22),
+                                  tooltip: 'Edit Profile',
+                                  onPressed: () {
+                                    Navigator.pushNamed(
+                                      context,
+                                      Routes.deliveryPartnerProfileEdit,
+                                      arguments: profile,
+                                    ).then((value) {
+                                      // Refresh profile after editing
+                                      _refreshProfile();
+                                    });
+                                  },
+                                ),
+                              ),
+                            ],
+                          ),
                           const SizedBox(height: 8),
-                          
-                          // Status Badge
+                          // Status Badge (normal size, colored)
                           _statusBadge(profile['status']),
                           const SizedBox(height: 16),
                           

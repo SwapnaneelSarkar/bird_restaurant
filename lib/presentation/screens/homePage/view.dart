@@ -1,18 +1,15 @@
 // lib/presentation/home/view.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:fl_chart/fl_chart.dart';
 
-import '../../../constants/api_constants.dart';
 import '../../../ui_components/universal_widget/nav_bar.dart';
 import '../../../ui_components/shimmer_loading.dart';
 import '../../../ui_components/subscription_reminder_dialog.dart';
 import '../../../ui_components/pending_subscription_dialog.dart';
 import '../../resources/colors.dart';
 import '../../resources/router/router.dart';
-import '../chat/view.dart';
 import '../reviewPage/view.dart';
 
 import '../chat_list/view.dart';
@@ -21,10 +18,8 @@ import 'event.dart';
 import 'sidebar/side_bar_opener.dart';
 import 'sidebar/sidebar_drawer.dart';
 import 'state.dart';
-import '../../../models/partner_summary_model.dart';
 import '../../../services/restaurant_info_service.dart';
 import '../../../services/subscription_plans_service.dart';
-import '../../../services/token_service.dart';
 
 class HomeView extends StatefulWidget {
   const HomeView({Key? key}) : super(key: key);
@@ -42,10 +37,8 @@ class _HomeViewState extends State<HomeView> with TickerProviderStateMixin {
   
   // Restaurant info state
   Map<String, String>? _restaurantInfo;
-  bool _isRestaurantInfoLoaded = false;
   
   // Subscription state
-  bool _hasCheckedSubscription = false;
   bool _hasShownSubscriptionDialog = false;
 
   @override
@@ -167,7 +160,6 @@ class _HomeViewState extends State<HomeView> with TickerProviderStateMixin {
       if (mounted) {
         setState(() {
           _restaurantInfo = info;
-          _isRestaurantInfoLoaded = true;
         });
         debugPrint('🔄 HomePage: Loaded restaurant info - Name: ${info['name']}, Slogan: ${info['slogan']}, Image: ${info['imageUrl']}');
       }
@@ -195,16 +187,9 @@ class _HomeViewState extends State<HomeView> with TickerProviderStateMixin {
           // Show expired plan dialog
           _showSubscriptionReminderDialog(true, expiredPlanName);
         }
-        
-        setState(() {
-          _hasCheckedSubscription = true;
-        });
       }
     } catch (e) {
       debugPrint('Error checking subscription status: $e');
-      setState(() {
-        _hasCheckedSubscription = true;
-      });
     }
   }
 
@@ -497,7 +482,7 @@ class _HomeViewState extends State<HomeView> with TickerProviderStateMixin {
             
             const SizedBox(height: 16),
             
-            // Stats Row 2 - Only Rating (maintaining original layout)
+            // Stats Row 2 - Rating and Total Sales
             Row(
               children: [
                 Expanded(
@@ -511,8 +496,42 @@ class _HomeViewState extends State<HomeView> with TickerProviderStateMixin {
                   ),
                 ),
                 const SizedBox(width: 16),
-                // Empty space to maintain layout
-                const Expanded(child: SizedBox()),
+                Expanded(
+                  child: _buildStatCard(
+                    'Total Sales',
+                    '₹${state.partnerSummary?.totalSales ?? '0.00'}',
+                    Colors.green[50]!,
+                    Icons.attach_money,
+                    Colors.green[600]!,
+                  ),
+                ),
+              ],
+            ),
+            
+            const SizedBox(height: 16),
+            
+            // Stats Row 3 - Order Acceptance and Cancellation Rates
+            Row(
+              children: [
+                Expanded(
+                  child: _buildStatCard(
+                    'Acceptance Rate',
+                    '${(state.partnerSummary?.orderAcceptanceRate ?? 0.0).toStringAsFixed(1)}%',
+                    Colors.blue[50]!,
+                    Icons.check_circle_outline,
+                    Colors.blue[600]!,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: _buildStatCard(
+                    'Cancellation Rate',
+                    '${(state.partnerSummary?.orderCancellationRate ?? 0.0).toStringAsFixed(1)}%',
+                    Colors.red[50]!,
+                    Icons.cancel_outlined,
+                    Colors.red[600]!,
+                  ),
+                ),
               ],
             ),
             
@@ -550,6 +569,104 @@ class _HomeViewState extends State<HomeView> with TickerProviderStateMixin {
                 ),
               ],
             ),
+            
+            // Top Selling Items Section
+            if (state.partnerSummary?.topSellingItems.isNotEmpty == true) ...[
+              const SizedBox(height: 24),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Top Selling Items',
+                    style: GoogleFonts.poppins(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.black87,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.05),
+                          blurRadius: 10,
+                          spreadRadius: 0,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      children: state.partnerSummary!.topSellingItems.map((item) => 
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 8.0),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 40,
+                                height: 40,
+                                decoration: BoxDecoration(
+                                  color: Colors.orange[100],
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Icon(
+                                  Icons.restaurant,
+                                  color: Colors.orange[600],
+                                  size: 20,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      item.name,
+                                      style: GoogleFonts.poppins(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w500,
+                                        color: Colors.black87,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    Text(
+                                      'Menu ID: ${item.menuId}',
+                                      style: GoogleFonts.poppins(
+                                        fontSize: 12,
+                                        color: Colors.grey[600],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: Colors.green[100],
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                child: Text(
+                                  '${item.totalSold} sold',
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.green[700],
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ).toList(),
+                    ),
+                  ),
+                ],
+              ),
+            ],
             
             // Restaurant Information Section
             if (state.restaurantData != null) ...[

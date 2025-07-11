@@ -1,42 +1,55 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:bird_restaurant/services/delivery_partner_services/delivery_partner_auth_service.dart';
 import 'event.dart';
 import 'state.dart';
 
 class DeliveryPartnerSigninBloc extends Bloc<DeliveryPartnerSigninEvent, DeliveryPartnerSigninState> {
   DeliveryPartnerSigninBloc() : super(DeliveryPartnerSigninState.initial()) {
-    on<DeliveryPartnerMobileNumberChanged>(_onMobileChanged);
-    on<DeliveryPartnerCountryChanged>(_onCountryChanged);
-    on<DeliveryPartnerSendOtpPressed>(_onSendOtpPressed);
+    on<DeliveryPartnerUsernameChanged>(_onUsernameChanged);
+    on<DeliveryPartnerPasswordChanged>(_onPasswordChanged);
+    on<DeliveryPartnerSignInPressed>(_onSignInPressed);
   }
 
-  void _onMobileChanged(
-      DeliveryPartnerMobileNumberChanged event, Emitter<DeliveryPartnerSigninState> emit) {
-    // Store the mobile number without spaces
-    final cleanNumber = event.mobileNumber.replaceAll(' ', '');
+  void _onUsernameChanged(
+      DeliveryPartnerUsernameChanged event, Emitter<DeliveryPartnerSigninState> emit) {
     emit(state.copyWith(
-      mobileNumber: cleanNumber,
-      isValid: cleanNumber.length >= 5,
+      username: event.username,
+      isValid: event.username.isNotEmpty && state.password.isNotEmpty,
     ));
   }
 
-  void _onCountryChanged(
-      DeliveryPartnerCountryChanged event, Emitter<DeliveryPartnerSigninState> emit) {
-    // Update the selected country
-    debugPrint('>> Country changed to: ${event.country.name} (${event.country.dialCode})');
-    emit(state.copyWith(selectedCountry: event.country));
+  void _onPasswordChanged(
+      DeliveryPartnerPasswordChanged event, Emitter<DeliveryPartnerSigninState> emit) {
+    emit(state.copyWith(
+      password: event.password,
+      isValid: state.username.isNotEmpty && event.password.isNotEmpty,
+    ));
   }
 
-  Future<void> _onSendOtpPressed(
-      DeliveryPartnerSendOtpPressed event, Emitter<DeliveryPartnerSigninState> emit) async {
-    // Format the phone number using the selected country's dial code
-    String formattedNumber = '${state.selectedCountry.dialCode}${state.mobileNumber}';
-    debugPrint('>> SEND OTP for $formattedNumber');
+  Future<void> _onSignInPressed(
+      DeliveryPartnerSignInPressed event, Emitter<DeliveryPartnerSigninState> emit) async {
+    emit(state.copyWith(status: DeliveryPartnerSigninStatus.loading));
     
-    // Update the state with the formatted number
-    emit(state.copyWith(
-      mobileNumber: state.mobileNumber,
-      formattedPhoneNumber: formattedNumber,
-    ));
+    try {
+      final result = await DeliveryPartnerAuthService.authenticateDeliveryPartnerWithCredentials(
+        username: state.username,
+        password: state.password,
+      );
+      
+      if (result['success']) {
+        emit(state.copyWith(status: DeliveryPartnerSigninStatus.success));
+      } else {
+        emit(state.copyWith(
+          status: DeliveryPartnerSigninStatus.error,
+          errorMessage: result['message'] ?? 'Authentication failed',
+        ));
+      }
+    } catch (e) {
+      emit(state.copyWith(
+        status: DeliveryPartnerSigninStatus.error,
+        errorMessage: 'Network error: $e',
+      ));
+    }
   }
 } 

@@ -14,6 +14,7 @@ class AttributeBloc extends Bloc<AttributeEvent, AttributeState> {
     on<AddValueToNewAttributeEvent>(_onAddValueToNewAttribute);
     on<ClearNewAttributeValuesEvent>(_onClearNewAttributeValues);
     on<EditAttributeValuesEvent>(_onEditAttributeValues);
+    on<BulkUpdateAttributeValuesEvent>(_onBulkUpdateAttributeValues);
     on<DeleteAttributeValueEvent>(_onDeleteAttributeValue);
     on<DeleteAttributeEvent>(_onDeleteAttribute);
     on<RemoveValueFromNewAttributeEvent>(_onRemoveValueFromNewAttribute);
@@ -231,6 +232,72 @@ class AttributeBloc extends Bloc<AttributeEvent, AttributeState> {
         attributes: const [],
         selectedMenuId: event.menuId,
       ));
+    }
+  }
+
+  void _onBulkUpdateAttributeValues(BulkUpdateAttributeValuesEvent event, Emitter<AttributeState> emit) async {
+    final currentState = state;
+    if (currentState is AttributeLoaded) {
+      emit(const AttributeOperationInProgress(operation: 'Saving all changes...'));
+      
+      try {
+        bool allSuccess = true;
+        
+        // First, delete the values that need to be deleted
+        for (final valueId in event.deletedValueIds) {
+          final success = await AttributeService.deleteAttributeValue(
+            menuId: event.menuId,
+            attributeId: event.attributeId,
+            valueId: valueId,
+          );
+          if (!success) {
+            allSuccess = false;
+            break;
+          }
+        }
+        
+        // Then, update the values that need to be updated
+        if (allSuccess) {
+          for (final value in event.updatedValues) {
+            if (value.valueId != null) {
+              final success = await AttributeService.updateAttributeValue(
+                menuId: event.menuId,
+                attributeId: event.attributeId,
+                valueId: value.valueId!,
+                name: value.name,
+                priceAdjustment: value.priceAdjustment,
+                isDefault: value.isDefault,
+              );
+              if (!success) {
+                allSuccess = false;
+                break;
+              }
+            }
+          }
+        }
+        
+        if (allSuccess) {
+          // Show success message
+          emit(const AttributeCreationSuccess(message: 'All changes saved successfully!'));
+          
+          // Add a small delay to ensure the API has processed the changes
+          await Future.delayed(const Duration(milliseconds: 500));
+          
+          // Reload attributes to get the updated list
+          add(LoadAttributesEvent(menuId: event.menuId));
+        } else {
+          emit(const AttributeError(message: 'Failed to save some changes'));
+        }
+      } catch (e) {
+        debugPrint('Error bulk updating attribute values: $e');
+        if (e is UnauthorizedException) {
+          emit(const AttributeError(message: 'Please login again'));
+        } else if (e is ApiException) {
+          emit(AttributeError(message: e.message));
+        } else {
+          emit(const AttributeError(message: 'Failed to save changes'));
+        }
+      }
     }
   }
 

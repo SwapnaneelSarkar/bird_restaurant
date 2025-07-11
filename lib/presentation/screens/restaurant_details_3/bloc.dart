@@ -227,6 +227,9 @@ class RestaurantDocumentsBloc
     // Get restaurant type text (name) from SharedPreferences
     final restaurantType = prefs.getString('restaurant_type_name');
     
+    // Get food type ID from SharedPreferences
+    final restaurantFoodType = prefs.getString('restaurant_food_type_id');
+    
     debugPrint('Submitting with data:');
     debugPrint('Restaurant Name: $restaurantName');
     debugPrint('Address: $address');
@@ -236,6 +239,7 @@ class RestaurantDocumentsBloc
     debugPrint('Category: $category');
     debugPrint('Operational Hours: $operationalHours');
     debugPrint('Restaurant Type: $restaurantType');
+    debugPrint('Restaurant Food Type ID: $restaurantFoodType');
 
     await TokenService.saveUserId(userId);
     
@@ -271,6 +275,7 @@ class RestaurantDocumentsBloc
       vegNonveg: prefs.getString('veg-nonveg') ?? 'veg',
       cookingTime: prefs.getString('cooking_time') ?? '30',
       restaurantType: restaurantType, // Pass the restaurant type text (not ID)
+      restaurantFoodType: restaurantFoodType, // Pass the food type ID
       fssaiLicense: fssaiLicense,
       gstCertificate: gstCertificate,
       panCard: panCard,

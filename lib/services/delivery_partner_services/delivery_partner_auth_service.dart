@@ -10,6 +10,50 @@ class DeliveryPartnerAuthService {
   static const String _deliveryPartnerMobileKey = 'delivery_partner_mobile';
   static const String _deliveryPartnerPartnerIdKey = 'delivery_partner_partner_id';
 
+  // Authenticate delivery partner with username and password
+  static Future<Map<String, dynamic>> authenticateDeliveryPartnerWithCredentials({
+    required String username,
+    required String password,
+  }) async {
+    try {
+      final url = Uri.parse('$_baseUrl/delivery-partner/auth/username');
+      
+      final response = await http.post(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: json.encode({
+          'username': username,
+          'password': password,
+        }),
+      );
+
+      final data = json.decode(response.body);
+      print('Raw API response: $data');
+      
+      if (response.statusCode == 200 && data['status'] == 'SUCCESS') {
+        // Save authentication data
+        await _saveDeliveryPartnerAuthData(data['data']);
+        return {
+          'success': true,
+          'data': data['data'],
+        };
+      } else {
+        return {
+          'success': false,
+          'message': data['message'] ?? 'Authentication failed',
+        };
+      }
+    } catch (e) {
+      print('Error in authenticateDeliveryPartnerWithCredentials: $e');
+      return {
+        'success': false,
+        'message': 'Network error: $e',
+      };
+    }
+  }
+
   // Authenticate delivery partner after OTP verification
   static Future<Map<String, dynamic>> authenticateDeliveryPartner(String phone) async {
     try {

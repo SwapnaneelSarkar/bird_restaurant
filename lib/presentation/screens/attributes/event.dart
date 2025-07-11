@@ -74,6 +74,24 @@ class EditAttributeValuesEvent extends AttributeEvent {
   List<Object?> get props => [menuId, attributeId, newValues];
 }
 
+// Bulk update attribute values
+class BulkUpdateAttributeValuesEvent extends AttributeEvent {
+  final String menuId;
+  final String attributeId;
+  final List<AttributeValueWithPrice> updatedValues;
+  final List<String> deletedValueIds;
+
+  const BulkUpdateAttributeValuesEvent({
+    required this.menuId,
+    required this.attributeId,
+    required this.updatedValues,
+    required this.deletedValueIds,
+  });
+
+  @override
+  List<Object?> get props => [menuId, attributeId, updatedValues, deletedValueIds];
+}
+
 // Delete attribute value
 class DeleteAttributeValueEvent extends AttributeEvent {
   final String menuId;

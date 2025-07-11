@@ -233,7 +233,10 @@ class _ChatListViewState extends State<ChatListView> with TickerProviderStateMix
           // Navigate to chat screen and wait for result
           final result = await Navigator.of(context).push(
             MaterialPageRoute(
-              builder: (context) => ChatView(orderId: chatRoom.orderId),
+              builder: (context) => ChatView(
+                orderId: chatRoom.orderId,
+                isOrderActive: chatRoom.isOrderActive,
+              ),
             ),
           );
           
@@ -271,7 +274,7 @@ class _ChatListViewState extends State<ChatListView> with TickerProviderStateMix
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         // Order ID as title
-                        Expanded(
+                        Flexible(
                           child: Text(
                             'Order #${chatRoom.orderId}',
                             style: TextStyle(
@@ -281,6 +284,7 @@ class _ChatListViewState extends State<ChatListView> with TickerProviderStateMix
                               fontFamily: FontFamily.Montserrat,
                             ),
                             overflow: TextOverflow.ellipsis,
+                            maxLines: 1,
                           ),
                         ),
                         

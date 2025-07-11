@@ -12,6 +12,10 @@ import '../../../services/delivery_partners_service.dart';
 import '../../../presentation/resources/colors.dart';
 import '../../../presentation/resources/font.dart';
 import '../homePage/sidebar/sidebar_drawer.dart';
+import 'package:flutter/services.dart';
+import '../../../models/country.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import '../../../presentation/resources/router/router.dart';
 
 class DeliveryPartnersView extends StatefulWidget {
   const DeliveryPartnersView({super.key});
@@ -55,16 +59,24 @@ class _DeliveryPartnersViewState extends State<DeliveryPartnersView> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      key: _scaffoldKey,
-      backgroundColor: Colors.grey[50],
-      drawer: SidebarDrawer(
-        activePage: 'deliveryPartners',
-        restaurantName: _restaurantInfo?['name'] ?? 'Delivery Partners',
-        restaurantSlogan: _restaurantInfo?['slogan'] ?? 'Manage your delivery partners',
-        restaurantImageUrl: _restaurantInfo?['imageUrl'],
-      ),
-      body: SafeArea(
+    return WillPopScope(
+      onWillPop: () async {
+        Navigator.of(context).pushNamedAndRemoveUntil(
+          Routes.homePage,
+          (route) => false,
+        );
+        return false;
+      },
+      child: Scaffold(
+        key: _scaffoldKey,
+        backgroundColor: Colors.grey[50],
+        drawer: SidebarDrawer(
+          activePage: 'deliveryPartners',
+          restaurantName: _restaurantInfo?['name'] ?? 'Delivery Partners',
+          restaurantSlogan: _restaurantInfo?['slogan'] ?? 'Manage your delivery partners',
+          restaurantImageUrl: _restaurantInfo?['imageUrl'],
+        ),
+        body: SafeArea(
         child: Column(
           children: [
             _buildHeader(),
@@ -150,6 +162,7 @@ class _DeliveryPartnersViewState extends State<DeliveryPartnersView> {
         foregroundColor: Colors.white,
         child: const Icon(Icons.add),
       ),
+    ),
     );
   }
 
@@ -294,6 +307,15 @@ class _DeliveryPartnersViewState extends State<DeliveryPartnersView> {
                         ),
                         const SizedBox(height: 2),
                         Text(
+                          'ID: ${partner.deliveryPartnerId}',
+                          style: TextStyle(
+                            fontFamily: FontConstants.fontFamily,
+                            fontSize: 13.0,
+                            color: Colors.grey[500],
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
                           'Status: ${partner.status}',
                           style: TextStyle(
                             fontFamily: FontConstants.fontFamily,
@@ -394,272 +416,372 @@ class _DeliveryPartnersViewState extends State<DeliveryPartnersView> {
     final formKey = GlobalKey<FormState>();
     String name = '';
     String phone = '';
+    String username = '';
+    String password = '';
     File? licensePhotoFile;
     File? vehicleDocumentFile;
     bool isSubmitting = false;
+    Country selectedCountry = CountryData.countries.first;
 
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setState) {
-            return Container(
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        return _AddPartnerBottomSheet(
+          partnerId: partnerId,
+          bloc: bloc,
+        );
+      },
+    );
+  }
+}
+
+class _AddPartnerBottomSheet extends StatefulWidget {
+  final String partnerId;
+  final DeliveryPartnersBloc bloc;
+
+  const _AddPartnerBottomSheet({required this.partnerId, required this.bloc});
+
+  @override
+  State<_AddPartnerBottomSheet> createState() => _AddPartnerBottomSheetState();
+}
+
+class _AddPartnerBottomSheetState extends State<_AddPartnerBottomSheet> {
+  final ImagePicker _imagePicker = ImagePicker();
+  final GlobalKey<FormState> formKey = GlobalKey<FormState>();
+  String name = '';
+  String phone = '';
+  String username = '';
+  String password = '';
+  File? licensePhotoFile;
+  File? vehicleDocumentFile;
+  bool isSubmitting = false;
+  Country selectedCountry = CountryData.countries.first;
+
+  // OTP state
+  String otp = '';
+  String verificationId = '';
+  bool otpSent = false;
+  bool otpVerified = false;
+  bool otpLoading = false;
+  String otpError = '';
+
+  @override
+  void initState() {
+    super.initState();
+    // Initialize OTP state variables
+    otp = '';
+    verificationId = '';
+    otpSent = false;
+    otpVerified = false;
+    otpLoading = false;
+    otpError = '';
+  }
+
+  // Function to send OTP
+  Future<void> sendOtp() async {
+    setState(() {
+      otpLoading = true;
+      otpError = '';
+    });
+    final fullPhone = '${selectedCountry.dialCode}${phone.trim()}';
+    try {
+      // Set Firebase Auth settings as in login flow
+      await FirebaseAuth.instance.setSettings(
+        appVerificationDisabledForTesting: false,
+        forceRecaptchaFlow: true,
+      );
+      await FirebaseAuth.instance.verifyPhoneNumber(
+        phoneNumber: fullPhone,
+        timeout: const Duration(seconds: 60),
+        verificationCompleted: (PhoneAuthCredential credential) async {
+          setState(() {
+            otpVerified = true;
+            otpLoading = false;
+          });
+        },
+        verificationFailed: (FirebaseAuthException e) {
+          setState(() {
+            otpError = e.message ?? 'OTP verification failed';
+            otpLoading = false;
+          });
+        },
+        codeSent: (String vId, int? resendToken) {
+          setState(() {
+            verificationId = vId;
+            otpSent = true;
+            otpLoading = false;
+          });
+        },
+        codeAutoRetrievalTimeout: (String vId) {
+          setState(() {
+            verificationId = vId;
+            otpLoading = false;
+          });
+        },
+      );
+    } catch (e) {
+      setState(() {
+        otpError = e.toString();
+        otpLoading = false;
+      });
+    }
+  }
+
+  // Function to verify OTP
+  Future<void> verifyOtp() async {
+    setState(() {
+      otpLoading = true;
+      otpError = '';
+    });
+    try {
+      final credential = PhoneAuthProvider.credential(
+        verificationId: verificationId,
+        smsCode: otp,
+      );
+      // Just verify, do not sign in
+      await FirebaseAuth.instance.signInWithCredential(credential);
+      setState(() {
+        otpVerified = true;
+        otpLoading = false;
+      });
+    } on FirebaseAuthException catch (e) {
+      setState(() {
+        otpError = e.message ?? 'OTP verification failed';
+        otpLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        otpError = e.toString();
+        otpLoading = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+        left: 16,
+        right: 16,
+        top: 24,
+      ),
+      child: Form(
+        key: formKey,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Add Delivery Partner',
+                    style: TextStyle(
+                      fontFamily: FontConstants.fontFamily,
+                      fontSize: FontSize.s18,
+                      fontWeight: FontWeightManager.semiBold,
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.close),
+                  ),
+                ],
               ),
-              padding: EdgeInsets.only(
-                bottom: MediaQuery.of(context).viewInsets.bottom,
-                left: 16,
-                right: 16,
-                top: 24,
+              const SizedBox(height: 20),
+              
+              // Name Field
+              Text(
+                'Name *',
+                style: TextStyle(
+                  fontFamily: FontConstants.fontFamily,
+                  fontSize: FontSize.s14,
+                  fontWeight: FontWeightManager.medium,
+                ),
               ),
-              child: Form(
-                key: formKey,
-                child: SingleChildScrollView(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            'Add Delivery Partner',
-                            style: TextStyle(
-                              fontFamily: FontConstants.fontFamily,
-                              fontSize: FontSize.s18,
-                              fontWeight: FontWeightManager.semiBold,
-                            ),
-                          ),
-                          IconButton(
-                            onPressed: () => Navigator.pop(context),
-                            icon: const Icon(Icons.close),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 20),
-                      
-                      // Name Field
-                      Text(
-                        'Name *',
-                        style: TextStyle(
-                          fontFamily: FontConstants.fontFamily,
-                          fontSize: FontSize.s14,
-                          fontWeight: FontWeightManager.medium,
+              const SizedBox(height: 8),
+              TextFormField(
+                decoration: InputDecoration(
+                  hintText: 'Enter delivery partner name',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide(color: Colors.grey[300]!),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide(color: Colors.grey[300]!),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide(color: ColorManager.primary),
+                  ),
+                ),
+                validator: (value) => value == null || value.isEmpty ? 'Name is required' : null,
+                onChanged: (value) => name = value,
+              ),
+              const SizedBox(height: 20),
+              
+              // Username Field
+              Text(
+                'Username *',
+                style: TextStyle(
+                  fontFamily: FontConstants.fontFamily,
+                  fontSize: FontSize.s14,
+                  fontWeight: FontWeightManager.medium,
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextFormField(
+                decoration: InputDecoration(
+                  hintText: 'Enter username',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide(color: Colors.grey[300]!),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide(color: Colors.grey[300]!),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide(color: ColorManager.primary),
+                  ),
+                ),
+                validator: (value) => value == null || value.isEmpty ? 'Username is required' : null,
+                onChanged: (value) => username = value,
+              ),
+              const SizedBox(height: 20),
+              
+              // Password Field
+              Text(
+                'Password *',
+                style: TextStyle(
+                  fontFamily: FontConstants.fontFamily,
+                  fontSize: FontSize.s14,
+                  fontWeight: FontWeightManager.medium,
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextFormField(
+                decoration: InputDecoration(
+                  hintText: 'Enter password',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide(color: Colors.grey[300]!),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide(color: Colors.grey[300]!),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide(color: ColorManager.primary),
+                  ),
+                ),
+                obscureText: true,
+                validator: (value) => value == null || value.isEmpty ? 'Password is required' : null,
+                onChanged: (value) => password = value,
+              ),
+              const SizedBox(height: 20),
+              
+              // Phone Field
+              Text(
+                'Phone *',
+                style: TextStyle(
+                  fontFamily: FontConstants.fontFamily,
+                  fontSize: FontSize.s14,
+                  fontWeight: FontWeightManager.medium,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  DropdownButton<Country>(
+                    value: selectedCountry,
+                    items: CountryData.countries.map((country) {
+                      return DropdownMenuItem<Country>(
+                        value: country,
+                        child: Row(
+                          children: [
+                            Text(country.flag, style: const TextStyle(fontSize: 18)),
+                            const SizedBox(width: 4),
+                            Text(country.dialCode, style: const TextStyle(fontSize: 14)),
+                          ],
+                        ),
+                      );
+                    }).toList(),
+                    onChanged: (country) {
+                      if (country != null) {
+                        setState(() {
+                          selectedCountry = country;
+                        });
+                      }
+                    },
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: TextFormField(
+                      decoration: InputDecoration(
+                        hintText: 'Enter phone number',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: BorderSide(color: Colors.grey[300]!),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: BorderSide(color: Colors.grey[300]!),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: BorderSide(color: ColorManager.primary),
                         ),
                       ),
-                      const SizedBox(height: 8),
-                      TextFormField(
-                        decoration: InputDecoration(
-                          hintText: 'Enter delivery partner name',
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                            borderSide: BorderSide(color: Colors.grey[300]!),
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                            borderSide: BorderSide(color: Colors.grey[300]!),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                            borderSide: BorderSide(color: ColorManager.primary),
-                          ),
-                        ),
-                        validator: (value) => value == null || value.isEmpty ? 'Name is required' : null,
-                        onChanged: (value) => name = value,
-                      ),
-                      const SizedBox(height: 20),
-                      
-                      // Phone Field
-                      Text(
-                        'Phone *',
-                        style: TextStyle(
-                          fontFamily: FontConstants.fontFamily,
-                          fontSize: FontSize.s14,
-                          fontWeight: FontWeightManager.medium,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      TextFormField(
-                        decoration: InputDecoration(
-                          hintText: 'Enter phone number',
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                            borderSide: BorderSide(color: Colors.grey[300]!),
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                            borderSide: BorderSide(color: Colors.grey[300]!),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                            borderSide: BorderSide(color: ColorManager.primary),
-                          ),
-                        ),
-                        keyboardType: TextInputType.phone,
-                        validator: (value) => value == null || value.isEmpty ? 'Phone is required' : null,
-                        onChanged: (value) => phone = value,
-                      ),
-                      const SizedBox(height: 20),
-                      
-                      // License Photo
-                      Text(
-                        'License Photo (Optional)',
-                        style: TextStyle(
-                          fontFamily: FontConstants.fontFamily,
-                          fontSize: FontSize.s14,
-                          fontWeight: FontWeightManager.medium,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      GestureDetector(
-                        onTap: () async {
-                          final pickedFile = await _imagePicker.pickImage(
-                            source: ImageSource.gallery,
-                            maxWidth: 1000,
-                            maxHeight: 1000,
-                          );
-                          if (pickedFile != null) {
-                            setState(() {
-                              licensePhotoFile = File(pickedFile.path);
-                            });
-                          }
-                        },
-                        child: Container(
-                          width: double.infinity,
-                          height: 60,
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            border: Border.all(
-                              color: licensePhotoFile != null ? ColorManager.primary : Colors.grey[300]!,
-                              width: 1,
-                            ),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Row(
-                            children: [
-                              const SizedBox(width: 14),
-                              Icon(
-                                Icons.upload_file,
-                                color: ColorManager.primary,
-                              ),
-                              const SizedBox(width: 14),
-                              Expanded(
-                                child: Text(
-                                  licensePhotoFile != null 
-                                      ? licensePhotoFile!.path.split('/').last
-                                      : 'Select License Photo (Optional)',
-                                  style: TextStyle(
-                                    fontFamily: FontConstants.fontFamily,
-                                    fontSize: FontSize.s14,
-                                    color: Colors.grey[700],
-                                  ),
-                                ),
-                              ),
-                              if (licensePhotoFile != null)
-                                const Icon(Icons.check_circle, color: Colors.green),
-                              const SizedBox(width: 14),
-                            ],
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                      
-                      // Vehicle Document
-                      Text(
-                        'Vehicle Document (Optional)',
-                        style: TextStyle(
-                          fontFamily: FontConstants.fontFamily,
-                          fontSize: FontSize.s14,
-                          fontWeight: FontWeightManager.medium,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      GestureDetector(
-                        onTap: () async {
-                          final pickedFile = await _imagePicker.pickImage(
-                            source: ImageSource.gallery,
-                            maxWidth: 1000,
-                            maxHeight: 1000,
-                          );
-                          if (pickedFile != null) {
-                            setState(() {
-                              vehicleDocumentFile = File(pickedFile.path);
-                            });
-                          }
-                        },
-                        child: Container(
-                          width: double.infinity,
-                          height: 60,
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            border: Border.all(
-                              color: vehicleDocumentFile != null ? ColorManager.primary : Colors.grey[300]!,
-                              width: 1,
-                            ),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Row(
-                            children: [
-                              const SizedBox(width: 14),
-                              Icon(
-                                Icons.upload_file,
-                                color: ColorManager.primary,
-                              ),
-                              const SizedBox(width: 14),
-                              Expanded(
-                                child: Text(
-                                  vehicleDocumentFile != null 
-                                      ? vehicleDocumentFile!.path.split('/').last
-                                      : 'Select Vehicle Document (Optional)',
-                                  style: TextStyle(
-                                    fontFamily: FontConstants.fontFamily,
-                                    fontSize: FontSize.s14,
-                                    color: Colors.grey[700],
-                                  ),
-                                ),
-                              ),
-                              if (vehicleDocumentFile != null)
-                                const Icon(Icons.check_circle, color: Colors.green),
-                              const SizedBox(width: 14),
-                            ],
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 30),
-                      
-                      // Submit Button
+                      keyboardType: TextInputType.phone,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly,
+                        LengthLimitingTextInputFormatter(10),
+                      ],
+                      validator: (value) {
+                        final trimmed = value?.trim() ?? '';
+                        if (trimmed.isEmpty) {
+                          return 'Phone is required';
+                        }
+                        if (trimmed.length != 10) {
+                          return 'Phone number must be exactly 10 digits';
+                        }
+                        if (!RegExp(r'^\d{10}$').hasMatch(trimmed)) {
+                          return 'Phone number must contain only digits';
+                        }
+                        return null;
+                      },
+                      onChanged: (value) => phone = value.trim(),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
                       SizedBox(
                         width: double.infinity,
                         height: 50,
                         child: ElevatedButton(
-                          onPressed: isSubmitting
-                              ? null
-                                                              : () async {
-                                    if (formKey.currentState!.validate()) {
-                                    setState(() => isSubmitting = true);
-                                    bloc.add(
-                                      AddDeliveryPartner(
-                                        partnerId: partnerId,
-                                        phone: phone,
-                                        name: name,
-                                        licensePhotoPath: licensePhotoFile?.path,
-                                        vehicleDocumentPath: vehicleDocumentFile?.path,
-                                      ),
-                                    );
-                                  }
-                                },
+                          onPressed: otpLoading ? null : sendOtp,
                           style: ElevatedButton.styleFrom(
                             backgroundColor: ColorManager.primary,
                             foregroundColor: Colors.white,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(10),
                             ),
+                            elevation: 2,
                           ),
-                          child: isSubmitting 
+                          child: otpLoading 
                               ? SizedBox(
                                   height: 20,
                                   width: 20,
@@ -668,24 +790,295 @@ class _DeliveryPartnersViewState extends State<DeliveryPartnersView> {
                                     valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
                                   ),
                                 )
-                              : const Text(
-                                  'Add Partner',
-                                  style: TextStyle(
-                                    fontSize: FontSize.s16,
-                                    fontWeight: FontWeightManager.medium,
-                                  ),
+                              : Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(Icons.send, size: 18),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      'Send OTP',
+                                      style: TextStyle(
+                                        fontSize: FontSize.s16,
+                                        fontWeight: FontWeightManager.medium,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                         ),
                       ),
-                      const SizedBox(height: 20),
+                      if (otpSent) ...[
+                        const SizedBox(height: 20),
+                        Text(
+                          'Enter OTP *',
+                          style: TextStyle(
+                            fontFamily: FontConstants.fontFamily,
+                            fontSize: FontSize.s14,
+                            fontWeight: FontWeightManager.medium,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        TextFormField(
+                          keyboardType: TextInputType.number,
+                          maxLength: 6,
+                          onChanged: (val) => otp = val,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: FontSize.s18,
+                            fontWeight: FontWeightManager.semiBold,
+                            letterSpacing: 8,
+                          ),
+                          decoration: InputDecoration(
+                            hintText: '• • • • • •',
+                            hintStyle: TextStyle(
+                              color: Colors.grey[400],
+                              fontSize: FontSize.s18,
+                              letterSpacing: 8,
+                            ),
+                            counterText: '',
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              borderSide: BorderSide(color: Colors.grey[300]!),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              borderSide: BorderSide(color: Colors.grey[300]!),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              borderSide: BorderSide(color: ColorManager.primary, width: 2),
+                            ),
+                            errorBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              borderSide: BorderSide(color: Colors.red),
+                            ),
+                            errorText: otpError.isNotEmpty ? otpError : null,
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        SizedBox(
+                          width: double.infinity,
+                          height: 50,
+                          child: ElevatedButton(
+                            onPressed: (otpLoading || otpVerified) ? null : verifyOtp,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: otpVerified ? Colors.green : ColorManager.primary,
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              elevation: 2,
+                            ),
+                            child: otpLoading 
+                                ? SizedBox(
+                                    height: 20,
+                                    width: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
+                                    ),
+                                  )
+                                : Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(
+                                        otpVerified ? Icons.check_circle : Icons.verified,
+                                        size: 18,
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        otpVerified ? 'Verified' : 'Verify OTP',
+                                        style: TextStyle(
+                                          fontSize: FontSize.s16,
+                                          fontWeight: FontWeightManager.medium,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                          ),
+                        ),
+                      ],
+              const SizedBox(height: 20),
+              
+              // License Photo
+              Text(
+                'License Photo (Optional)',
+                style: TextStyle(
+                  fontFamily: FontConstants.fontFamily,
+                  fontSize: FontSize.s14,
+                  fontWeight: FontWeightManager.medium,
+                ),
+              ),
+              const SizedBox(height: 8),
+              GestureDetector(
+                onTap: () async {
+                  final pickedFile = await _imagePicker.pickImage(
+                    source: ImageSource.gallery,
+                    maxWidth: 1000,
+                    maxHeight: 1000,
+                  );
+                  if (pickedFile != null) {
+                    setState(() {
+                      licensePhotoFile = File(pickedFile.path);
+                    });
+                  }
+                },
+                child: Container(
+                  width: double.infinity,
+                  height: 60,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    border: Border.all(
+                      color: licensePhotoFile != null ? ColorManager.primary : Colors.grey[300]!,
+                      width: 1,
+                    ),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Row(
+                    children: [
+                      const SizedBox(width: 14),
+                      Icon(
+                        Icons.upload_file,
+                        color: ColorManager.primary,
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Text(
+                          licensePhotoFile != null 
+                              ? licensePhotoFile!.path.split('/').last
+                              : 'Select License Photo (Optional)',
+                          style: TextStyle(
+                            fontFamily: FontConstants.fontFamily,
+                            fontSize: FontSize.s14,
+                            color: Colors.grey[700],
+                          ),
+                        ),
+                      ),
+                      if (licensePhotoFile != null)
+                        const Icon(Icons.check_circle, color: Colors.green),
+                      const SizedBox(width: 14),
                     ],
                   ),
                 ),
               ),
-            );
-          },
-        );
-      },
+              const SizedBox(height: 20),
+              
+              // Vehicle Document
+              Text(
+                'Vehicle Document (Optional)',
+                style: TextStyle(
+                  fontFamily: FontConstants.fontFamily,
+                  fontSize: FontSize.s14,
+                  fontWeight: FontWeightManager.medium,
+                ),
+              ),
+              const SizedBox(height: 8),
+              GestureDetector(
+                onTap: () async {
+                  final pickedFile = await _imagePicker.pickImage(
+                    source: ImageSource.gallery,
+                    maxWidth: 1000,
+                    maxHeight: 1000,
+                  );
+                  if (pickedFile != null) {
+                    setState(() {
+                      vehicleDocumentFile = File(pickedFile.path);
+                    });
+                  }
+                },
+                child: Container(
+                  width: double.infinity,
+                  height: 60,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    border: Border.all(
+                      color: vehicleDocumentFile != null ? ColorManager.primary : Colors.grey[300]!,
+                      width: 1,
+                    ),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Row(
+                    children: [
+                      const SizedBox(width: 14),
+                      Icon(
+                        Icons.upload_file,
+                        color: ColorManager.primary,
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Text(
+                          vehicleDocumentFile != null 
+                              ? vehicleDocumentFile!.path.split('/').last
+                              : 'Select Vehicle Document (Optional)',
+                          style: TextStyle(
+                            fontFamily: FontConstants.fontFamily,
+                            fontSize: FontSize.s14,
+                            color: Colors.grey[700],
+                          ),
+                        ),
+                      ),
+                      if (vehicleDocumentFile != null)
+                        const Icon(Icons.check_circle, color: Colors.green),
+                      const SizedBox(width: 14),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 30),
+              
+              // Submit Button
+              SizedBox(
+                width: double.infinity,
+                height: 50,
+                child: ElevatedButton(
+                  onPressed: (isSubmitting || !otpVerified)
+                      ? null
+                      : () async {
+                            if (formKey.currentState!.validate()) {
+                            setState(() => isSubmitting = true);
+                            widget.bloc.add(
+                              AddDeliveryPartner(
+                                partnerId: widget.partnerId,
+                                phone: phone,
+                                name: name,
+                                username: username,
+                                password: password,
+                                licensePhotoPath: licensePhotoFile?.path,
+                                vehicleDocumentPath: vehicleDocumentFile?.path,
+                              ),
+                            );
+                          }
+                        },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: ColorManager.primary,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  child: isSubmitting 
+                      ? SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
+                          ),
+                        )
+                      : const Text(
+                          'Add Partner',
+                          style: TextStyle(
+                            fontSize: FontSize.s16,
+                            fontWeight: FontWeightManager.medium,
+                          ),
+                        ),
+                ),
+              ),
+              const SizedBox(height: 20),
+            ],
+          ),
+        ),
+      ),
     );
   }
 } 

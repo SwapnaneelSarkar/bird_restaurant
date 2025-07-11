@@ -193,14 +193,6 @@ class MobileInputField extends StatelessWidget {
               ),
               child: Row(
                 children: [
-                  // Phone icon
-                  Icon(
-                    Icons.phone,
-                    color: Colors.grey[700] ?? Colors.grey,
-                    size: h * 0.035,
-                  ),
-                  SizedBox(width: w * 0.02),
-                  
                   // Country picker
                   GestureDetector(
                     onTap: () => _showCountryPicker(context),
@@ -212,9 +204,6 @@ class MobileInputField extends StatelessWidget {
                       decoration: BoxDecoration(
                         color: Colors.white.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(6),
-                        border: Border.all(
-                          color: Colors.white.withOpacity(0.2),
-                        ),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,

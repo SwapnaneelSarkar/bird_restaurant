@@ -76,13 +76,25 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
       
       List<Map<String, dynamic>> salesData = [];
       if (partnerSummary?.salesData != null && partnerSummary?.salesData.isNotEmpty == true) {
-        salesData = partnerSummary!.salesData.map<Map<String, dynamic>>((salesPoint) {
-          final dayName = _formatDateToDay(salesPoint.date);
+        // Convert sales data to list with proper date formatting and sort by date
+        final sortedSalesData = List<SalesDataPoint>.from(partnerSummary!.salesData);
+        sortedSalesData.sort((a, b) => _parseDate(a.date).compareTo(_parseDate(b.date)));
+        
+        salesData = sortedSalesData.map<Map<String, dynamic>>((salesPoint) {
+          // Format date as MM/DD for better readability on graph
+          final date = _parseDate(salesPoint.date);
+          final formattedDate = '${date.month.toString().padLeft(2, '0')}/${date.day.toString().padLeft(2, '0')}';
           return {
-            'day': dayName,
+            'day': formattedDate,
             'sales': salesPoint.sales,
           };
         }).toList();
+        
+        // Debug logging for sales data
+        debugPrint('📊 Processed sales data for graph:');
+        for (final data in salesData) {
+          debugPrint('  - ${data['day']}: ${data['sales']} sales');
+        }
       } else {
         salesData = [
           {'day': 'Mon', 'sales': 0},

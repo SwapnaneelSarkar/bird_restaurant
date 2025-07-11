@@ -35,6 +35,7 @@ import '../../screens/resturant_details_2/view.dart';
 import '../../screens/splashScreen/view.dart';
 import 'package:bird_restaurant/presentation/screens/delivery_partners/bloc.dart';
 import 'package:bird_restaurant/services/delivery_partners_service.dart';
+import 'package:bird_restaurant/presentation/screens/delivery_partner_pages/profile/edit/view.dart';
 
 class Routes {
   static const String splash = '/';
@@ -67,6 +68,7 @@ class Routes {
   static const String deliveryPartnerDashboard = '/deliveryPartnerDashboard';
   static const String deliveryPartnerProfile = '/deliveryPartnerProfile';
   static const String deliveryPartnerOrderDetails = '/deliveryPartnerOrderDetails';
+  static const String deliveryPartnerProfileEdit = '/deliveryPartnerProfileEdit';
 
   static const String blank = '/blank';
 }
@@ -151,11 +153,19 @@ class RouteGenerator {
           );
 
         case Routes.chat:
-          final String? orderId = routeSettings.arguments as String?;
+          final args = routeSettings.arguments;
+          String orderId = '';
+          bool isOrderActive = false;
+          if (args is Map<String, dynamic>) {
+            orderId = args['orderId'] ?? '';
+            isOrderActive = args['isOrderActive'] ?? false;
+          } else if (args is String) {
+            orderId = args;
+          }
           return MaterialPageRoute(
             builder: (_) => BlocProvider<ChatBloc>(
               create: (context) => ChatBloc(chatService: PollingChatService()),
-              child: ChatView(orderId: orderId ?? ''),
+              child: ChatView(orderId: orderId, isOrderActive: isOrderActive),
             ),
             settings: routeSettings,
           );
@@ -211,6 +221,13 @@ class RouteGenerator {
           final String? orderId = routeSettings.arguments as String?;
           return MaterialPageRoute(
             builder: (_) => DeliveryPartnerOrderDetailsView(),
+            settings: routeSettings,
+          );
+
+        case Routes.deliveryPartnerProfileEdit:
+          final Map<String, dynamic>? profile = routeSettings.arguments as Map<String, dynamic>?;
+          return MaterialPageRoute(
+            builder: (_) => DeliveryPartnerProfileEditView(profile: profile),
             settings: routeSettings,
           );
 

@@ -13,7 +13,6 @@ import '../services/token_service.dart';
 
 class OrderCard extends StatelessWidget {
   final String orderId;
-  final String customerName;
   final double amount;
   final DateTime date;
   final OrderStatus status;
@@ -24,7 +23,6 @@ class OrderCard extends StatelessWidget {
   const OrderCard({
     Key? key,
     required this.orderId,
-    required this.customerName,
     required this.amount,
     required this.date,
     required this.status,
@@ -91,22 +89,10 @@ class OrderCard extends StatelessWidget {
             
             const SizedBox(height: 12),
             
-            // Customer Name and Phone
-            Row(
-              children: [
-                const Icon(Icons.person, size: 16, color: Colors.grey),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    customerName,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey[800],
-                      fontFamily: FontFamily.Montserrat,
-                    ),
-                  ),
-                ),
-                if (customerPhone != null) ...[
+            // Customer Phone only (no name or icon)
+            if (customerPhone != null) ...[
+              Row(
+                children: [
                   const Icon(Icons.phone, size: 16, color: Colors.grey),
                   const SizedBox(width: 4),
                   Text(
@@ -118,10 +104,9 @@ class OrderCard extends StatelessWidget {
                     ),
                   ),
                 ],
-              ],
-            ),
-            
-            const SizedBox(height: 8),
+              ),
+              const SizedBox(height: 8),
+            ],
             
             // Delivery Address (if available)
             if (deliveryAddress != null) ...[

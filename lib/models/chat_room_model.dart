@@ -22,6 +22,7 @@ class ChatRoom {
   final String lastMessage;
   final DateTime lastMessageTime;
   final DateTime createdAt;
+  final bool isOrderActive;
 
   ChatRoom({
     required this.id,
@@ -31,6 +32,7 @@ class ChatRoom {
     required this.lastMessage,
     required this.lastMessageTime,
     required this.createdAt,
+    required this.isOrderActive,
   });
 
   factory ChatRoom.fromJson(Map<String, dynamic> json) {
@@ -44,6 +46,7 @@ class ChatRoom {
       lastMessage: json['lastMessage'] ?? '',
       lastMessageTime: TimeUtils.parseToIST(json['lastMessageTime'] ?? DateTime.now().toIso8601String()),
       createdAt: TimeUtils.parseToIST(json['createdAt'] ?? DateTime.now().toIso8601String()),
+      isOrderActive: json['isOrderActive'] ?? false,
     );
   }
 

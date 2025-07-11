@@ -25,21 +25,27 @@ class _DeliveryPartnerOrderDetailsViewState extends State<DeliveryPartnerOrderDe
   void didChangeDependencies() {
     super.didChangeDependencies();
     orderId = ModalRoute.of(context)?.settings.arguments as String?;
+    print('OrderDetailsView: Received orderId: '
+        ' [33m$orderId [0m');
     if (orderId != null) {
       _orderFuture = _fetchOrder(orderId!);
     }
   }
 
   Future<Map<String, dynamic>?> _fetchOrder(String id) async {
+    print('OrderDetailsView: Fetching order details for orderId: $id');
     final result = await DeliveryPartnerOrdersService.fetchOrderDetailsById(id);
+    print('OrderDetailsView: fetchOrderDetailsById result: $result');
     if (result['success'] == true) {
       final data = result['data'];
       // Fetch user details if user_id is available
       if (data['user_id'] != null && data['user_id'].toString().isNotEmpty) {
+        print('OrderDetailsView: Fetching user details for user_id: ${data['user_id']}');
         _userFuture = _fetchUser(data['user_id']);
       }
       // Fetch restaurant details if partner_id is available
       if (data['partner_id'] != null && data['partner_id'].toString().isNotEmpty) {
+        print('OrderDetailsView: Fetching restaurant details for partner_id: ${data['partner_id']}');
         _restaurantFuture = _fetchRestaurant(data['partner_id']);
       }
       return data;
@@ -48,8 +54,10 @@ class _DeliveryPartnerOrderDetailsViewState extends State<DeliveryPartnerOrderDe
   }
 
   Future<Map<String, dynamic>?> _fetchUser(String userId) async {
+    print('OrderDetailsView: _fetchUser called for userId: $userId');
     final result = await DeliveryPartnerOrdersService.fetchUserDetails(userId);
-    if (result['success'] == true) {
+    print('OrderDetailsView: fetchUserDetails result for userId $userId: $result');
+    if (result['success'] == true || result['status'] == true) {
       return result['data'];
     }
     return null;
@@ -1053,90 +1061,22 @@ class _DeliveryPartnerOrderDetailsViewState extends State<DeliveryPartnerOrderDe
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(color: Colors.grey.withOpacity(0.2)),
                         ),
-                        child: Column(
+                        child: Row(
                           children: [
-                            if (order['user_id'] != null && order['user_id'].toString().isNotEmpty) ...[
-                              FutureBuilder<Map<String, dynamic>?>(
-                                future: _userFuture,
-                                builder: (context, userSnapshot) {
-                                  if (userSnapshot.connectionState == ConnectionState.waiting) {
-                                    return Row(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Icon(Icons.person, color: Colors.blue[700], size: 20),
-                                        const SizedBox(width: 8),
-                                        SizedBox(
-                                          width: 140,
-                                          child: Text(
-                                            'Customer',
-                                            style: GoogleFonts.poppins(
-                                              fontWeight: FontWeightManager.medium,
-                                              fontSize: FontSize.s14,
-                                              color: Colors.grey[700],
-                                            ),
-                                          ),
-                                        ),
-                                        Expanded(
-                                          child: Row(
-                                            children: [
-                                              SizedBox(
-                                                width: 16,
-                                                height: 16,
-                                                child: CircularProgressIndicator(
-                                                  strokeWidth: 2,
-                                                  valueColor: AlwaysStoppedAnimation<Color>(Colors.blue[700]!),
-                                                ),
-                                              ),
-                                              const SizedBox(width: 8),
-                                              Text(
-                                                'Loading...',
-                                                style: GoogleFonts.poppins(
-                                                  fontSize: FontSize.s14,
-                                                  color: Colors.grey[600],
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ],
-                                    );
-                                  } else if (userSnapshot.hasError || !userSnapshot.hasData) {
-                                    return _DetailRow(
-                                      label: 'Customer',
-                                      value: 'Error loading user details',
-                                      icon: Icons.person,
-                                      iconColor: Colors.red[700]!,
-                                    );
-                                  } else {
-                                    final user = userSnapshot.data!;
-                                    return Column(
-                                      children: [
-                                        _DetailRow(
-                                          label: 'Customer Name',
-                                          value: user['username'] ?? 'Unknown',
-                                          icon: Icons.person,
-                                          iconColor: Colors.blue[700]!,
-                                        ),
-                                        const Divider(height: 24),
-                                        _DetailRow(
-                                          label: 'Customer Phone',
-                                          value: user['mobile'] ?? 'Unknown',
-                                          icon: Icons.phone,
-                                          iconColor: Colors.green[700]!,
-                                        ),
-                                      ],
-                                    );
-                                  }
-                                },
+                            Icon(Icons.person, color: Colors.blue[700], size: 20),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                (order['user_name'] ?? '').toString().trim().isNotEmpty
+                                  ? order['user_name']
+                                  : (order['user_id'] ?? '-'),
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                  color: Colors.grey[800],
+                                ),
                               ),
-                            ] else ...[
-                              _DetailRow(
-                                label: 'Customer',
-                                value: 'No user information',
-                                icon: Icons.person,
-                                iconColor: Colors.grey[600]!,
-                              ),
-                            ],
+                            ),
                           ],
                         ),
                       ),

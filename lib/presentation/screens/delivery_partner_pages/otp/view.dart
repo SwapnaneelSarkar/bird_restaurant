@@ -93,10 +93,28 @@ class DeliveryPartnerOtpView extends StatelessWidget {
         listenWhen: (previous, current) => previous.status != current.status,
         listener: (context, state) {
           if (state.status == OtpStatus.success) {
-            // Navigate to success page
-            Navigator.pushNamedAndRemoveUntil(
-              context,
-              Routes.deliveryPartnerAuthSuccess,
+            // Navigate to success page with fade transition
+            Navigator.of(context).pushAndRemoveUntil(
+              PageRouteBuilder(
+                pageBuilder: (context, animation, secondaryAnimation) {
+                  final route = RouteGenerator.getRoute(
+                    RouteSettings(name: Routes.deliveryPartnerAuthSuccess),
+                  );
+                  if (route is MaterialPageRoute) {
+                    return route.builder(context);
+                  } else {
+                    // fallback: just return a blank container
+                    return const SizedBox.shrink();
+                  }
+                },
+                transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                  return FadeTransition(
+                    opacity: animation,
+                    child: child,
+                  );
+                },
+                transitionDuration: const Duration(milliseconds: 400),
+              ),
               (route) => false,
             );
           } else if (state.status == OtpStatus.failure) {

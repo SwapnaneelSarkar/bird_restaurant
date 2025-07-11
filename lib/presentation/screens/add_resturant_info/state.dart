@@ -1,3 +1,5 @@
+import '../../../models/food_type_model.dart';
+
 class RestaurantDetailsState {
   final String name;
   final String address;
@@ -14,6 +16,11 @@ class RestaurantDetailsState {
   final List<Map<String, dynamic>> restaurantTypes;
   final Map<String, dynamic>? selectedRestaurantType;
   final bool isLoadingRestaurantTypes;
+  
+  // New fields for food types
+  final List<FoodTypeModel> foodTypes;
+  final FoodTypeModel? selectedFoodType;
+  final bool isLoadingFoodTypes;
 
   RestaurantDetailsState({
     required this.name,
@@ -29,6 +36,9 @@ class RestaurantDetailsState {
     required this.restaurantTypes,
     this.selectedRestaurantType,
     required this.isLoadingRestaurantTypes,
+    required this.foodTypes,
+    this.selectedFoodType,
+    required this.isLoadingFoodTypes,
   });
 
   factory RestaurantDetailsState.initial() {
@@ -46,6 +56,9 @@ class RestaurantDetailsState {
       restaurantTypes: [],
       selectedRestaurantType: null,
       isLoadingRestaurantTypes: false,
+      foodTypes: [],
+      selectedFoodType: null,
+      isLoadingFoodTypes: false,
     );
   }
 
@@ -63,6 +76,9 @@ class RestaurantDetailsState {
     List<Map<String, dynamic>>? restaurantTypes,
     Map<String, dynamic>? selectedRestaurantType,
     bool? isLoadingRestaurantTypes,
+    List<FoodTypeModel>? foodTypes,
+    FoodTypeModel? selectedFoodType,
+    bool? isLoadingFoodTypes,
   }) {
     return RestaurantDetailsState(
       name: name ?? this.name,
@@ -78,6 +94,9 @@ class RestaurantDetailsState {
       restaurantTypes: restaurantTypes ?? this.restaurantTypes,
       selectedRestaurantType: selectedRestaurantType ?? this.selectedRestaurantType,
       isLoadingRestaurantTypes: isLoadingRestaurantTypes ?? this.isLoadingRestaurantTypes,
+      foodTypes: foodTypes ?? this.foodTypes,
+      selectedFoodType: selectedFoodType ?? this.selectedFoodType,
+      isLoadingFoodTypes: isLoadingFoodTypes ?? this.isLoadingFoodTypes,
     );
   }
 }

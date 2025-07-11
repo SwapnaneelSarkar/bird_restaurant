@@ -90,6 +90,7 @@ class Order {
   final String? customerPhone;
   final String? deliveryAddress;
   final List<OrderItem>? items;
+  final double deliveryFees;
 
   const Order({
     required this.id,
@@ -101,12 +102,13 @@ class Order {
     this.customerPhone,
     this.deliveryAddress,
     this.items,
+    this.deliveryFees = 0.0,
   });
 
   factory Order.fromJson(Map<String, dynamic> json) {
     // ENHANCED DEBUG: Check all possible status field names
     debugPrint('Order.fromJson: 🔍 DEBUGGING ORDER PARSING');
-    debugPrint('Order.fromJson: 🔍 Order ID: ${json['order_id'] ?? json['id']}');
+    debugPrint('Order.fromJson: 🔍 Order ID:  [33m${json['order_id'] ?? json['id']} [0m');
     debugPrint('Order.fromJson: 🔍 Available keys: ${json.keys.toList()}');
     debugPrint('Order.fromJson: 🔍 status field: ${json['status']}');
     debugPrint('Order.fromJson: 🔍 order_status field: ${json['order_status']}');
@@ -141,7 +143,7 @@ class Order {
     final order = Order(
       id: json['order_id'] ?? json['id'] ?? '',
       userId: json['user_id'] ?? '',
-      customerName: json['customer_name'] ?? json['customerName'] ?? 'Unknown Customer',
+      customerName: (json['user_name'] ?? json['customer_name'] ?? json['customerName'] ?? json['user_id'] ?? '').toString(),
       amount: double.tryParse(json['total_price']?.toString() ?? '0') ?? 
               double.tryParse(json['amount']?.toString() ?? '0') ?? 0.0,
       date: TimeUtils.parseToIST(json['created_at'] ?? json['date'] ?? ''),
@@ -151,9 +153,10 @@ class Order {
       items: json['items'] != null 
           ? (json['items'] as List).map((item) => OrderItem.fromJson(item)).toList()
           : null,
+      deliveryFees: double.tryParse(json['delivery_fees']?.toString() ?? '0') ?? 0.0,
     );
     
-    debugPrint('Order.fromJson: ✅ Final parsed order - ID: ${order.id}, Status: "${order.status}", Enum: ${order.orderStatus}');
+    debugPrint('Order.fromJson: ✅ Final parsed order - ID:  [33m${order.id} [0m, Status: "${order.status}", Enum: ${order.orderStatus}');
     
     return order;
   }
@@ -169,6 +172,7 @@ class Order {
       'customer_phone': customerPhone,
       'delivery_address': deliveryAddress,
       'items': items?.map((item) => item.toJson()).toList(),
+      'delivery_fees': deliveryFees,
     };
   }
 
@@ -181,10 +185,7 @@ class Order {
 
   // Get display name for customer
   String get displayCustomerName {
-    if (customerName.isEmpty || customerName == 'Unknown Customer') {
-      return customerPhone ?? 'Unknown Customer';
-    }
-    return customerName;
+    return customerName.isNotEmpty ? customerName : (customerPhone ?? '');
   }
 
   // Create a copy with updated values

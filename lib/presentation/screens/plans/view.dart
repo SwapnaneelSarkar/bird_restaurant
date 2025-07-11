@@ -362,10 +362,6 @@ class _PlanSelectionScreenState extends State<PlanSelectionScreen> {
           restaurantImageUrl: _restaurantInfo?['imageUrl'],
         ),
         appBar: AppBar(
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back, color: Colors.black87),
-            onPressed: () => Navigator.of(context).pop(),
-          ),
           automaticallyImplyLeading: false,
           elevation: 0,
           backgroundColor: Colors.white,

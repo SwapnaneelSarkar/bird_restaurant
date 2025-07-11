@@ -8,6 +8,8 @@ class AddDeliveryPartner extends DeliveryPartnersEvent {
   final String partnerId;
   final String phone;
   final String name;
+  final String username;
+  final String password;
   final String? licensePhotoPath;
   final String? vehicleDocumentPath;
 
@@ -15,7 +17,12 @@ class AddDeliveryPartner extends DeliveryPartnersEvent {
     required this.partnerId,
     required this.phone,
     required this.name,
+    required this.username,
+    required this.password,
     this.licensePhotoPath,
     this.vehicleDocumentPath,
   });
+
+  @override
+  List<Object?> get props => [partnerId, phone, name, username, password, licensePhotoPath, vehicleDocumentPath];
 } 

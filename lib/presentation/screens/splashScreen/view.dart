@@ -437,10 +437,11 @@ class _SplashViewState extends State<SplashView> with TickerProviderStateMixin {
     if (_isDisposed || !mounted) return;
     
     try {
-      developer.log('🔄 Navigating to delivery partner home screen', name: 'BirdRestaurant');
-      // TODO: Navigate to delivery partner home screen when implemented
-      // For now, navigate to auth success page
-      Navigator.of(context).pushReplacementNamed(Routes.deliveryPartnerAuthSuccess);
+      developer.log('🔄 Navigating to delivery partner dashboard', name: 'BirdRestaurant');
+      Navigator.of(context).pushNamedAndRemoveUntil(
+        Routes.deliveryPartnerDashboard,
+        (route) => false,
+      );
     } catch (e) {
       developer.log('❌ Error navigating to delivery partner home: $e', name: 'BirdRestaurant');
     }

@@ -306,12 +306,21 @@ class _Body extends StatelessWidget {
                   ),
                   SizedBox(height: vertPad),
 
-                  Text(
-                    'Legal Documents',
-                    style: TextStyle(
-                      fontFamily: FontConstants.fontFamily,
-                      fontSize: FontSize.s14,
-                      fontWeight: FontWeightManager.medium,
+                  RichText(
+                    text: TextSpan(
+                      text: 'Legal Documents',
+                      style: TextStyle(
+                        fontFamily: FontConstants.fontFamily,
+                        fontSize: FontSize.s14,
+                        fontWeight: FontWeightManager.medium,
+                        color: ColorManager.black,
+                      ),
+                      children: [
+                        TextSpan(
+                          text: ' *',
+                          style: TextStyle(color: Colors.red, fontWeight: FontWeightManager.semiBold),
+                        ),
+                      ],
                     ),
                   ),
                   SizedBox(height: h * 0.015),
@@ -351,12 +360,21 @@ class _Body extends StatelessWidget {
                   
                   SizedBox(height: vertPad),
 
-                  Text(
-                    'Restaurant Photos',
-                    style: TextStyle(
-                      fontFamily: FontConstants.fontFamily,
-                      fontSize: FontSize.s14,
-                      fontWeight: FontWeightManager.medium,
+                  RichText(
+                    text: TextSpan(
+                      text: 'Restaurant Photos',
+                      style: TextStyle(
+                        fontFamily: FontConstants.fontFamily,
+                        fontSize: FontSize.s14,
+                        fontWeight: FontWeightManager.medium,
+                        color: ColorManager.black,
+                      ),
+                      children: [
+                        TextSpan(
+                          text: ' *',
+                          style: TextStyle(color: Colors.red, fontWeight: FontWeightManager.semiBold),
+                        ),
+                      ],
                     ),
                   ),
                   SizedBox(height: h * 0.015),

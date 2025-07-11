@@ -53,7 +53,11 @@ class DeliveryPartnerAuthSuccessView extends StatelessWidget {
                     ),
                   ),
                   onPressed: () {
-                    Navigator.popUntil(context, (route) => route.isFirst);
+                    Navigator.pushNamedAndRemoveUntil(
+                      context,
+                      '/deliveryPartnerDashboard',
+                      (route) => false,
+                    );
                   },
                   child: Text(
                     'Go to Home',

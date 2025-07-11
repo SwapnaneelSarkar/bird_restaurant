@@ -219,7 +219,8 @@ class DeliveryPartnerOrdersService {
   }
 
   static Future<Map<String, dynamic>> updateOrderStatus(String orderId, String status) async {
-    final url = Uri.parse('$_baseUrl/partner/orders/$orderId/status');
+    final deliveryPartnerId = await DeliveryPartnerAuthService.getDeliveryPartnerId();
+    final url = Uri.parse('$_baseUrl/partner/orders/$orderId/status?partner_id=$deliveryPartnerId');
     print('[API] PUT: $url');
     print('[API] Request body: {"status": "$status"}');
     

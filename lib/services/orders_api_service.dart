@@ -154,7 +154,8 @@ class OrdersApiService {
         throw Exception('No authentication found. Please login again.');
       }
 
-      final url = Uri.parse('${ApiConstants.baseUrl}/partner/orders/$orderId/status');
+      final partnerId = await TokenService.getUserId();
+      final url = Uri.parse('${ApiConstants.baseUrl}/partner/orders/$orderId/status?partner_id=$partnerId');
       
       debugPrint('OrdersApiService: 🔄 Updating order status: $url');
       debugPrint('OrdersApiService: 📝 New status: $newStatus');

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../../models/food_type_model.dart';
 
 import '../../../ui_components/custom_button_locatin.dart';
 import '../../../ui_components/custom_button_slim.dart';
@@ -135,12 +136,20 @@ class _RestaurantDetailsBodyState extends State<_RestaurantDetailsBody> {
                 SizedBox(height: h * 0.03),
 
                 // Restaurant Name
-                Text(
-                  'Restaurant Name',
-                  style: GoogleFonts.poppins(
-                    fontSize: FontSize.s16,
-                    fontWeight: FontWeightManager.regular,
-                    color: ColorManager.black,
+                RichText(
+                  text: TextSpan(
+                    text: 'Restaurant Name',
+                    style: GoogleFonts.poppins(
+                      fontSize: FontSize.s16,
+                      fontWeight: FontWeightManager.regular,
+                      color: ColorManager.black,
+                    ),
+                    children: [
+                      TextSpan(
+                        text: ' *',
+                        style: GoogleFonts.poppins(color: Colors.red, fontWeight: FontWeightManager.semiBold),
+                      ),
+                    ],
                   ),
                 ),
                 SizedBox(height: h * 0.01),
@@ -169,12 +178,20 @@ class _RestaurantDetailsBodyState extends State<_RestaurantDetailsBody> {
                 SizedBox(height: h * 0.025),
 
                 // Complete Address
-                Text(
-                  'Complete Address',
-                  style: GoogleFonts.poppins(
-                    fontSize: FontSize.s16,
-                    fontWeight: FontWeightManager.regular,
-                    color: ColorManager.black,
+                RichText(
+                  text: TextSpan(
+                    text: 'Complete Address',
+                    style: GoogleFonts.poppins(
+                      fontSize: FontSize.s16,
+                      fontWeight: FontWeightManager.regular,
+                      color: ColorManager.black,
+                    ),
+                    children: [
+                      TextSpan(
+                        text: ' *',
+                        style: GoogleFonts.poppins(color: Colors.red, fontWeight: FontWeightManager.semiBold),
+                      ),
+                    ],
                   ),
                 ),
                 SizedBox(height: h * 0.01),
@@ -232,12 +249,20 @@ class _RestaurantDetailsBodyState extends State<_RestaurantDetailsBody> {
                 SizedBox(height: h * 0.03),
 
                 // Email
-                Text(
-                  'Email',
-                  style: GoogleFonts.poppins(
-                    fontSize: FontSize.s16,
-                    fontWeight: FontWeightManager.regular,
-                    color: ColorManager.black,
+                RichText(
+                  text: TextSpan(
+                    text: 'Email',
+                    style: GoogleFonts.poppins(
+                      fontSize: FontSize.s16,
+                      fontWeight: FontWeightManager.regular,
+                      color: ColorManager.black,
+                    ),
+                    children: [
+                      TextSpan(
+                        text: ' *',
+                        style: GoogleFonts.poppins(color: Colors.red, fontWeight: FontWeightManager.semiBold),
+                      ),
+                    ],
                   ),
                 ),
                 SizedBox(height: h * 0.01),
@@ -281,12 +306,20 @@ class _RestaurantDetailsBodyState extends State<_RestaurantDetailsBody> {
                 // Restaurant Type - NEW SECTION
                 SizedBox(height: h * 0.03),
                 
-                Text(
-                  'Restaurant Type',
-                  style: GoogleFonts.poppins(
-                    fontSize: FontSize.s16,
-                    fontWeight: FontWeightManager.regular,
-                    color: ColorManager.black,
+                RichText(
+                  text: TextSpan(
+                    text: 'Restaurant Type',
+                    style: GoogleFonts.poppins(
+                      fontSize: FontSize.s16,
+                      fontWeight: FontWeightManager.regular,
+                      color: ColorManager.black,
+                    ),
+                    children: [
+                      TextSpan(
+                        text: ' *',
+                        style: GoogleFonts.poppins(color: Colors.red, fontWeight: FontWeightManager.semiBold),
+                      ),
+                    ],
                   ),
                 ),
                 SizedBox(height: h * 0.01),
@@ -367,6 +400,113 @@ class _RestaurantDetailsBodyState extends State<_RestaurantDetailsBody> {
                             padding: EdgeInsets.only(top: 5),
                             child: Text(
                               'Restaurant type is required',
+                              style: TextStyle(
+                                color: Colors.red,
+                                fontSize: FontSize.s12,
+                              ),
+                            ),
+                          )
+                        : SizedBox.shrink();
+                  },
+                ),
+
+                // Food Types - NEW SECTION
+                SizedBox(height: h * 0.03),
+                
+                RichText(
+                  text: TextSpan(
+                    text: 'Food Types',
+                    style: GoogleFonts.poppins(
+                      fontSize: FontSize.s16,
+                      fontWeight: FontWeightManager.regular,
+                      color: ColorManager.black,
+                    ),
+                    children: [
+                      TextSpan(
+                        text: ' *',
+                        style: GoogleFonts.poppins(color: Colors.red, fontWeight: FontWeightManager.semiBold),
+                      ),
+                    ],
+                  ),
+                ),
+                SizedBox(height: h * 0.01),
+                BlocBuilder<RestaurantDetailsBloc, RestaurantDetailsState>(
+                  buildWhen: (p, c) => 
+                    p.foodTypes != c.foodTypes || 
+                    p.selectedFoodType != c.selectedFoodType ||
+                    p.isLoadingFoodTypes != c.isLoadingFoodTypes,
+                  builder: (context, state) {
+                    if (state.isLoadingFoodTypes) {
+                      return Container(
+                        height: 48,
+                        alignment: Alignment.center,
+                        child: SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: ColorManager.primary,
+                          ),
+                        ),
+                      );
+                    }
+                    
+                    return Container(
+                      padding: EdgeInsets.symmetric(horizontal: 16),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: Colors.grey.shade300,
+                        ),
+                      ),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<FoodTypeModel>(
+                          isExpanded: true,
+                          value: state.selectedFoodType,
+                          hint: Text(
+                            'Select food type',
+                            style: TextStyle(
+                              color: Colors.grey.shade600,
+                              fontSize: FontSize.s14,
+                            ),
+                          ),
+                          items: state.foodTypes.map<DropdownMenuItem<FoodTypeModel>>(
+                            (FoodTypeModel type) {
+                              return DropdownMenuItem<FoodTypeModel>(
+                                value: type,
+                                child: Text(
+                                  type.name,
+                                  style: TextStyle(
+                                    fontSize: FontSize.s14,
+                                    color: ColorManager.black,
+                                  ),
+                                ),
+                              );
+                            }
+                          ).toList(),
+                          onChanged: (FoodTypeModel? selectedType) {
+                            if (selectedType != null) {
+                              context.read<RestaurantDetailsBloc>().add(
+                                FoodTypeChanged(selectedType),
+                              );
+                            }
+                          },
+                        ),
+                      ),
+                    );
+                  },
+                ),
+                BlocBuilder<RestaurantDetailsBloc, RestaurantDetailsState>(
+                  buildWhen: (p, c) => 
+                    p.selectedFoodType != c.selectedFoodType || 
+                    p.isAttemptedSubmit != c.isAttemptedSubmit,
+                  builder: (context, state) {
+                    return state.selectedFoodType == null && state.isAttemptedSubmit
+                        ? Padding(
+                            padding: EdgeInsets.only(top: 5),
+                            child: Text(
+                              'Food type is required',
                               style: TextStyle(
                                 color: Colors.red,
                                 fontSize: FontSize.s12,
