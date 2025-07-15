@@ -21,6 +21,9 @@ class _DeliveryPartnerOrderDetailsViewState extends State<DeliveryPartnerOrderDe
   Future<Map<String, dynamic>?>? _userFuture;
   Future<Map<String, dynamic>?>? _restaurantFuture;
 
+  // Add a local flag to track if the order is delivered
+  bool _isLocallyDelivered = false;
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -201,6 +204,8 @@ class _DeliveryPartnerOrderDetailsViewState extends State<DeliveryPartnerOrderDe
   }
 
   void _showMarkAsDeliveredDialog(String orderId) {
+    // Prevent dialog if already delivered
+    if (_isLocallyDelivered) return;
     showDialog(
       context: context,
       builder: (BuildContext context) {
@@ -324,13 +329,16 @@ class _DeliveryPartnerOrderDetailsViewState extends State<DeliveryPartnerOrderDe
 
     try {
       final result = await DeliveryPartnerOrdersService.updateOrderStatus(orderId, 'DELIVERED');
-      
       // Close loading dialog
       if (mounted) {
         Navigator.of(context).pop();
       }
 
       if (result['success'] == true) {
+        // Set local delivered flag
+        setState(() {
+          _isLocallyDelivered = true;
+        });
         // Show success message
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -349,9 +357,7 @@ class _DeliveryPartnerOrderDetailsViewState extends State<DeliveryPartnerOrderDe
               duration: Duration(seconds: 3),
             ),
           );
-          
-          // Navigate back to dashboard
-          Navigator.of(context).pop();
+          // Optionally, you can refresh the order details here
         }
       } else {
         // Show error message
@@ -379,7 +385,6 @@ class _DeliveryPartnerOrderDetailsViewState extends State<DeliveryPartnerOrderDe
       if (mounted) {
         Navigator.of(context).pop();
       }
-      
       // Show error message
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1039,6 +1044,13 @@ class _DeliveryPartnerOrderDetailsViewState extends State<DeliveryPartnerOrderDe
                               iconColor: Colors.amber[800]!,
                               isHighlighted: true,
                             ),
+                            if (order['delivery_fees'] != null && order['delivery_fees'].toString() != '' && double.tryParse(order['delivery_fees'].toString()) != 0)
+                              _DetailRow(
+                                label: 'Delivery Fee',
+                                value: '₹${order['delivery_fees']}',
+                                icon: Icons.delivery_dining,
+                                iconColor: Colors.blue,
+                              ),
                             const Divider(height: 24),
                             _DetailRow(
                               label: 'Created At',
@@ -1118,7 +1130,7 @@ class _DeliveryPartnerOrderDetailsViewState extends State<DeliveryPartnerOrderDe
                       const SizedBox(height: 30),
                       
                       // Mark as Delivered Button
-                      if (order['order_status'] != 'DELIVERED' && order['order_status'] != 'CANCELLED')
+                      if (order['order_status'] != 'DELIVERED' && order['order_status'] != 'CANCELLED' && !_isLocallyDelivered)
                         SizedBox(
                           width: double.infinity,
                           child: ElevatedButton.icon(

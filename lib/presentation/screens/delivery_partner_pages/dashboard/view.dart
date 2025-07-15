@@ -564,16 +564,18 @@ class _OrderCard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 12),
-                  Icon(Icons.delivery_dining, color: Colors.blue[700], size: 18),
-                  const SizedBox(width: 4),
-                  Flexible(
-                    child: Text(
-                      'Delivery: ₹${order['delivery_fees']}',
-                      style: GoogleFonts.poppins(fontSize: FontSize.s14, fontWeight: FontWeightManager.medium),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                  if ((order['delivery_fees'] != null && order['delivery_fees'].toString() != '' && double.tryParse(order['delivery_fees'].toString()) != 0)) ...[
+                    Icon(Icons.delivery_dining, color: Colors.blue[700], size: 18),
+                    const SizedBox(width: 4),
+                    Flexible(
+                      child: Text(
+                        'Delivery: ₹${order['delivery_fees']}',
+                        style: GoogleFonts.poppins(fontSize: FontSize.s14, fontWeight: FontWeightManager.medium),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
-                  ),
+                  ],
                 ],
               ),
             ],

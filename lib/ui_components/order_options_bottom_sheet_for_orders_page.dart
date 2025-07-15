@@ -746,7 +746,8 @@ class _OrderDetailsStandaloneState extends State<OrderDetailsStandalone> {
             ),
             const SizedBox(height: 16),
             _buildSummaryRow('Subtotal', '₹${subtotal.toStringAsFixed(2)}'),
-            _buildSummaryRow('Delivery Fee', '₹${deliveryFee.toStringAsFixed(2)}'),
+            if (deliveryFee > 0)
+              _buildSummaryRow('Delivery Fee', '₹${deliveryFee.toStringAsFixed(2)}'),
             const Divider(),
             _buildSummaryRow('Total', '₹${total.toStringAsFixed(2)}', isTotal: true),
           ],

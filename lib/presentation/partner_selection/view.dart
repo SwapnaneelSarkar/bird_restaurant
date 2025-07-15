@@ -268,13 +268,13 @@ class _PartnerSelectionViewState extends State<PartnerSelectionView>
                           // Partner options section
                           Column(
                             children: [
-                              // Delivery Partner Option
+                              // Restaurant Partner Option
                               _buildPartnerOption(
                                 context: context,
-                                title: 'Enter as Delivery Partner',
-                                subtitle: 'Join our delivery network and start earning',
-                                icon: Icons.delivery_dining,
-                                onTap: () => _navigateToAuth('delivery'),
+                                title: 'Enter as Restaurant Partner',
+                                subtitle: 'List your restaurant and reach more customers',
+                                icon: Icons.restaurant,
+                                onTap: () => _navigateToAuth('restaurant'),
                                 delay: 200,
                               ),
                               
@@ -325,13 +325,13 @@ class _PartnerSelectionViewState extends State<PartnerSelectionView>
                               
                               const SizedBox(height: 24),
                               
-                              // Restaurant Partner Option
+                              // Delivery Partner Option
                               _buildPartnerOption(
                                 context: context,
-                                title: 'Enter as Restaurant Partner',
-                                subtitle: 'List your restaurant and reach more customers',
-                                icon: Icons.restaurant,
-                                onTap: () => _navigateToAuth('restaurant'),
+                                title: 'Enter as Delivery Partner',
+                                subtitle: 'Join our delivery network and start earning',
+                                icon: Icons.delivery_dining,
+                                onTap: () => _navigateToAuth('delivery'),
                                 delay: 400,
                               ),
                             ],

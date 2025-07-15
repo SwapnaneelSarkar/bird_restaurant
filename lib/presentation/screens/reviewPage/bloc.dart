@@ -24,6 +24,26 @@ class ReviewBloc extends Bloc<ReviewEvent, ReviewState> {
     on<ChangeSort>(_onChangeSort);
   }
 
+  // Helper function to sort reviews on frontend
+  List<Review> _sortReviews(List<Review> reviews, String sort) {
+    final sorted = List<Review>.from(reviews);
+    switch (sort) {
+      case 'newest':
+        sorted.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+        break;
+      case 'oldest':
+        sorted.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+        break;
+      case 'highest':
+        sorted.sort((a, b) => b.rating.compareTo(a.rating));
+        break;
+      case 'lowest':
+        sorted.sort((a, b) => a.rating.compareTo(b.rating));
+        break;
+    }
+    return sorted;
+  }
+
   Future<void> _onLoadReviews(LoadReviews event, Emitter<ReviewState> emit) async {
     emit(ReviewLoading());
     
@@ -47,10 +67,12 @@ class ReviewBloc extends Bloc<ReviewEvent, ReviewState> {
       );
 
       if (response != null) {
-        _allReviews = response['reviews'];
+        // Sort reviews on frontend
+        final sortedReviews = _sortReviews(response['reviews'], event.sort);
+        _allReviews = sortedReviews;
         
         emit(ReviewLoaded(
-          reviews: response['reviews'],
+          reviews: sortedReviews,
           averageRating: response['averageRating'],
           totalReviews: response['total'],
           currentPage: response['currentPage'],
@@ -91,11 +113,13 @@ class ReviewBloc extends Bloc<ReviewEvent, ReviewState> {
         );
 
         if (response != null) {
+          // Sort new reviews and append
           final List<Review> newReviews = [..._allReviews, ...response['reviews']];
-          _allReviews = newReviews;
+          final sortedReviews = _sortReviews(newReviews, currentState.currentSort);
+          _allReviews = sortedReviews;
 
           emit(currentState.copyWith(
-            reviews: newReviews,
+            reviews: sortedReviews,
             currentPage: response['currentPage'],
             hasMore: response['currentPage'] < response['totalPages'],
             isLoadingMore: false,
@@ -129,10 +153,11 @@ class ReviewBloc extends Bloc<ReviewEvent, ReviewState> {
         );
 
         if (response != null) {
-          _allReviews = response['reviews'];
+          final sortedReviews = _sortReviews(response['reviews'], currentState.currentSort);
+          _allReviews = sortedReviews;
 
           emit(currentState.copyWith(
-            reviews: response['reviews'],
+            reviews: sortedReviews,
             averageRating: response['averageRating'],
             totalReviews: response['total'],
             currentPage: response['currentPage'],
@@ -171,10 +196,11 @@ class ReviewBloc extends Bloc<ReviewEvent, ReviewState> {
         );
 
         if (response != null) {
-          _allReviews = response['reviews'];
+          final sortedReviews = _sortReviews(response['reviews'], event.sort);
+          _allReviews = sortedReviews;
 
           emit(ReviewLoaded(
-            reviews: response['reviews'],
+            reviews: sortedReviews,
             averageRating: response['averageRating'],
             totalReviews: response['total'],
             currentPage: response['currentPage'],

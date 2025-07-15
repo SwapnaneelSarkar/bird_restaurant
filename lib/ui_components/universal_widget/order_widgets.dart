@@ -394,29 +394,32 @@ class OrderDetailsWidget extends StatelessWidget {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 8),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Delivery Fees',
-                        style: TextStyle(
-                          color: Colors.grey[700],
-                          fontSize: 15,
-                          fontFamily: FontFamily.Montserrat,
+                  // Delivery Fees row (only if > 0)
+                  if (orderDetails.deliveryFeesDouble > 0) ...[
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Delivery Fees',
+                          style: TextStyle(
+                            color: Colors.grey[700],
+                            fontSize: 15,
+                            fontFamily: FontFamily.Montserrat,
+                          ),
                         ),
-                      ),
-                      Text(
-                        orderDetails.formattedDeliveryFees(symbol),
-                        style: TextStyle(
-                          color: ColorManager.black,
-                          fontSize: 15,
-                          fontWeight: FontWeightManager.medium,
-                          fontFamily: FontFamily.Montserrat,
+                        Text(
+                          orderDetails.formattedDeliveryFees(symbol),
+                          style: TextStyle(
+                            color: ColorManager.black,
+                            fontSize: 15,
+                            fontWeight: FontWeightManager.medium,
+                            fontFamily: FontFamily.Montserrat,
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                  ],
                   const Divider(height: 24),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
