@@ -158,6 +158,70 @@ class DeliveryPartnersService {
     }
   }
 
+  Future<ApiResponse> updateDeliveryPartner({
+    required String deliveryPartnerId,
+    required String name,
+    required String phone,
+    String? email,
+    String? vehicleType,
+    String? vehicleNumber,
+    String? licensePhotoPath,
+    String? vehicleDocumentPath,
+    required String token,
+  }) async {
+    try {
+      final url = Uri.parse('${ApiConstants.baseUrl}/delivery-partner/$deliveryPartnerId');
+      debugPrint('[API] UPDATE Delivery Partner');
+      debugPrint('URL: ' + url.toString());
+      debugPrint('Method: PUT');
+      var request = http.MultipartRequest('PUT', url);
+      request.headers['Authorization'] = 'Bearer $token';
+      request.fields['name'] = name;
+      request.fields['phone'] = phone;
+      if (email != null) request.fields['email'] = email;
+      if (vehicleType != null) request.fields['vehicle_type'] = vehicleType;
+      if (vehicleNumber != null) request.fields['vehicle_number'] = vehicleNumber;
+      if (licensePhotoPath != null && licensePhotoPath.isNotEmpty) {
+        request.files.add(await http.MultipartFile.fromPath('license_photo', licensePhotoPath));
+      }
+      if (vehicleDocumentPath != null && vehicleDocumentPath.isNotEmpty) {
+        request.files.add(await http.MultipartFile.fromPath('vehicle_document', vehicleDocumentPath));
+      }
+      debugPrint('Headers: ' + request.headers.toString());
+      debugPrint('Fields: ' + request.fields.toString());
+      debugPrint('Files: ' + request.files.map((f) => f.field + ': ' + f.filename.toString()).toList().toString());
+      final streamedResponse = await request.send();
+      final response = await http.Response.fromStream(streamedResponse);
+      debugPrint('Status Code: ' + response.statusCode.toString());
+      debugPrint('Raw Response Body: ' + response.body);
+      if (response.statusCode == 200) {
+        final responseBody = jsonDecode(response.body);
+        return ApiResponse(
+          success: responseBody['status'] == 'SUCCESS',
+          data: responseBody['data'],
+          message: responseBody['message'] ?? '',
+          status: responseBody['status'] ?? '',
+        );
+      } else {
+        final responseBody = jsonDecode(response.body);
+        return ApiResponse(
+          success: false,
+          data: null,
+          message: responseBody['message'] ?? 'Failed to update delivery partner',
+          status: responseBody['status'] ?? 'ERROR',
+        );
+      }
+    } catch (e) {
+      debugPrint('Error updating delivery partner: $e');
+      return ApiResponse(
+        success: false,
+        data: null,
+        message: 'Failed to update delivery partner. Please try again.',
+        status: 'ERROR',
+      );
+    }
+  }
+
   Future<ApiResponse> deleteDeliveryPartner(String deliveryPartnerId, String token) async {
     try {
       final url = Uri.parse('${ApiConstants.baseUrl}/partner/delivery-partner/$deliveryPartnerId');

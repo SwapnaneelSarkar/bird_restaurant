@@ -15,6 +15,7 @@ class DeliveryPartnersBloc extends Bloc<DeliveryPartnersEvent, DeliveryPartnersS
     on<LoadDeliveryPartners>(_onLoadDeliveryPartners);
     on<RefreshDeliveryPartners>(_onRefreshDeliveryPartners);
     on<AddDeliveryPartner>(_onAddDeliveryPartner);
+    on<EditDeliveryPartner>(_onEditDeliveryPartner);
   }
 
   Future<void> _onLoadDeliveryPartners(
@@ -96,6 +97,44 @@ class DeliveryPartnersBloc extends Bloc<DeliveryPartnersEvent, DeliveryPartnersS
       }
     } catch (e) {
       emit(DeliveryPartnersError(e.toString(), partners: currentPartners));
+    }
+  }
+
+  Future<void> _onEditDeliveryPartner(
+    EditDeliveryPartner event,
+    Emitter<DeliveryPartnersState> emit,
+  ) async {
+    List<DeliveryPartner> currentPartners = [];
+    if (state is DeliveryPartnersLoaded) {
+      final currentState = state as DeliveryPartnersLoaded;
+      currentPartners = currentState.partners;
+    }
+    emit(DeliveryPartnersLoading());
+    try {
+      final token = await TokenService.getToken();
+      if (token == null) {
+        emit(DeliveryPartnerEditError('No token found. Please login again.'));
+        return;
+      }
+      final response = await _deliveryPartnersService.updateDeliveryPartner(
+        deliveryPartnerId: event.deliveryPartnerId,
+        name: event.name,
+        phone: event.phone,
+        email: event.email,
+        vehicleType: event.vehicleType,
+        vehicleNumber: event.vehicleNumber,
+        licensePhotoPath: event.licensePhotoPath,
+        vehicleDocumentPath: event.vehicleDocumentPath,
+        token: token,
+      );
+      if (response.success) {
+        add(RefreshDeliveryPartners());
+        emit(DeliveryPartnerEdited());
+      } else {
+        emit(DeliveryPartnerEditError(response.message ?? 'Failed to edit delivery partner'));
+      }
+    } catch (e) {
+      emit(DeliveryPartnerEditError(e.toString()));
     }
   }
 } 

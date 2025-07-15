@@ -14,6 +14,7 @@ import '../../../ui_components/universal_widget/topbar.dart';
 import 'bloc.dart';
 import 'event.dart';
 import 'state.dart';
+import '../../../models/catagory_model.dart';
 
 class EditProductView extends StatefulWidget {
   final MenuItem menuItem;
@@ -201,49 +202,70 @@ class _EditProductViewState extends State<EditProductView> {
             ),
           ),
           const SizedBox(height: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: ColorManager.grey),
-            ),
-            child: state.categories.isEmpty
-                ? Container(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    child: Row(
-                      children: [
-                        SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(ColorManager.primary),
-                          ),
+          Builder(
+            builder: (context) {
+              // Build a list that always includes the current categoryId
+              final List<CategoryModel> allCategories = List<CategoryModel>.from(state.categories);
+              final String? currentCategoryId = state.categoryId;
+              debugPrint('Dropdown: state.categories = ' + state.categories.map((c) => '[id: ' + c.id + ', name: ' + c.name + ']').toList().toString());
+              debugPrint('Dropdown: currentCategoryId = $currentCategoryId');
+              if (currentCategoryId != null &&
+                  currentCategoryId.isNotEmpty &&
+                  !allCategories.any((cat) => cat.id == currentCategoryId)) {
+                debugPrint('Dropdown: Adding unknown category for id $currentCategoryId');
+                allCategories.add(CategoryModel(
+                  id: currentCategoryId,
+                  name: 'Unknown (id: $currentCategoryId)',
+                ));
+              }
+              debugPrint('Dropdown: allCategories = ' + allCategories.map((c) => '[id: ' + c.id + ', name: ' + c.name + ']').toList().toString());
+              return Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: ColorManager.grey),
+                ),
+                child: allCategories.isEmpty
+                    ? Container(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        child: Row(
+                          children: [
+                            SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(ColorManager.primary),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            const Text('Loading categories...'),
+                          ],
                         ),
-                        const SizedBox(width: 12),
-                        const Text('Loading categories...'),
-                      ],
-                    ),
-                  )
-                : DropdownButtonHideUnderline(
-                    child: DropdownButton<String>(
-                      isExpanded: true,
-                      value: state.category.isEmpty ? null : state.category,
-                      hint: const Text('Select category'),
-                      items: state.categories.map((category) {
-                        return DropdownMenuItem<String>(
-                          value: category.name.toLowerCase().replaceAll(' ', '-'),
-                          child: Text(category.name),
-                        );
-                      }).toList(),
-                      onChanged: (String? newValue) {
-                        if (newValue != null) {
-                          context.read<EditProductBloc>().add(ProductCategoryChangedEvent(newValue));
-                        }
-                      },
-                    ),
-                  ),
+                      )
+                    : DropdownButtonHideUnderline(
+                        child: DropdownButton<String>(
+                          isExpanded: true,
+                          value: (currentCategoryId != null && currentCategoryId.isNotEmpty) ? currentCategoryId : null,
+                          hint: const Text('Select category'),
+                          items: allCategories.map((category) {
+                            return DropdownMenuItem<String>(
+                              value: category.id,
+                              child: Text(category.name),
+                            );
+                          }).toList(),
+                          onChanged: (String? newId) {
+                            if (newId != null) {
+                              final selected = allCategories.firstWhere((cat) => cat.id == newId);
+                              debugPrint('Dropdown: User selected id $newId, name ${selected.name}');
+                              context.read<EditProductBloc>().add(ProductCategoryChangedEvent(selected.name, selected.id));
+                            }
+                          },
+                        ),
+                      ),
+              );
+            },
           ),
           const SizedBox(height: 16),
           

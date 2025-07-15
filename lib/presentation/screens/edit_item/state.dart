@@ -20,6 +20,7 @@ class EditProductFormState extends EditProductState {
   final String name;
   final String description;
   final String category;
+  final String? categoryId;
   final String price;
   final bool isVeg;
   final File? image;
@@ -34,6 +35,7 @@ class EditProductFormState extends EditProductState {
     required this.name,
     required this.description,
     required this.category,
+    this.categoryId,
     required this.price,
     required this.isVeg,
     this.image,
@@ -46,7 +48,7 @@ class EditProductFormState extends EditProductState {
   
   @override
   List<Object?> get props => [
-    menuId, name, description, category, price, isVeg, 
+    menuId, name, description, category, categoryId, price, isVeg, 
     image, imageUrl, categories, isSubmitting, isSuccess, errorMessage
   ];
   
@@ -55,6 +57,7 @@ class EditProductFormState extends EditProductState {
     String? name,
     String? description,
     String? category,
+    String? categoryId,
     String? price,
     bool? isVeg,
     File? image,
@@ -69,6 +72,7 @@ class EditProductFormState extends EditProductState {
       name: name ?? this.name,
       description: description ?? this.description,
       category: category ?? this.category,
+      categoryId: categoryId ?? this.categoryId,
       price: price ?? this.price,
       isVeg: isVeg ?? this.isVeg,
       image: image ?? this.image,

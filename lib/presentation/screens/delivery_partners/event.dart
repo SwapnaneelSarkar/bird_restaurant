@@ -27,4 +27,29 @@ class AddDeliveryPartner extends DeliveryPartnersEvent {
 
   @override
   List<Object?> get props => [partnerId, phone, name, email, username, password, licensePhotoPath, vehicleDocumentPath];
+}
+
+class EditDeliveryPartner extends DeliveryPartnersEvent {
+  final String deliveryPartnerId;
+  final String name;
+  final String phone;
+  final String? email;
+  final String? vehicleType;
+  final String? vehicleNumber;
+  final String? licensePhotoPath;
+  final String? vehicleDocumentPath;
+
+  EditDeliveryPartner({
+    required this.deliveryPartnerId,
+    required this.name,
+    required this.phone,
+    this.email,
+    this.vehicleType,
+    this.vehicleNumber,
+    this.licensePhotoPath,
+    this.vehicleDocumentPath,
+  });
+
+  @override
+  List<Object?> get props => [deliveryPartnerId, name, phone, email, vehicleType, vehicleNumber, licensePhotoPath, vehicleDocumentPath];
 } 

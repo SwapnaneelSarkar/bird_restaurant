@@ -25,4 +25,11 @@ class DeliveryPartnersRefreshing extends DeliveryPartnersState {
   DeliveryPartnersRefreshing(this.partners);
 }
 
-class DeliveryPartnerAdded extends DeliveryPartnersState {} 
+class DeliveryPartnerAdded extends DeliveryPartnersState {}
+
+class DeliveryPartnerEdited extends DeliveryPartnersState {}
+
+class DeliveryPartnerEditError extends DeliveryPartnersState {
+  final String message;
+  DeliveryPartnerEditError(this.message);
+} 

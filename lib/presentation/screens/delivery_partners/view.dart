@@ -93,6 +93,16 @@ class _DeliveryPartnersViewState extends State<DeliveryPartnersView> {
                     if (Navigator.canPop(context)) {
                       Navigator.pop(context); // Close modal on success
                     }
+                  } else if (state is DeliveryPartnerEdited) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Delivery partner updated successfully!'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                    if (Navigator.canPop(context)) {
+                      Navigator.pop(context); // Close modal on success
+                    }
                   } else if (state is DeliveryPartnersError) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
@@ -345,6 +355,13 @@ class _DeliveryPartnersViewState extends State<DeliveryPartnersView> {
                         ),
                         const SizedBox(width: 8),
                         IconButton(
+                          icon: Icon(Icons.edit, color: ColorManager.primary),
+                          tooltip: 'Edit Partner',
+                          onPressed: () {
+                            _showEditPartnerModal(context, partner, context.read<DeliveryPartnersBloc>());
+                          },
+                        ),
+                        IconButton(
                           icon: Icon(Icons.delete_outline, color: ColorManager.primary),
                           tooltip: 'Delete Partner',
                           onPressed: () async {
@@ -430,6 +447,20 @@ class _DeliveryPartnersViewState extends State<DeliveryPartnersView> {
       builder: (context) {
         return _AddPartnerBottomSheet(
           partnerId: partnerId,
+          bloc: bloc,
+        );
+      },
+    );
+  }
+
+  void _showEditPartnerModal(BuildContext context, DeliveryPartner partner, DeliveryPartnersBloc bloc) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return _EditPartnerBottomSheet(
+          partner: partner,
           bloc: bloc,
         );
       },
@@ -1266,6 +1297,324 @@ class _AddPartnerBottomSheetState extends State<_AddPartnerBottomSheet> {
                         )
                       : const Text(
                           'Add Partner',
+                          style: TextStyle(
+                            fontSize: FontSize.s16,
+                            fontWeight: FontWeightManager.medium,
+                          ),
+                        ),
+                ),
+              ),
+              const SizedBox(height: 20),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+} 
+
+class _EditPartnerBottomSheet extends StatefulWidget {
+  final DeliveryPartner partner;
+  final DeliveryPartnersBloc bloc;
+
+  const _EditPartnerBottomSheet({required this.partner, required this.bloc});
+
+  @override
+  State<_EditPartnerBottomSheet> createState() => _EditPartnerBottomSheetState();
+}
+
+class _EditPartnerBottomSheetState extends State<_EditPartnerBottomSheet> {
+  final ImagePicker _imagePicker = ImagePicker();
+  final GlobalKey<FormState> formKey = GlobalKey<FormState>();
+  late String name;
+  late String phone;
+  late String? email;
+  late String? vehicleType;
+  late String? vehicleNumber;
+  File? licensePhotoFile;
+  File? vehicleDocumentFile;
+  bool isSubmitting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    name = widget.partner.name;
+    phone = widget.partner.phone;
+    email = widget.partner.email;
+    vehicleType = widget.partner.vehicleType;
+    vehicleNumber = widget.partner.vehicleNumber;
+    // License and vehicle doc are URLs, not files, so leave as null unless changed
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+        left: 16,
+        right: 16,
+        top: 24,
+      ),
+      child: Form(
+        key: formKey,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Edit Delivery Partner',
+                    style: TextStyle(
+                      fontFamily: FontConstants.fontFamily,
+                      fontSize: FontSize.s18,
+                      fontWeight: FontWeightManager.semiBold,
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.close),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              // Name Field
+              Text('Name *', style: TextStyle(fontFamily: FontConstants.fontFamily, fontSize: FontSize.s14, fontWeight: FontWeightManager.medium)),
+              const SizedBox(height: 8),
+              TextFormField(
+                initialValue: name,
+                decoration: InputDecoration(
+                  hintText: 'Enter delivery partner name',
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey[300]!)),
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey[300]!)),
+                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: ColorManager.primary)),
+                ),
+                validator: (value) => value == null || value.isEmpty ? 'Name is required' : null,
+                onChanged: (value) => name = value,
+              ),
+              const SizedBox(height: 20),
+              // Email Field
+              Text('Email', style: TextStyle(fontFamily: FontConstants.fontFamily, fontSize: FontSize.s14, fontWeight: FontWeightManager.medium)),
+              const SizedBox(height: 8),
+              TextFormField(
+                initialValue: email,
+                decoration: InputDecoration(
+                  hintText: 'Enter email address',
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey[300]!)),
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey[300]!)),
+                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: ColorManager.primary)),
+                ),
+                keyboardType: TextInputType.emailAddress,
+                validator: (value) {
+                  if (value != null && value.isNotEmpty && !RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
+                    return 'Please enter a valid email address';
+                  }
+                  return null;
+                },
+                onChanged: (value) => email = value.trim(),
+              ),
+              const SizedBox(height: 20),
+              // Phone Field
+              Text('Phone *', style: TextStyle(fontFamily: FontConstants.fontFamily, fontSize: FontSize.s14, fontWeight: FontWeightManager.medium)),
+              const SizedBox(height: 8),
+              TextFormField(
+                initialValue: phone,
+                enabled: false, // Disable editing phone number
+                decoration: InputDecoration(
+                  hintText: 'Enter phone number',
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey[300]!)),
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey[300]!)),
+                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: ColorManager.primary)),
+                ),
+                keyboardType: TextInputType.phone,
+                validator: (value) {
+                  final trimmed = value?.trim() ?? '';
+                  if (trimmed.isEmpty) {
+                    return 'Phone is required';
+                  }
+                  if (trimmed.length != 10) {
+                    return 'Phone number must be exactly 10 digits';
+                  }
+                  if (!RegExp(r'^\d{10}$').hasMatch(trimmed)) {
+                    return 'Phone number must contain only digits';
+                  }
+                  return null;
+                },
+                onChanged: (value) => phone = value.trim(),
+              ),
+              const SizedBox(height: 20),
+              // Vehicle Type
+              Text('Vehicle Type', style: TextStyle(fontFamily: FontConstants.fontFamily, fontSize: FontSize.s14, fontWeight: FontWeightManager.medium)),
+              const SizedBox(height: 8),
+              TextFormField(
+                initialValue: vehicleType,
+                decoration: InputDecoration(
+                  hintText: 'Enter vehicle type',
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey[300]!)),
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey[300]!)),
+                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: ColorManager.primary)),
+                ),
+                onChanged: (value) => vehicleType = value,
+              ),
+              const SizedBox(height: 20),
+              // Vehicle Number
+              Text('Vehicle Number', style: TextStyle(fontFamily: FontConstants.fontFamily, fontSize: FontSize.s14, fontWeight: FontWeightManager.medium)),
+              const SizedBox(height: 8),
+              TextFormField(
+                initialValue: vehicleNumber,
+                decoration: InputDecoration(
+                  hintText: 'Enter vehicle number',
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey[300]!)),
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey[300]!)),
+                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: ColorManager.primary)),
+                ),
+                onChanged: (value) => vehicleNumber = value,
+              ),
+              const SizedBox(height: 20),
+              // License Photo
+              Text('License Photo (Optional)', style: TextStyle(fontFamily: FontConstants.fontFamily, fontSize: FontSize.s14, fontWeight: FontWeightManager.medium)),
+              const SizedBox(height: 8),
+              GestureDetector(
+                onTap: () async {
+                  final pickedFile = await _imagePicker.pickImage(
+                    source: ImageSource.gallery,
+                    maxWidth: 1000,
+                    maxHeight: 1000,
+                  );
+                  if (pickedFile != null) {
+                    setState(() {
+                      licensePhotoFile = File(pickedFile.path);
+                    });
+                  }
+                },
+                child: Container(
+                  width: double.infinity,
+                  height: 60,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    border: Border.all(
+                      color: licensePhotoFile != null ? ColorManager.primary : Colors.grey[300]!,
+                      width: 1,
+                    ),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Row(
+                    children: [
+                      const SizedBox(width: 14),
+                      Icon(Icons.upload_file, color: ColorManager.primary),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Text(
+                          licensePhotoFile != null
+                              ? licensePhotoFile!.path.split('/').last
+                              : (widget.partner.licensePhoto != null ? 'Current: ${widget.partner.licensePhoto!.split('/').last}' : 'Select License Photo (Optional)'),
+                          style: TextStyle(fontFamily: FontConstants.fontFamily, fontSize: FontSize.s14, color: Colors.grey[700]),
+                        ),
+                      ),
+                      if (licensePhotoFile != null || widget.partner.licensePhoto != null)
+                        const Icon(Icons.check_circle, color: Colors.green),
+                      const SizedBox(width: 14),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+              // Vehicle Document
+              Text('Vehicle Document (Optional)', style: TextStyle(fontFamily: FontConstants.fontFamily, fontSize: FontSize.s14, fontWeight: FontWeightManager.medium)),
+              const SizedBox(height: 8),
+              GestureDetector(
+                onTap: () async {
+                  final pickedFile = await _imagePicker.pickImage(
+                    source: ImageSource.gallery,
+                    maxWidth: 1000,
+                    maxHeight: 1000,
+                  );
+                  if (pickedFile != null) {
+                    setState(() {
+                      vehicleDocumentFile = File(pickedFile.path);
+                    });
+                  }
+                },
+                child: Container(
+                  width: double.infinity,
+                  height: 60,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    border: Border.all(
+                      color: vehicleDocumentFile != null ? ColorManager.primary : Colors.grey[300]!,
+                      width: 1,
+                    ),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Row(
+                    children: [
+                      const SizedBox(width: 14),
+                      Icon(Icons.upload_file, color: ColorManager.primary),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Text(
+                          vehicleDocumentFile != null
+                              ? vehicleDocumentFile!.path.split('/').last
+                              : (widget.partner.vehicleDocument != null ? 'Current: ${widget.partner.vehicleDocument!.split('/').last}' : 'Select Vehicle Document (Optional)'),
+                          style: TextStyle(fontFamily: FontConstants.fontFamily, fontSize: FontSize.s14, color: Colors.grey[700]),
+                        ),
+                      ),
+                      if (vehicleDocumentFile != null || widget.partner.vehicleDocument != null)
+                        const Icon(Icons.check_circle, color: Colors.green),
+                      const SizedBox(width: 14),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 30),
+              // Submit Button
+              SizedBox(
+                width: double.infinity,
+                height: 50,
+                child: ElevatedButton(
+                  onPressed: isSubmitting
+                      ? null
+                      : () async {
+                          if (formKey.currentState!.validate()) {
+                            setState(() => isSubmitting = true);
+                            widget.bloc.add(
+                              EditDeliveryPartner(
+                                deliveryPartnerId: widget.partner.deliveryPartnerId,
+                                name: name,
+                                phone: phone,
+                                email: email,
+                                vehicleType: vehicleType,
+                                vehicleNumber: vehicleNumber,
+                                licensePhotoPath: licensePhotoFile?.path,
+                                vehicleDocumentPath: vehicleDocumentFile?.path,
+                              ),
+                            );
+                          }
+                        },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: ColorManager.primary,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  child: isSubmitting
+                      ? SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
+                          ),
+                        )
+                      : const Text(
+                          'Save Changes',
                           style: TextStyle(
                             fontSize: FontSize.s16,
                             fontWeight: FontWeightManager.medium,

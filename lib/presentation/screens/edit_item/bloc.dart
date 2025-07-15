@@ -28,44 +28,50 @@ class EditProductBloc extends Bloc<EditProductEvent, EditProductState> {
 
   void _onInitialize(EditProductInitEvent event, Emitter<EditProductState> emit) async {
     final menuItem = event.menuItem;
-    
     // Initially emit a state with current product data and empty categories list
     emit(EditProductFormState(
       menuId: menuItem.menuId,
       name: menuItem.name,
       description: menuItem.description,
       category: menuItem.category,
+      categoryId: null,
       price: menuItem.price.toString(),
       isVeg: menuItem.isVeg,
       imageUrl: menuItem.imageUrl,
       categories: [],
     ));
-    
     try {
       // Fetch categories from API
       final categories = await _fetchCategories();
-      
-      // Check if current category exists in fetched categories
-      final currentCategoryExists = categories.any((cat) => 
-        cat.name.toLowerCase() == menuItem.category.toLowerCase() ||
-        cat.id.toString() == menuItem.category
-      );
-      
-      // If current category doesn't exist, add it to the list
-      List<CategoryModel> finalCategories = List.from(categories);
-      if (!currentCategoryExists && menuItem.category.isNotEmpty) {
-        // Create a temporary category model for the current category
-        finalCategories.add(CategoryModel(
-          id: '-1', // Temporary ID as string
-          name: _formatCategoryForDisplay(menuItem.category),
-        ));
+      // Find the category id for the current menu item
+      String? selectedCategoryId;
+      bool found = false;
+      for (final cat in categories) {
+        if (cat.name.toLowerCase() == menuItem.category.toLowerCase() || cat.id == menuItem.category) {
+          selectedCategoryId = cat.id;
+          found = true;
+          break;
+        }
       }
-      
+      // If not found and menuItem.category is not empty, add a temporary category
+      List<CategoryModel> finalCategories = List.from(categories);
+      if (!found && menuItem.category.isNotEmpty) {
+        finalCategories.add(CategoryModel(
+          id: menuItem.category,
+          name: 'Unknown (id: ${menuItem.category})',
+        ));
+        selectedCategoryId = menuItem.category;
+      }
+      // If menuItem.category is empty or not found, set selectedCategoryId to ''
+      if (selectedCategoryId == null) {
+        selectedCategoryId = '';
+      }
       emit(EditProductFormState(
         menuId: menuItem.menuId,
         name: menuItem.name,
         description: menuItem.description,
         category: menuItem.category,
+        categoryId: selectedCategoryId,
         price: menuItem.price.toString(),
         isVeg: menuItem.isVeg,
         imageUrl: menuItem.imageUrl,
@@ -77,11 +83,12 @@ class EditProductBloc extends Bloc<EditProductEvent, EditProductState> {
         name: menuItem.name,
         description: menuItem.description,
         category: menuItem.category,
+        categoryId: null,
         price: menuItem.price.toString(),
         isVeg: menuItem.isVeg,
         imageUrl: menuItem.imageUrl,
         categories: [],
-        errorMessage: 'Failed to load categories: ${e.toString()}',
+        errorMessage: 'Failed to load categories:  [31m${e.toString()} [0m',
       ));
     }
   }
@@ -162,7 +169,7 @@ class EditProductBloc extends Bloc<EditProductEvent, EditProductState> {
   void _onCategoryChanged(ProductCategoryChangedEvent event, Emitter<EditProductState> emit) {
     if (state is EditProductFormState) {
       final currentState = state as EditProductFormState;
-      emit(currentState.copyWith(category: event.category));
+      emit(currentState.copyWith(category: event.categoryName, categoryId: event.categoryId));
     }
   }
 
@@ -190,37 +197,31 @@ class EditProductBloc extends Bloc<EditProductEvent, EditProductState> {
   Future<void> _onSubmitProduct(SubmitEditProductEvent event, Emitter<EditProductState> emit) async {
     if (state is EditProductFormState) {
       final currentState = state as EditProductFormState;
-      
       // Validation
       if (currentState.name.isEmpty) {
         emit(currentState.copyWith(errorMessage: 'Product name is required'));
         return;
       }
-      
-      if (currentState.category.isEmpty) {
+      if (currentState.categoryId == null || currentState.categoryId!.isEmpty) {
         emit(currentState.copyWith(errorMessage: 'Please select a category'));
         return;
       }
-      
       if (currentState.price.isEmpty || double.tryParse(currentState.price) == null) {
         emit(currentState.copyWith(errorMessage: 'Please enter a valid price'));
         return;
       }
-      
       // Start submission
       emit(currentState.copyWith(isSubmitting: true, errorMessage: null));
-      
       try {
         final response = await _updateMenuItem(
           menuId: currentState.menuId,
           name: currentState.name,
           description: currentState.description,
-          category: currentState.category,
+          categoryId: currentState.categoryId!,
           price: currentState.price,
           isVeg: currentState.isVeg,
           image: currentState.image,
         );
-        
         if (response.status == 'SUCCESS') {
           // Success
           emit(currentState.copyWith(isSubmitting: false, isSuccess: true));
@@ -246,7 +247,7 @@ class EditProductBloc extends Bloc<EditProductEvent, EditProductState> {
     required String menuId,
     required String name,
     required String description,
-    required String category,
+    required String categoryId,
     required String price,
     required bool isVeg,
     File? image,
@@ -267,7 +268,7 @@ class EditProductBloc extends Bloc<EditProductEvent, EditProductState> {
         'price': price,
         'available': 'true',
         'description': description,
-        'category': category,
+        'category': categoryId,
         'isVeg': isVeg.toString(),
         'isTaxIncluded': 'true',
         'isCancellable': 'false',

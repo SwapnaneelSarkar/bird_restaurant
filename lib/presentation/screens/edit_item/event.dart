@@ -36,11 +36,12 @@ class ProductDescriptionChangedEvent extends EditProductEvent {
 }
 
 class ProductCategoryChangedEvent extends EditProductEvent {
-  final String category;
-  const ProductCategoryChangedEvent(this.category);
+  final String categoryName;
+  final String categoryId;
+  const ProductCategoryChangedEvent(this.categoryName, this.categoryId);
   
   @override
-  List<Object?> get props => [category];
+  List<Object?> get props => [categoryName, categoryId];
 }
 
 class ProductPriceChangedEvent extends EditProductEvent {
