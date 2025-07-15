@@ -56,7 +56,7 @@ class EditProductBloc extends Bloc<EditProductEvent, EditProductState> {
       if (!currentCategoryExists && menuItem.category.isNotEmpty) {
         // Create a temporary category model for the current category
         finalCategories.add(CategoryModel(
-          id: -1, // Temporary ID
+          id: '-1', // Temporary ID as string
           name: _formatCategoryForDisplay(menuItem.category),
         ));
       }

@@ -219,8 +219,8 @@ class DeliveryPartnerOrdersService {
   }
 
   static Future<Map<String, dynamic>> updateOrderStatus(String orderId, String status) async {
-    final deliveryPartnerId = await DeliveryPartnerAuthService.getDeliveryPartnerId();
-    final url = Uri.parse('$_baseUrl/partner/orders/$orderId/status?partner_id=$deliveryPartnerId');
+    final partnerId = await DeliveryPartnerAuthService.getDeliveryPartnerPartnerId();
+    final url = Uri.parse('$_baseUrl/partner/orders/$orderId/status?partner_id=$partnerId');
     print('[API] PUT: $url');
     print('[API] Request body: {"status": "$status"}');
     
@@ -230,7 +230,7 @@ class DeliveryPartnerOrdersService {
       return {'success': false, 'message': 'No delivery partner token found. Please login again.'};
     }
     
-    print('[API] Using token: ${token.substring(0, 20)}...');
+    print('[API] Using token:  [33m${token.substring(0, 20)}...\u001b[0m and partnerId: $partnerId');
     
     try {
       final response = await http.put(

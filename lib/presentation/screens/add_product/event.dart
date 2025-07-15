@@ -30,7 +30,7 @@ class ProductDescriptionChangedEvent extends AddProductEvent {
 
 class ProductCategoryChangedEvent extends AddProductEvent {
   final String categoryName;
-  final int categoryId;
+  final String categoryId;
   
   const ProductCategoryChangedEvent(this.categoryName, this.categoryId);
   

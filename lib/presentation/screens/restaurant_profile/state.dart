@@ -2,6 +2,8 @@ import 'package:equatable/equatable.dart';
 import 'package:flutter/material.dart';
 import '../resturant_details_2/state.dart';
 import 'event.dart';
+import '../../../constants/enums.dart';
+import '../../../models/food_type_model.dart';
 
 class RestaurantProfileState extends Equatable {
   // Image
@@ -44,6 +46,11 @@ class RestaurantProfileState extends Equatable {
   final String? submissionMessage;
   final String? errorMessage;
 
+  final List<CuisineType> selectedCuisines;
+  final List<FoodTypeModel> foodTypes;
+  final FoodTypeModel? selectedFoodType;
+  final bool isLoadingFoodTypes;
+
   const RestaurantProfileState({
     this.imagePath,
     this.restaurantImageUrl,
@@ -67,6 +74,10 @@ class RestaurantProfileState extends Equatable {
     this.submissionSuccess = false,
     this.submissionMessage,
     this.errorMessage,
+    this.selectedCuisines = const [],
+    this.foodTypes = const [],
+    this.selectedFoodType,
+    this.isLoadingFoodTypes = false,
   });
 
   RestaurantProfileState copyWith({
@@ -92,6 +103,10 @@ class RestaurantProfileState extends Equatable {
     bool? submissionSuccess,
     String? submissionMessage,
     String? errorMessage,
+    List<CuisineType>? selectedCuisines,
+    List<FoodTypeModel>? foodTypes,
+    FoodTypeModel? selectedFoodType,
+    bool? isLoadingFoodTypes,
   }) =>
       RestaurantProfileState(
         imagePath: imagePath ?? this.imagePath,
@@ -116,6 +131,10 @@ class RestaurantProfileState extends Equatable {
         submissionSuccess: submissionSuccess ?? this.submissionSuccess,
         submissionMessage: submissionMessage ?? this.submissionMessage,
         errorMessage: errorMessage ?? this.errorMessage,
+        selectedCuisines: selectedCuisines ?? this.selectedCuisines,
+        foodTypes: foodTypes ?? this.foodTypes,
+        selectedFoodType: selectedFoodType ?? this.selectedFoodType,
+        isLoadingFoodTypes: isLoadingFoodTypes ?? this.isLoadingFoodTypes,
       );
 
   bool get isValid {
@@ -153,5 +172,9 @@ class RestaurantProfileState extends Equatable {
         submissionSuccess,
         submissionMessage,
         errorMessage,
+        selectedCuisines,
+        foodTypes,
+        selectedFoodType,
+        isLoadingFoodTypes,
       ];
 }

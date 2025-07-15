@@ -167,8 +167,23 @@ class LoginView extends StatelessWidget {
   }
 }
 
-class MobileInputField extends StatelessWidget {
+class MobileInputField extends StatefulWidget {
   const MobileInputField({Key? key}) : super(key: key);
+
+  @override
+  State<MobileInputField> createState() => _MobileInputFieldState();
+}
+
+class _MobileInputFieldState extends State<MobileInputField> {
+  final FocusNode _phoneFocusNode = FocusNode();
+  final FocusNode _countryPickerFocusNode = FocusNode();
+
+  @override
+  void dispose() {
+    _phoneFocusNode.dispose();
+    _countryPickerFocusNode.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -177,96 +192,103 @@ class MobileInputField extends StatelessWidget {
 
     return BlocBuilder<LoginBloc, LoginState>(
       builder: (context, state) {
-        return ClipRRect(
-          borderRadius: BorderRadius.circular(8),
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-            child: Container(
-              height: h * 0.07,
-              padding: EdgeInsets.symmetric(horizontal: w * 0.03),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.15),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(
-                  color: Colors.white.withOpacity(0.2),
-                ),
-              ),
-              child: Row(
-                children: [
-                  // Country picker
-                  GestureDetector(
-                    onTap: () => _showCountryPicker(context),
-                    child: Container(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: w * 0.025,
-                        vertical: h * 0.008,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          // Flag
-                          Text(
-                            state.selectedCountry.flag,
-                            style: const TextStyle(fontSize: 16),
-                          ),
-                          SizedBox(width: w * 0.015),
-                          
-                          // Dial code
-                          Text(
-                            state.selectedCountry.dialCode,
-                            style: GoogleFonts.poppins(
-                              color: Colors.grey[700] ?? Colors.grey,
-                              fontSize: FontSize.s14,
-                              fontWeight: FontWeightManager.medium,
-                            ),
-                          ),
-                          SizedBox(width: w * 0.01),
-                          
-                          // Dropdown arrow
-                          Icon(
-                            Icons.keyboard_arrow_down,
-                            color: (Colors.grey[700] ?? Colors.grey).withOpacity(0.7),
-                            size: h * 0.022,
-                          ),
-                        ],
-                      ),
+        return Container(
+          height: h * 0.07,
+          padding: EdgeInsets.symmetric(horizontal: w * 0.03),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: _phoneFocusNode.hasFocus 
+                ? ColorManager.primary
+                : (Colors.grey[300] ?? Colors.grey),
+              width: _phoneFocusNode.hasFocus ? 2 : 1,
+            ),
+          ),
+          child: Row(
+            children: [
+              // Country picker
+              Focus(
+                focusNode: _countryPickerFocusNode,
+                child: GestureDetector(
+                  onTap: () => _showCountryPicker(context),
+                child: Container(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: w * 0.025,
+                    vertical: h * 0.008,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(
+                      color: _countryPickerFocusNode.hasFocus 
+                        ? ColorManager.primary
+                        : (Colors.grey[300] ?? Colors.grey),
+                      width: _countryPickerFocusNode.hasFocus ? 2 : 1,
                     ),
                   ),
-                  
-                  SizedBox(width: w * 0.025),
-                  
-                  // Phone number input
-                  Expanded(
-                    child: TextField(
-                      keyboardType: TextInputType.phone,
-                      inputFormatters: [
-                        FilteringTextInputFormatter.digitsOnly,
-                        LengthLimitingTextInputFormatter(10),
-                      ],
-                      style: GoogleFonts.poppins(
-                        color: Colors.grey[700] ?? Colors.grey,
-                        fontSize: FontSize.s16,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Flag
+                      Text(
+                        state.selectedCountry.flag,
+                        style: const TextStyle(fontSize: 16),
                       ),
-                      decoration: InputDecoration(
-                        border: InputBorder.none,
-                        hintText: 'Enter mobile number',
-                        hintStyle: GoogleFonts.poppins(
-                          color: (Colors.grey[700] ?? Colors.grey).withOpacity(0.6),
-                          fontSize: FontSize.s16,
+                      SizedBox(width: w * 0.015),
+                      
+                      // Dial code
+                      Text(
+                        state.selectedCountry.dialCode,
+                        style: GoogleFonts.poppins(
+                          color: Colors.grey[700] ?? Colors.grey,
+                          fontSize: FontSize.s14,
+                          fontWeight: FontWeightManager.medium,
                         ),
                       ),
-                      onChanged: (value) {
-                        context.read<LoginBloc>().add(MobileNumberChanged(value));
-                      },
+                      SizedBox(width: w * 0.01),
+                      
+                      // Dropdown arrow
+                      Icon(
+                        Icons.keyboard_arrow_down,
+                        color: (Colors.grey[700] ?? Colors.grey).withOpacity(0.7),
+                        size: h * 0.022,
+                      ),
+                    ],
+                  ),
+                ),
+                ),
+              ),
+              
+              SizedBox(width: w * 0.025),
+              
+              // Phone number input
+              Expanded(
+                child: TextField(
+                  focusNode: _phoneFocusNode,
+                  keyboardType: TextInputType.phone,
+                  inputFormatters: [
+                    FilteringTextInputFormatter.digitsOnly,
+                    LengthLimitingTextInputFormatter(10),
+                  ],
+                  style: GoogleFonts.poppins(
+                    color: Colors.grey[700] ?? Colors.grey,
+                    fontSize: FontSize.s16,
+                  ),
+                  decoration: InputDecoration(
+                    border: InputBorder.none,
+                    hintText: 'Enter mobile number',
+                    hintStyle: GoogleFonts.poppins(
+                      color: (Colors.grey[700] ?? Colors.grey).withOpacity(0.6),
+                      fontSize: FontSize.s16,
                     ),
                   ),
-                ],
+                  onChanged: (value) {
+                    context.read<LoginBloc>().add(MobileNumberChanged(value));
+                  },
+                ),
               ),
-            ),
+            ],
           ),
         );
       },

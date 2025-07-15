@@ -1,5 +1,7 @@
 import 'package:equatable/equatable.dart';
 import 'package:flutter/material.dart';
+import '../../../constants/enums.dart';
+import '../../../models/food_type_model.dart';
 
 /// ─── EVENTS ─────────────────────────────────────────────────────────────
 abstract class RestaurantProfileEvent extends Equatable {
@@ -88,3 +90,18 @@ class LoadInitialData extends RestaurantProfileEvent {}
 
 // Add at the end of the file, after all other event classes
 class ClearSubmissionMessage extends RestaurantProfileEvent {}
+
+class ToggleCuisineType extends RestaurantProfileEvent {
+  final CuisineType type;
+  const ToggleCuisineType(this.type);
+  @override
+  List<Object?> get props => [type];
+}
+
+class FetchFoodTypesEvent extends RestaurantProfileEvent {}
+class FoodTypeChanged extends RestaurantProfileEvent {
+  final FoodTypeModel foodType;
+  const FoodTypeChanged(this.foodType);
+  @override
+  List<Object?> get props => [foodType];
+}

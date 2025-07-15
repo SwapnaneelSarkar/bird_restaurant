@@ -4,6 +4,17 @@ import 'package:bird_restaurant/services/delivery_partner_services/delivery_part
 import 'package:bird_restaurant/services/location_services.dart';
 import 'package:bird_restaurant/presentation/resources/colors.dart';
 import 'package:bird_restaurant/presentation/resources/font.dart';
+import 'package:flutter/services.dart';
+
+class UpperCaseTextFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) {
+    return newValue.copyWith(
+      text: newValue.text.toUpperCase(),
+      selection: newValue.selection,
+    );
+  }
+}
 
 class DeliveryPartnerProfileEditView extends StatefulWidget {
   final Map<String, dynamic>? profile;
@@ -47,14 +58,26 @@ class _DeliveryPartnerProfileEditViewState extends State<DeliveryPartnerProfileE
 
   Future<void> _fetchCurrentLocation() async {
     setState(() => _loading = true);
-    final loc = await LocationService().getCurrentPosition();
-    setState(() {
-      _loading = false;
-      if (loc != null) {
-        _latitude = loc.latitude;
-        _longitude = loc.longitude;
-      }
-    });
+    try {
+      final loc = await LocationService().getCurrentPosition();
+      setState(() {
+        _loading = false;
+        if (loc != null) {
+          _latitude = loc.latitude;
+          _longitude = loc.longitude;
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Could not fetch location. Please check permissions and try again.'), backgroundColor: Colors.red),
+          );
+        }
+      });
+    } catch (e) {
+      setState(() => _loading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error fetching location: '
+            ' [31m${e.toString()} [0m'), backgroundColor: Colors.red),
+      );
+    }
   }
 
   Future<void> _save() async {
@@ -160,14 +183,24 @@ class _DeliveryPartnerProfileEditViewState extends State<DeliveryPartnerProfileE
                     SizedBox(height: 6),
                     TextFormField(
                       controller: _vehicleNumberController,
+                      maxLength: 10,
+                      inputFormatters: [
+                        UpperCaseTextFormatter(),
+                        LengthLimitingTextInputFormatter(10),
+                      ],
                       decoration: InputDecoration(
                         hintText: 'Enter vehicle number',
                         filled: true,
                         fillColor: Colors.white,
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                         contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                        counterText: '',
                       ),
-                      validator: (v) => v == null || v.isEmpty ? 'Vehicle number is required' : null,
+                      validator: (v) {
+                        if (v == null || v.isEmpty) return 'Vehicle number is required';
+                        if (v.length != 10) return 'Vehicle number must be 10 characters';
+                        return null;
+                      },
                     ),
                     SizedBox(height: h * 0.02),
                     Text('Current Location', style: GoogleFonts.poppins(fontSize: 15, color: ColorManager.black, fontWeight: FontWeightManager.medium)),

@@ -15,6 +15,8 @@ import '../resturant_details_2/state.dart';
 import 'event.dart';
 import 'state.dart';
 import '../../../services/restaurant_info_service.dart';
+import '../../../constants/enums.dart';
+import '../../../models/food_type_model.dart';
 
 class RestaurantProfileBloc
     extends Bloc<RestaurantProfileEvent, RestaurantProfileState> {
@@ -88,9 +90,12 @@ class RestaurantProfileBloc
     add(LoadInitialData());
     // Load restaurant types
     add(LoadRestaurantTypesEvent());
+    on<FetchFoodTypesEvent>(_onFetchFoodTypes);
+    on<FoodTypeChanged>(_onFoodTypeChanged);
 
     // Add new event
     on<ClearSubmissionMessage>((event, emit) => emit(state.copyWith(submissionMessage: null)));
+    on<ToggleCuisineType>(_onToggleCuisineType);
   }
 
   Future<void> _onLoadRestaurantTypes(
@@ -194,6 +199,63 @@ class RestaurantProfileBloc
     // Update the selected restaurant type
     emit(state.copyWith(selectedRestaurantType: event.restaurantType));
     debugPrint('Selected restaurant type: ${event.restaurantType['name']}');
+  }
+
+  void _onToggleCuisineType(
+    ToggleCuisineType event,
+    Emitter<RestaurantProfileState> emit,
+  ) async {
+    final updated = List<CuisineType>.from(state.selectedCuisines);
+    if (updated.contains(event.type)) {
+      updated.remove(event.type);
+    } else {
+      updated.add(event.type);
+    }
+    emit(state.copyWith(selectedCuisines: updated));
+    // Save to SharedPreferences
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList('selected_cuisines', updated.map((e) => e.toString()).toList());
+  }
+
+  Future<void> _onFetchFoodTypes(
+    FetchFoodTypesEvent event,
+    Emitter<RestaurantProfileState> emit,
+  ) async {
+    emit(state.copyWith(isLoadingFoodTypes: true));
+    try {
+      final apiService = ApiServices();
+      final response = await apiService.getRestaurantFoodTypes();
+      if (response.status == 'SUCCESS') {
+        final prefs = await SharedPreferences.getInstance();
+        final savedFoodTypeId = prefs.getString('restaurant_food_type_id');
+        FoodTypeModel? selectedFoodType;
+        if (savedFoodTypeId != null && response.data.isNotEmpty) {
+          selectedFoodType = response.data.firstWhere(
+            (type) => type.restaurantFoodTypeId == savedFoodTypeId,
+            orElse: () => response.data.first,
+          );
+        }
+        emit(state.copyWith(
+          foodTypes: response.data,
+          selectedFoodType: selectedFoodType,
+          isLoadingFoodTypes: false,
+        ));
+      } else {
+        emit(state.copyWith(isLoadingFoodTypes: false));
+      }
+    } catch (e) {
+      emit(state.copyWith(isLoadingFoodTypes: false));
+    }
+  }
+
+  void _onFoodTypeChanged(
+    FoodTypeChanged event,
+    Emitter<RestaurantProfileState> emit,
+  ) async {
+    emit(state.copyWith(selectedFoodType: event.foodType));
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('restaurant_food_type_id', event.foodType.restaurantFoodTypeId);
+    await prefs.setString('restaurant_food_type_name', event.foodType.name);
   }
 
   Future<void> _onLoadInitialData(
@@ -373,6 +435,17 @@ class RestaurantProfileBloc
           debugPrint('Saved restaurant_type to SharedPreferences: $restaurantType');
         }
         
+        // Load selected cuisines from SharedPreferences
+        final prefs = await SharedPreferences.getInstance();
+        final selectedCuisineStrings = prefs.getStringList('selected_cuisines') ?? [];
+        final selectedCuisines = selectedCuisineStrings
+            .map((e) => CuisineType.values.firstWhere(
+                  (ct) => ct.toString() == e,
+                  orElse: () => CuisineType.bakery,
+                ))
+            .toList();
+        emit(state.copyWith(selectedCuisines: selectedCuisines));
+        
         // Handle null values properly
         final latitudeStr = data['latitude']?.toString() ?? '';
         final longitudeStr = data['longitude']?.toString() ?? '';
@@ -416,6 +489,8 @@ class RestaurantProfileBloc
         errorMessage: 'Error loading data: ${e.toString()}',
       ));
     }
+    // Fetch food types after loading other data
+    add(FetchFoodTypesEvent());
   }
 
   OperationalDay _parseOperationalHours(OperationalDay day, String hoursString) {
@@ -683,12 +758,21 @@ class RestaurantProfileBloc
           final message = responseBody['message'] ?? '';
           
           // Save restaurant type to SharedPreferences
+          final prefs = await SharedPreferences.getInstance();
           if (state.selectedRestaurantType != null) {
-            final prefs = await SharedPreferences.getInstance();
             await prefs.setString('restaurant_type_name', state.selectedRestaurantType!['name']);
             debugPrint('Saved restaurant_type_name to SharedPreferences: ${state.selectedRestaurantType!['name']}');
           }
+
+          // Save selected cuisines to SharedPreferences
+          await prefs.setStringList('selected_cuisines', state.selectedCuisines.map((e) => e.toString()).toList());
           
+          // Save selected food type to SharedPreferences
+          if (state.selectedFoodType != null) {
+            await prefs.setString('restaurant_food_type_id', state.selectedFoodType!.restaurantFoodTypeId);
+            await prefs.setString('restaurant_food_type_name', state.selectedFoodType!.name);
+          }
+
           emit(state.copyWith(
             isSubmitting: false,
             submissionSuccess: status == 'SUCCESS',

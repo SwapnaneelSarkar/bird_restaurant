@@ -15,6 +15,7 @@ import 'state.dart';
 import '../../../services/restaurant_info_service.dart';
 import '../../../services/currency_service.dart';
 import '../../resources/router/router.dart';
+import 'package:collection/collection.dart';
 
 class AddProductScreen extends StatefulWidget {
   const AddProductScreen({Key? key}) : super(key: key);
@@ -390,6 +391,9 @@ class _AddProductScreenState extends State<AddProductScreen> {
   }
 
   Widget _buildCategoryDropdown(BuildContext context, AddProductFormState state) {
+    final selectedCategory = state.categories.firstWhereOrNull(
+      (category) => category.id == state.product.categoryId,
+    );
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
@@ -399,12 +403,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
       child: DropdownButtonHideUnderline(
         child: DropdownButton<CategoryModel>(
           isExpanded: true,
-          value: state.product.categoryId == null
-              ? null
-              : state.categories.firstWhere(
-                  (category) => category.id == state.product.categoryId,
-                  orElse: () => CategoryModel(id: -1, name: ""),
-                ),
+          value: selectedCategory,
           hint: const Text('Select category'),
           items: state.categories.map((CategoryModel category) {
             return DropdownMenuItem<CategoryModel>(

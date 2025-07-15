@@ -35,6 +35,11 @@ class LocationService {
         debugPrint('Location permission permanently denied');
         return null;
       }
+      // Defensive: Only proceed if permission is granted
+      if (permission != LocationPermission.always && permission != LocationPermission.whileInUse) {
+        debugPrint('Location permission not granted (not always/whileInUse)');
+        return null;
+      }
 
       // Get current position
       debugPrint('Getting current position...');

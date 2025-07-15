@@ -67,43 +67,48 @@ class _ContactUsViewState extends State<ContactUsView>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      key: _scaffoldKey,
-      backgroundColor: ColorManager.background,
-      drawer: FutureBuilder<Map<String, String>>(
-        future: RestaurantInfoService.getRestaurantInfo(),
-        builder: (context, snapshot) {
-          final info = snapshot.data ?? {};
-          return SidebarDrawer(
-            activePage: 'contact',
-            restaurantName: info['name'],
-            restaurantSlogan: info['slogan'],
-            restaurantImageUrl: info['imageUrl'],
-          );
-        },
-      ),
-      body: SafeArea(
-        child: Column(
-          children: [
-            // Custom App Bar
-            _buildCustomAppBar(),
-            
-            // Content
-            Expanded(
-              child: AnimatedBuilder(
-                animation: _animationController,
-                builder: (context, child) {
-                  return FadeTransition(
-                    opacity: _fadeAnimation,
-                    child: SlideTransition(
-                      position: _slideAnimation,
-                      child: _buildContent(),
-                    ),
-                  );
-                },
+    return WillPopScope(
+      onWillPop: () async {
+        Navigator.of(context).pushNamedAndRemoveUntil('/home', (route) => false);
+        return false;
+      },
+      child: Scaffold(
+        key: _scaffoldKey,
+        backgroundColor: ColorManager.background,
+        drawer: FutureBuilder<Map<String, String>>(
+          future: RestaurantInfoService.getRestaurantInfo(),
+          builder: (context, snapshot) {
+            final info = snapshot.data ?? {};
+            return SidebarDrawer(
+              activePage: 'contact',
+              restaurantName: info['name'],
+              restaurantSlogan: info['slogan'],
+              restaurantImageUrl: info['imageUrl'],
+            );
+          },
+        ),
+        body: SafeArea(
+          child: Column(
+            children: [
+              // Custom App Bar
+              _buildCustomAppBar(),
+              // Content
+              Expanded(
+                child: AnimatedBuilder(
+                  animation: _animationController,
+                  builder: (context, child) {
+                    return FadeTransition(
+                      opacity: _fadeAnimation,
+                      child: SlideTransition(
+                        position: _slideAnimation,
+                        child: _buildContent(),
+                      ),
+                    );
+                  },
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -294,8 +299,8 @@ class _ContactUsViewState extends State<ContactUsView>
           icon: Icons.phone,
           title: 'Phone Support',
           subtitle: 'Call us directly for immediate assistance',
-          contact: '+91 99498 34578',
-          onTap: () => _makePhoneCall('+919949834578'),
+          contact: '1111111111',
+          onTap: () => _makePhoneCall('1111111111'),
         ),
         
         const SizedBox(height: 16),

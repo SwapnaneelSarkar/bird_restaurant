@@ -452,6 +452,7 @@ class _AddPartnerBottomSheetState extends State<_AddPartnerBottomSheet> {
   final GlobalKey<FormState> formKey = GlobalKey<FormState>();
   String name = '';
   String phone = '';
+  String email = '';
   String username = '';
   String password = '';
   File? licensePhotoFile;
@@ -486,28 +487,65 @@ class _AddPartnerBottomSheetState extends State<_AddPartnerBottomSheet> {
       otpError = '';
     });
     final fullPhone = '${selectedCountry.dialCode}${phone.trim()}';
+    
     try {
-      // Set Firebase Auth settings as in login flow
-      await FirebaseAuth.instance.setSettings(
-        appVerificationDisabledForTesting: false,
-        forceRecaptchaFlow: true,
-      );
+      debugPrint('Sending OTP to: $fullPhone');
+      
+      // Check if it's a test phone number
+      if (fullPhone == '+911111111111') {
+        debugPrint('Test phone number detected');
+        if (Platform.isIOS) {
+          debugPrint('iOS test mode - using test verification ID');
+          setState(() {
+            verificationId = 'test-verification-id';
+            otpSent = true;
+            otpLoading = false;
+          });
+          return;
+        } else {
+          await FirebaseAuth.instance.setSettings(
+            appVerificationDisabledForTesting: true,
+            forceRecaptchaFlow: false,
+          );
+        }
+      } else {
+        // ✅ FOR REAL PHONE NUMBERS - SAME AS RESTAURANT PARTNER
+        debugPrint('Real phone number - enabling reCAPTCHA fallback');
+        await FirebaseAuth.instance.setSettings(
+          appVerificationDisabledForTesting: false,
+          forceRecaptchaFlow: true, // Same as restaurant partner
+        );
+      }
+      
       await FirebaseAuth.instance.verifyPhoneNumber(
         phoneNumber: fullPhone,
         timeout: const Duration(seconds: 60),
         verificationCompleted: (PhoneAuthCredential credential) async {
+          debugPrint('✅ Verification completed automatically');
           setState(() {
             otpVerified = true;
             otpLoading = false;
           });
         },
         verificationFailed: (FirebaseAuthException e) {
+          debugPrint('❌ Verification failed: ${e.code} - ${e.message}');
+          String errorMessage;
+          if (e.code == 'invalid-phone-number') {
+            errorMessage = 'The provided phone number is not valid.';
+          } else if (e.code == 'missing-client-identifier') {
+            errorMessage = 'Missing client identifier. Please check your Firebase configuration.';
+          } else if (e.code == 'app-not-authorized') {
+            errorMessage = 'This app is not authorized to use Firebase Authentication.';
+          } else {
+            errorMessage = e.message ?? 'OTP verification failed';
+          }
           setState(() {
-            otpError = e.message ?? 'OTP verification failed';
+            otpError = errorMessage;
             otpLoading = false;
           });
         },
         codeSent: (String vId, int? resendToken) {
+          debugPrint('✅ Code sent! Verification ID: $vId');
           setState(() {
             verificationId = vId;
             otpSent = true;
@@ -515,15 +553,18 @@ class _AddPartnerBottomSheetState extends State<_AddPartnerBottomSheet> {
           });
         },
         codeAutoRetrievalTimeout: (String vId) {
+          debugPrint('⏰ Auto retrieval timeout. Verification ID: $vId');
           setState(() {
             verificationId = vId;
             otpLoading = false;
+            // Don't show error for timeout, just let user enter manually
           });
         },
       );
     } catch (e) {
+      debugPrint('❌ Error sending OTP: $e');
       setState(() {
-        otpError = e.toString();
+        otpError = 'Failed to send OTP: $e';
         otpLoading = false;
       });
     }
@@ -535,25 +576,89 @@ class _AddPartnerBottomSheetState extends State<_AddPartnerBottomSheet> {
       otpLoading = true;
       otpError = '';
     });
+    
     try {
+      final fullPhone = '${selectedCountry.dialCode}${phone.trim()}';
+      
+      // Handle test phone number
+      if (fullPhone == '+911111111111') {
+        debugPrint('Test phone number - checking for test OTP');
+        if (otp == '000000' || otp == '123456') {
+          debugPrint('Test OTP verified successfully');
+          setState(() {
+            otpVerified = true;
+            otpLoading = false;
+          });
+          return;
+        } else {
+          setState(() {
+            otpError = 'Invalid test OTP. Use 000000 or 123456';
+            otpLoading = false;
+          });
+          return;
+        }
+      }
+      
+      // For real phone numbers, use Firebase verification
+      if (verificationId.isEmpty) {
+        setState(() {
+          otpError = 'Verification ID not available. Please try sending OTP again.';
+          otpLoading = false;
+        });
+        return;
+      }
+      
+      debugPrint('Verifying OTP with Firebase');
       final credential = PhoneAuthProvider.credential(
         verificationId: verificationId,
         smsCode: otp,
       );
-      // Just verify, do not sign in
-      await FirebaseAuth.instance.signInWithCredential(credential);
-      setState(() {
-        otpVerified = true;
-        otpLoading = false;
-      });
+      
+      // Sign in with Firebase temporarily to validate OTP
+      final userCredential = await FirebaseAuth.instance.signInWithCredential(credential);
+      
+      if (userCredential.user != null) {
+        debugPrint('Firebase OTP verification successful');
+        
+        // Sign out from Firebase immediately - we don't want to keep user signed in
+        await FirebaseAuth.instance.signOut();
+        debugPrint('Signed out from Firebase after OTP verification');
+        
+        setState(() {
+          otpVerified = true;
+          otpLoading = false;
+        });
+      } else {
+        setState(() {
+          otpError = 'Failed to verify OTP. Please try again.';
+          otpLoading = false;
+        });
+      }
+      
     } on FirebaseAuthException catch (e) {
+      debugPrint('Firebase Auth error: ${e.code} - ${e.message}');
+      String errorMessage;
+      switch (e.code) {
+        case 'invalid-verification-code':
+          errorMessage = 'Invalid OTP. Please check and try again.';
+          break;
+        case 'invalid-verification-id':
+          errorMessage = 'Verification session expired. Please request a new OTP.';
+          break;
+        case 'session-expired':
+          errorMessage = 'Session expired. Please request a new OTP.';
+          break;
+        default:
+          errorMessage = e.message ?? 'OTP verification failed';
+      }
       setState(() {
-        otpError = e.message ?? 'OTP verification failed';
+        otpError = errorMessage;
         otpLoading = false;
       });
     } catch (e) {
+      debugPrint('General error verifying OTP: $e');
       setState(() {
-        otpError = e.toString();
+        otpError = 'Error verifying OTP: $e';
         otpLoading = false;
       });
     }
@@ -626,6 +731,46 @@ class _AddPartnerBottomSheetState extends State<_AddPartnerBottomSheet> {
                 ),
                 validator: (value) => value == null || value.isEmpty ? 'Name is required' : null,
                 onChanged: (value) => name = value,
+              ),
+              const SizedBox(height: 20),
+              
+              // Email Field
+              Text(
+                'Email *',
+                style: TextStyle(
+                  fontFamily: FontConstants.fontFamily,
+                  fontSize: FontSize.s14,
+                  fontWeight: FontWeightManager.medium,
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextFormField(
+                decoration: InputDecoration(
+                  hintText: 'Enter email address',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide(color: Colors.grey[300]!),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide(color: Colors.grey[300]!),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide(color: ColorManager.primary),
+                  ),
+                ),
+                keyboardType: TextInputType.emailAddress,
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Email is required';
+                  }
+                  if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
+                    return 'Please enter a valid email address';
+                  }
+                  return null;
+                },
+                onChanged: (value) => email = value.trim(),
               ),
               const SizedBox(height: 20),
               
@@ -808,6 +953,31 @@ class _AddPartnerBottomSheetState extends State<_AddPartnerBottomSheet> {
                       ),
                       if (otpSent) ...[
                         const SizedBox(height: 20),
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.green[50],
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.green[200]!),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(Icons.check_circle, color: Colors.green[600], size: 20),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'OTP sent to ${selectedCountry.dialCode}${phone.trim()}',
+                                  style: TextStyle(
+                                    fontFamily: FontConstants.fontFamily,
+                                    fontSize: FontSize.s14,
+                                    color: Colors.green[700],
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 16),
                         Text(
                           'Enter OTP *',
                           style: TextStyle(
@@ -898,7 +1068,35 @@ class _AddPartnerBottomSheetState extends State<_AddPartnerBottomSheet> {
                           ),
                         ),
                       ],
-              const SizedBox(height: 20),
+                      
+                      // Resend OTP button
+                      const SizedBox(height: 16),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            "Didn't receive the code? ",
+                            style: TextStyle(
+                              fontFamily: FontConstants.fontFamily,
+                              fontSize: FontSize.s14,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: otpLoading ? null : sendOtp,
+                            child: Text(
+                              'Resend OTP',
+                              style: TextStyle(
+                                fontFamily: FontConstants.fontFamily,
+                                fontSize: FontSize.s14,
+                                color: ColorManager.primary,
+                                fontWeight: FontWeightManager.medium,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 20),
               
               // License Photo
               Text(
@@ -1041,6 +1239,7 @@ class _AddPartnerBottomSheetState extends State<_AddPartnerBottomSheet> {
                                 partnerId: widget.partnerId,
                                 phone: phone,
                                 name: name,
+                                email: email,
                                 username: username,
                                 password: password,
                                 licensePhotoPath: licensePhotoFile?.path,

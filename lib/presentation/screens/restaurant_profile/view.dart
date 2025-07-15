@@ -18,6 +18,9 @@ import 'bloc.dart';
 import 'event.dart';
 import 'state.dart';
 import '../../../services/restaurant_info_service.dart';
+import '../../../constants/enums.dart';
+import '../../../ui_components/cuisine_card.dart';
+import '../../../models/food_type_model.dart';
 
 class RestaurantProfileView extends StatelessWidget {
   const RestaurantProfileView({Key? key}) : super(key: key);
@@ -545,6 +548,100 @@ class _BodyState extends State<_Body> {
                               ),
                             );
                           },
+                        ),
+                        SizedBox(height: vert * 1.2),
+
+                        // Food Type Dropdown - NEW SECTION
+                        SizedBox(height: vert * 1.2),
+                        _sectionHeader('Food Type', Icons.dining_outlined),
+                        SizedBox(height: vert * 0.5),
+                        BlocBuilder<RestaurantProfileBloc, RestaurantProfileState>(
+                          buildWhen: (previous, current) =>
+                            previous.foodTypes != current.foodTypes ||
+                            previous.selectedFoodType != current.selectedFoodType ||
+                            previous.isLoadingFoodTypes != current.isLoadingFoodTypes,
+                          builder: (context, state) {
+                            if (state.isLoadingFoodTypes) {
+                              return Container(
+                                height: 48,
+                                alignment: Alignment.center,
+                                child: SizedBox(
+                                  width: 24,
+                                  height: 24,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: ColorManager.primary,
+                                  ),
+                                ),
+                              );
+                            }
+                            return Container(
+                              padding: EdgeInsets.symmetric(horizontal: 16),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                  color: Colors.grey.shade300,
+                                ),
+                              ),
+                              child: DropdownButtonHideUnderline(
+                                child: DropdownButton<FoodTypeModel>(
+                                  isExpanded: true,
+                                  value: state.selectedFoodType,
+                                  hint: Text(
+                                    'Select food type',
+                                    style: TextStyle(
+                                      color: Colors.grey.shade600,
+                                      fontSize: FontSize.s14,
+                                    ),
+                                  ),
+                                  items: state.foodTypes.map<DropdownMenuItem<FoodTypeModel>>(
+                                    (FoodTypeModel type) {
+                                      return DropdownMenuItem<FoodTypeModel>(
+                                        value: type,
+                                        child: Text(
+                                          type.name,
+                                          style: TextStyle(
+                                            fontSize: FontSize.s14,
+                                            color: ColorManager.black,
+                                          ),
+                                        ),
+                                      );
+                                    }
+                                  ).toList(),
+                                  onChanged: (FoodTypeModel? selectedType) {
+                                    if (selectedType != null) {
+                                      context.read<RestaurantProfileBloc>().add(
+                                        FoodTypeChanged(selectedType),
+                                      );
+                                    }
+                                  },
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                        SizedBox(height: vert * 1.2),
+
+                        _sectionHeader('Cuisine Types', Icons.fastfood),
+                        SizedBox(height: vert * 0.5),
+                        GridView.count(
+                          crossAxisCount: (w > 600) ? 4 : 3,
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          mainAxisSpacing: h * 0.015,
+                          crossAxisSpacing: w * 0.03,
+                          childAspectRatio: 1,
+                          children: [
+                            for (final ct in CuisineType.values)
+                              CuisineCard(
+                                cuisine: ct,
+                                selected: st.selectedCuisines.contains(ct),
+                                onTap: () {
+                                  bloc.add(ToggleCuisineType(ct));
+                                },
+                              ),
+                          ],
                         ),
                         SizedBox(height: vert * 1.2),
 

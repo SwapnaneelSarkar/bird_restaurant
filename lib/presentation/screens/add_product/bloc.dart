@@ -269,7 +269,7 @@ class AddProductBloc extends Bloc<AddProductEvent, AddProductState> {
       request.fields['price'] = product.price.toString();
       request.fields['available'] = 'true'; // Default to true as requested
       request.fields['description'] = product.description;
-      request.fields['category_id'] = product.categoryId.toString(); // Send category ID
+      request.fields['category_id'] = product.categoryId ?? '';
       request.fields['isVeg'] = product.codAllowed.toString(); // Using codAllowed as isVeg for demo
       
       // Add new fields from the image

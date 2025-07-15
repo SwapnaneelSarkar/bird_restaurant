@@ -332,10 +332,13 @@ class DeliveryPartnerOtpInputField extends StatelessWidget {
           height: h * 0.07,
           padding: EdgeInsets.symmetric(horizontal: w * 0.03),
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.15),
+            color: Colors.white,
             borderRadius: BorderRadius.circular(8),
             border: Border.all(
-              color: Colors.white.withOpacity(0.2),
+              color: focusNode.hasFocus 
+                ? ColorManager.primary
+                : (Colors.grey[300] ?? Colors.grey),
+              width: focusNode.hasFocus ? 2 : 1,
             ),
           ),
           child: Row(

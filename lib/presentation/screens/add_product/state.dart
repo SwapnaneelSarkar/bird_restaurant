@@ -7,7 +7,7 @@ class ProductModel {
   final String name;
   final String description;
   final String category;
-  final int? categoryId;
+  final String? categoryId;
   final double price;
   final String tags;
   final File? image;
@@ -32,7 +32,7 @@ class ProductModel {
     String? name,
     String? description,
     String? category,
-    int? categoryId,
+    String? categoryId,
     double? price,
     String? tags,
     File? image,
