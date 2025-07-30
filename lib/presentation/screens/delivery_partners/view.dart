@@ -61,10 +61,9 @@ class _DeliveryPartnersViewState extends State<DeliveryPartnersView> {
   Widget build(BuildContext context) {
     return WillPopScope(
       onWillPop: () async {
-        Navigator.of(context).pushNamedAndRemoveUntil(
-          Routes.homePage,
-          (route) => false,
-        );
+        Navigator.of(
+          context,
+        ).pushNamedAndRemoveUntil(Routes.homePage, (route) => false);
         return false;
       },
       child: Scaffold(
@@ -73,106 +72,119 @@ class _DeliveryPartnersViewState extends State<DeliveryPartnersView> {
         drawer: SidebarDrawer(
           activePage: 'deliveryPartners',
           restaurantName: _restaurantInfo?['name'] ?? 'Delivery Partners',
-          restaurantSlogan: _restaurantInfo?['slogan'] ?? 'Manage your delivery partners',
+          restaurantSlogan:
+              _restaurantInfo?['slogan'] ?? 'Manage your delivery partners',
           restaurantImageUrl: _restaurantInfo?['imageUrl'],
         ),
         body: SafeArea(
-        child: Column(
-          children: [
-            _buildHeader(),
-            Expanded(
-              child: BlocConsumer<DeliveryPartnersBloc, DeliveryPartnersState>(
-                listener: (context, state) {
-                  if (state is DeliveryPartnerAdded) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Delivery partner added successfully!'),
-                        backgroundColor: Colors.green,
-                      ),
-                    );
-                    if (Navigator.canPop(context)) {
-                      Navigator.pop(context); // Close modal on success
+          child: Column(
+            children: [
+              _buildHeader(),
+              Expanded(
+                child: BlocConsumer<
+                  DeliveryPartnersBloc,
+                  DeliveryPartnersState
+                >(
+                  listener: (context, state) {
+                    if (state is DeliveryPartnerAdded) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Delivery partner added successfully!'),
+                          backgroundColor: Colors.green,
+                        ),
+                      );
+                      if (Navigator.canPop(context)) {
+                        Navigator.pop(context); // Close modal on success
+                      }
+                    } else if (state is DeliveryPartnerEdited) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            'Delivery partner updated successfully!',
+                          ),
+                          backgroundColor: Colors.green,
+                        ),
+                      );
+                      if (Navigator.canPop(context)) {
+                        Navigator.pop(context); // Close modal on success
+                      }
+                    } else if (state is DeliveryPartnersError) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(state.message),
+                          backgroundColor: Colors.red,
+                          duration: const Duration(seconds: 4),
+                        ),
+                      );
+                      if (Navigator.canPop(context)) {
+                        Navigator.pop(context); // Close modal on error
+                      }
                     }
-                  } else if (state is DeliveryPartnerEdited) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Delivery partner updated successfully!'),
-                        backgroundColor: Colors.green,
-                      ),
-                    );
-                    if (Navigator.canPop(context)) {
-                      Navigator.pop(context); // Close modal on success
-                    }
-                  } else if (state is DeliveryPartnersError) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(state.message),
-                        backgroundColor: Colors.red,
-                        duration: const Duration(seconds: 4),
-                      ),
-                    );
-                    if (Navigator.canPop(context)) {
-                      Navigator.pop(context); // Close modal on error
-                    }
-                  }
-                },
-                builder: (context, state) {
-                  if (state is DeliveryPartnersLoading) {
-                    return Center(
-                      child: CircularProgressIndicator(
-                        valueColor: AlwaysStoppedAnimation<Color>(ColorManager.primary),
-                      ),
-                    );
-                  } else if (state is DeliveryPartnersLoaded) {
-                    return _buildPartnersList(state.partners);
-                  } else if (state is DeliveryPartnersRefreshing) {
-                    return _buildPartnersList(state.partners);
-                  } else if (state is DeliveryPartnersError) {
-                    // Show partners list if available, otherwise show empty state
-                    if (state.partners != null && state.partners!.isNotEmpty) {
-                      return _buildPartnersList(state.partners!);
-                    } else {
-                      return const Center(
-                        child: Text(
-                          'No data available',
-                          style: TextStyle(
-                            fontFamily: FontConstants.fontFamily,
-                            fontSize: FontSize.s16,
+                  },
+                  builder: (context, state) {
+                    if (state is DeliveryPartnersLoading) {
+                      return Center(
+                        child: CircularProgressIndicator(
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            ColorManager.primary,
                           ),
                         ),
                       );
+                    } else if (state is DeliveryPartnersLoaded) {
+                      return _buildPartnersList(state.partners);
+                    } else if (state is DeliveryPartnersRefreshing) {
+                      return _buildPartnersList(state.partners);
+                    } else if (state is DeliveryPartnersError) {
+                      // Show partners list if available, otherwise show empty state
+                      if (state.partners != null &&
+                          state.partners!.isNotEmpty) {
+                        return _buildPartnersList(state.partners!);
+                      } else {
+                        return const Center(
+                          child: Text(
+                            'No data available',
+                            style: TextStyle(
+                              fontFamily: FontConstants.fontFamily,
+                              fontSize: FontSize.s16,
+                            ),
+                          ),
+                        );
+                      }
                     }
-                  }
-                  // Default case
-                  return const Center(
-                    child: Text(
-                      'No data available',
-                      style: TextStyle(
-                        fontFamily: FontConstants.fontFamily,
-                        fontSize: FontSize.s16,
+                    // Default case
+                    return const Center(
+                      child: Text(
+                        'No data available',
+                        style: TextStyle(
+                          fontFamily: FontConstants.fontFamily,
+                          fontSize: FontSize.s16,
+                        ),
                       ),
-                    ),
-                  );
-                },
+                    );
+                  },
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
+        ),
+        floatingActionButton: FloatingActionButton(
+          onPressed: () async {
+            final partnerId = await TokenService.getUserId();
+            if (partnerId != null && mounted) {
+              if (mounted) {
+                _showAddPartnerModal(
+                  context,
+                  partnerId,
+                  context.read<DeliveryPartnersBloc>(),
+                );
+              }
+            }
+          },
+          backgroundColor: ColorManager.primary,
+          foregroundColor: Colors.white,
+          child: const Icon(Icons.add),
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () async {
-          final partnerId = await TokenService.getUserId();
-          if (partnerId != null && mounted) {
-            if (mounted) {
-              _showAddPartnerModal(context, partnerId, context.read<DeliveryPartnersBloc>());
-            }
-          }
-        },
-        backgroundColor: ColorManager.primary,
-        foregroundColor: Colors.white,
-        child: const Icon(Icons.add),
-      ),
-    ),
     );
   }
 
@@ -215,11 +227,7 @@ class _DeliveryPartnersViewState extends State<DeliveryPartnersView> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.delivery_dining,
-              size: 64,
-              color: Colors.grey[400],
-            ),
+            Icon(Icons.delivery_dining, size: 64, color: Colors.grey[400]),
             const SizedBox(height: 16),
             Text(
               'No Delivery Partners',
@@ -282,12 +290,17 @@ class _DeliveryPartnersViewState extends State<DeliveryPartnersView> {
                 ),
                 Expanded(
                   child: ListTile(
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
                     leading: CircleAvatar(
                       radius: 25,
                       backgroundColor: ColorManager.primary,
                       child: Text(
-                        partner.name.isNotEmpty ? partner.name[0].toUpperCase() : '?',
+                        partner.name.isNotEmpty
+                            ? partner.name[0].toUpperCase()
+                            : '?',
                         style: const TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
@@ -339,9 +352,15 @@ class _DeliveryPartnersViewState extends State<DeliveryPartnersView> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 6,
+                          ),
                           decoration: BoxDecoration(
-                            color: partner.status == 'ACTIVE' ? ColorManager.primary : Colors.grey,
+                            color:
+                                partner.status == 'ACTIVE'
+                                    ? ColorManager.primary
+                                    : Colors.grey,
                             borderRadius: BorderRadius.circular(20),
                           ),
                           child: Text(
@@ -358,35 +377,52 @@ class _DeliveryPartnersViewState extends State<DeliveryPartnersView> {
                           icon: Icon(Icons.edit, color: ColorManager.primary),
                           tooltip: 'Edit Partner',
                           onPressed: () {
-                            _showEditPartnerModal(context, partner, context.read<DeliveryPartnersBloc>());
+                            _showEditPartnerModal(
+                              context,
+                              partner,
+                              context.read<DeliveryPartnersBloc>(),
+                            );
                           },
                         ),
                         IconButton(
-                          icon: Icon(Icons.delete_outline, color: ColorManager.primary),
+                          icon: Icon(
+                            Icons.delete_outline,
+                            color: ColorManager.primary,
+                          ),
                           tooltip: 'Delete Partner',
                           onPressed: () async {
                             final confirm = await showDialog<bool>(
                               context: context,
-                              builder: (context) => AlertDialog(
-                                title: const Text('Delete Delivery Partner'),
-                                content: Text('Are you sure you want to delete ${partner.name}?'),
-                                actions: [
-                                  TextButton(
-                                    onPressed: () => Navigator.pop(context, false),
-                                    child: const Text('Cancel'),
-                                  ),
-                                  ElevatedButton(
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: ColorManager.primary,
+                              builder:
+                                  (context) => AlertDialog(
+                                    title: const Text(
+                                      'Delete Delivery Partner',
                                     ),
-                                    onPressed: () => Navigator.pop(context, true),
-                                    child: const Text('Delete'),
+                                    content: Text(
+                                      'Are you sure you want to delete ${partner.name}?',
+                                    ),
+                                    actions: [
+                                      TextButton(
+                                        onPressed:
+                                            () => Navigator.pop(context, false),
+                                        child: const Text('Cancel'),
+                                      ),
+                                      ElevatedButton(
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: ColorManager.primary,
+                                        ),
+                                        onPressed:
+                                            () => Navigator.pop(context, true),
+                                        child: const Text('Delete'),
+                                      ),
+                                    ],
                                   ),
-                                ],
-                              ),
                             );
                             if (confirm == true) {
-                              _deleteDeliveryPartner(context, partner.deliveryPartnerId);
+                              _deleteDeliveryPartner(
+                                context,
+                                partner.deliveryPartnerId,
+                              );
                             }
                           },
                         ),
@@ -402,24 +438,39 @@ class _DeliveryPartnersViewState extends State<DeliveryPartnersView> {
     );
   }
 
-  Future<void> _deleteDeliveryPartner(BuildContext context, String deliveryPartnerId) async {
+  Future<void> _deleteDeliveryPartner(
+    BuildContext context,
+    String deliveryPartnerId,
+  ) async {
     try {
       final token = await TokenService.getToken();
       if (token == null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('No token found. Please login again.'), backgroundColor: Colors.red),
+          const SnackBar(
+            content: Text('No token found. Please login again.'),
+            backgroundColor: Colors.red,
+          ),
         );
         return;
       }
-      final response = await DeliveryPartnersService().deleteDeliveryPartner(deliveryPartnerId, token);
+      final response = await DeliveryPartnersService().deleteDeliveryPartner(
+        deliveryPartnerId,
+        token,
+      );
       if (response.success) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Delivery partner deleted successfully!'), backgroundColor: Colors.green),
+          const SnackBar(
+            content: Text('Delivery partner deleted successfully!'),
+            backgroundColor: Colors.green,
+          ),
         );
         context.read<DeliveryPartnersBloc>().add(RefreshDeliveryPartners());
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(response.message ?? 'Failed to delete partner'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text(response.message ?? 'Failed to delete partner'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     } catch (e) {
@@ -429,7 +480,11 @@ class _DeliveryPartnersViewState extends State<DeliveryPartnersView> {
     }
   }
 
-  void _showAddPartnerModal(BuildContext context, String partnerId, DeliveryPartnersBloc bloc) {
+  void _showAddPartnerModal(
+    BuildContext context,
+    String partnerId,
+    DeliveryPartnersBloc bloc,
+  ) {
     final formKey = GlobalKey<FormState>();
     String name = '';
     String phone = '';
@@ -445,24 +500,22 @@ class _DeliveryPartnersViewState extends State<DeliveryPartnersView> {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) {
-        return _AddPartnerBottomSheet(
-          partnerId: partnerId,
-          bloc: bloc,
-        );
+        return _AddPartnerBottomSheet(partnerId: partnerId, bloc: bloc);
       },
     );
   }
 
-  void _showEditPartnerModal(BuildContext context, DeliveryPartner partner, DeliveryPartnersBloc bloc) {
+  void _showEditPartnerModal(
+    BuildContext context,
+    DeliveryPartner partner,
+    DeliveryPartnersBloc bloc,
+  ) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) {
-        return _EditPartnerBottomSheet(
-          partner: partner,
-          bloc: bloc,
-        );
+        return _EditPartnerBottomSheet(partner: partner, bloc: bloc);
       },
     );
   }
@@ -498,6 +551,8 @@ class _AddPartnerBottomSheetState extends State<_AddPartnerBottomSheet> {
   bool otpVerified = false;
   bool otpLoading = false;
   String otpError = '';
+  bool isLicensePhotoValid = true;
+  bool isVehicleDocValid = true;
 
   @override
   void initState() {
@@ -518,10 +573,10 @@ class _AddPartnerBottomSheetState extends State<_AddPartnerBottomSheet> {
       otpError = '';
     });
     final fullPhone = '${selectedCountry.dialCode}${phone.trim()}';
-    
+
     try {
       debugPrint('Sending OTP to: $fullPhone');
-      
+
       // Check if it's a test phone number
       if (fullPhone == '+911111111111') {
         debugPrint('Test phone number detected');
@@ -547,7 +602,7 @@ class _AddPartnerBottomSheetState extends State<_AddPartnerBottomSheet> {
           forceRecaptchaFlow: true, // Same as restaurant partner
         );
       }
-      
+
       await FirebaseAuth.instance.verifyPhoneNumber(
         phoneNumber: fullPhone,
         timeout: const Duration(seconds: 60),
@@ -564,9 +619,11 @@ class _AddPartnerBottomSheetState extends State<_AddPartnerBottomSheet> {
           if (e.code == 'invalid-phone-number') {
             errorMessage = 'The provided phone number is not valid.';
           } else if (e.code == 'missing-client-identifier') {
-            errorMessage = 'Missing client identifier. Please check your Firebase configuration.';
+            errorMessage =
+                'Missing client identifier. Please check your Firebase configuration.';
           } else if (e.code == 'app-not-authorized') {
-            errorMessage = 'This app is not authorized to use Firebase Authentication.';
+            errorMessage =
+                'This app is not authorized to use Firebase Authentication.';
           } else {
             errorMessage = e.message ?? 'OTP verification failed';
           }
@@ -607,10 +664,10 @@ class _AddPartnerBottomSheetState extends State<_AddPartnerBottomSheet> {
       otpLoading = true;
       otpError = '';
     });
-    
+
     try {
       final fullPhone = '${selectedCountry.dialCode}${phone.trim()}';
-      
+
       // Handle test phone number
       if (fullPhone == '+911111111111') {
         debugPrint('Test phone number - checking for test OTP');
@@ -629,32 +686,35 @@ class _AddPartnerBottomSheetState extends State<_AddPartnerBottomSheet> {
           return;
         }
       }
-      
+
       // For real phone numbers, use Firebase verification
       if (verificationId.isEmpty) {
         setState(() {
-          otpError = 'Verification ID not available. Please try sending OTP again.';
+          otpError =
+              'Verification ID not available. Please try sending OTP again.';
           otpLoading = false;
         });
         return;
       }
-      
+
       debugPrint('Verifying OTP with Firebase');
       final credential = PhoneAuthProvider.credential(
         verificationId: verificationId,
         smsCode: otp,
       );
-      
+
       // Sign in with Firebase temporarily to validate OTP
-      final userCredential = await FirebaseAuth.instance.signInWithCredential(credential);
-      
+      final userCredential = await FirebaseAuth.instance.signInWithCredential(
+        credential,
+      );
+
       if (userCredential.user != null) {
         debugPrint('Firebase OTP verification successful');
-        
+
         // Sign out from Firebase immediately - we don't want to keep user signed in
         await FirebaseAuth.instance.signOut();
         debugPrint('Signed out from Firebase after OTP verification');
-        
+
         setState(() {
           otpVerified = true;
           otpLoading = false;
@@ -665,7 +725,6 @@ class _AddPartnerBottomSheetState extends State<_AddPartnerBottomSheet> {
           otpLoading = false;
         });
       }
-      
     } on FirebaseAuthException catch (e) {
       debugPrint('Firebase Auth error: ${e.code} - ${e.message}');
       String errorMessage;
@@ -674,7 +733,8 @@ class _AddPartnerBottomSheetState extends State<_AddPartnerBottomSheet> {
           errorMessage = 'Invalid OTP. Please check and try again.';
           break;
         case 'invalid-verification-id':
-          errorMessage = 'Verification session expired. Please request a new OTP.';
+          errorMessage =
+              'Verification session expired. Please request a new OTP.';
           break;
         case 'session-expired':
           errorMessage = 'Session expired. Please request a new OTP.';
@@ -733,7 +793,7 @@ class _AddPartnerBottomSheetState extends State<_AddPartnerBottomSheet> {
                 ],
               ),
               const SizedBox(height: 20),
-              
+
               // Name Field
               Text(
                 'Name *',
@@ -760,11 +820,15 @@ class _AddPartnerBottomSheetState extends State<_AddPartnerBottomSheet> {
                     borderSide: BorderSide(color: ColorManager.primary),
                   ),
                 ),
-                validator: (value) => value == null || value.isEmpty ? 'Name is required' : null,
+                validator:
+                    (value) =>
+                        value == null || value.isEmpty
+                            ? 'Name is required'
+                            : null,
                 onChanged: (value) => name = value,
               ),
               const SizedBox(height: 20),
-              
+
               // Email Field
               Text(
                 'Email *',
@@ -796,7 +860,9 @@ class _AddPartnerBottomSheetState extends State<_AddPartnerBottomSheet> {
                   if (value == null || value.isEmpty) {
                     return 'Email is required';
                   }
-                  if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
+                  if (!RegExp(
+                    r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
+                  ).hasMatch(value)) {
                     return 'Please enter a valid email address';
                   }
                   return null;
@@ -804,7 +870,7 @@ class _AddPartnerBottomSheetState extends State<_AddPartnerBottomSheet> {
                 onChanged: (value) => email = value.trim(),
               ),
               const SizedBox(height: 20),
-              
+
               // Username Field
               Text(
                 'Username *',
@@ -831,11 +897,15 @@ class _AddPartnerBottomSheetState extends State<_AddPartnerBottomSheet> {
                     borderSide: BorderSide(color: ColorManager.primary),
                   ),
                 ),
-                validator: (value) => value == null || value.isEmpty ? 'Username is required' : null,
+                validator:
+                    (value) =>
+                        value == null || value.isEmpty
+                            ? 'Username is required'
+                            : null,
                 onChanged: (value) => username = value,
               ),
               const SizedBox(height: 20),
-              
+
               // Password Field
               Text(
                 'Password *',
@@ -863,11 +933,15 @@ class _AddPartnerBottomSheetState extends State<_AddPartnerBottomSheet> {
                   ),
                 ),
                 obscureText: true,
-                validator: (value) => value == null || value.isEmpty ? 'Password is required' : null,
+                validator:
+                    (value) =>
+                        value == null || value.isEmpty
+                            ? 'Password is required'
+                            : null,
                 onChanged: (value) => password = value,
               ),
               const SizedBox(height: 20),
-              
+
               // Phone Field
               Text(
                 'Phone *',
@@ -882,18 +956,25 @@ class _AddPartnerBottomSheetState extends State<_AddPartnerBottomSheet> {
                 children: [
                   DropdownButton<Country>(
                     value: selectedCountry,
-                    items: CountryData.countries.map((country) {
-                      return DropdownMenuItem<Country>(
-                        value: country,
-                        child: Row(
-                          children: [
-                            Text(country.flag, style: const TextStyle(fontSize: 18)),
-                            const SizedBox(width: 4),
-                            Text(country.dialCode, style: const TextStyle(fontSize: 14)),
-                          ],
-                        ),
-                      );
-                    }).toList(),
+                    items:
+                        CountryData.countries.map((country) {
+                          return DropdownMenuItem<Country>(
+                            value: country,
+                            child: Row(
+                              children: [
+                                Text(
+                                  country.flag,
+                                  style: const TextStyle(fontSize: 18),
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  country.dialCode,
+                                  style: const TextStyle(fontSize: 14),
+                                ),
+                              ],
+                            ),
+                          );
+                        }).toList(),
                     onChanged: (country) {
                       if (country != null) {
                         setState(() {
@@ -944,194 +1025,213 @@ class _AddPartnerBottomSheetState extends State<_AddPartnerBottomSheet> {
                 ],
               ),
               const SizedBox(height: 10),
-                      SizedBox(
-                        width: double.infinity,
-                        height: 50,
-                        child: ElevatedButton(
-                          onPressed: otpLoading ? null : sendOtp,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: ColorManager.primary,
-                            foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
+              SizedBox(
+                width: double.infinity,
+                height: 50,
+                child: ElevatedButton(
+                  onPressed: otpLoading ? null : sendOtp,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: ColorManager.primary,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    elevation: 2,
+                  ),
+                  child:
+                      otpLoading
+                          ? SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: const AlwaysStoppedAnimation<Color>(
+                                Colors.white,
+                              ),
                             ),
-                            elevation: 2,
-                          ),
-                          child: otpLoading 
-                              ? SizedBox(
-                                  height: 20,
-                                  width: 20,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
-                                  ),
-                                )
-                              : Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Icon(Icons.send, size: 18),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      'Send OTP',
-                                      style: TextStyle(
-                                        fontSize: FontSize.s16,
-                                        fontWeight: FontWeightManager.medium,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                        ),
-                      ),
-                      if (otpSent) ...[
-                        const SizedBox(height: 20),
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: Colors.green[50],
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Colors.green[200]!),
-                          ),
-                          child: Row(
+                          )
+                          : Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Icon(Icons.check_circle, color: Colors.green[600], size: 20),
+                              Icon(Icons.send, size: 18),
                               const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  'OTP sent to ${selectedCountry.dialCode}${phone.trim()}',
-                                  style: TextStyle(
-                                    fontFamily: FontConstants.fontFamily,
-                                    fontSize: FontSize.s14,
-                                    color: Colors.green[700],
-                                  ),
+                              Text(
+                                'Send OTP',
+                                style: TextStyle(
+                                  fontSize: FontSize.s16,
+                                  fontWeight: FontWeightManager.medium,
                                 ),
                               ),
                             ],
                           ),
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          'Enter OTP *',
+                ),
+              ),
+              if (otpSent) ...[
+                const SizedBox(height: 20),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.green[50],
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.green[200]!),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.check_circle,
+                        color: Colors.green[600],
+                        size: 20,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'OTP sent to ${selectedCountry.dialCode}${phone.trim()}',
                           style: TextStyle(
                             fontFamily: FontConstants.fontFamily,
                             fontSize: FontSize.s14,
-                            fontWeight: FontWeightManager.medium,
+                            color: Colors.green[700],
                           ),
                         ),
-                        const SizedBox(height: 8),
-                        TextFormField(
-                          keyboardType: TextInputType.number,
-                          maxLength: 6,
-                          onChanged: (val) => otp = val,
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: FontSize.s18,
-                            fontWeight: FontWeightManager.semiBold,
-                            letterSpacing: 8,
-                          ),
-                          decoration: InputDecoration(
-                            hintText: '• • • • • •',
-                            hintStyle: TextStyle(
-                              color: Colors.grey[400],
-                              fontSize: FontSize.s18,
-                              letterSpacing: 8,
-                            ),
-                            counterText: '',
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10),
-                              borderSide: BorderSide(color: Colors.grey[300]!),
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10),
-                              borderSide: BorderSide(color: Colors.grey[300]!),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10),
-                              borderSide: BorderSide(color: ColorManager.primary, width: 2),
-                            ),
-                            errorBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10),
-                              borderSide: BorderSide(color: Colors.red),
-                            ),
-                            errorText: otpError.isNotEmpty ? otpError : null,
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        SizedBox(
-                          width: double.infinity,
-                          height: 50,
-                          child: ElevatedButton(
-                            onPressed: (otpLoading || otpVerified) ? null : verifyOtp,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: otpVerified ? Colors.green : ColorManager.primary,
-                              foregroundColor: Colors.white,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              elevation: 2,
-                            ),
-                            child: otpLoading 
-                                ? SizedBox(
-                                    height: 20,
-                                    width: 20,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
-                                    ),
-                                  )
-                                : Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Icon(
-                                        otpVerified ? Icons.check_circle : Icons.verified,
-                                        size: 18,
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Text(
-                                        otpVerified ? 'Verified' : 'Verify OTP',
-                                        style: TextStyle(
-                                          fontSize: FontSize.s16,
-                                          fontWeight: FontWeightManager.medium,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                          ),
-                        ),
-                      ],
-                      
-                      // Resend OTP button
-                      const SizedBox(height: 16),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            "Didn't receive the code? ",
-                            style: TextStyle(
-                              fontFamily: FontConstants.fontFamily,
-                              fontSize: FontSize.s14,
-                              color: Colors.grey[600],
-                            ),
-                          ),
-                          TextButton(
-                            onPressed: otpLoading ? null : sendOtp,
-                            child: Text(
-                              'Resend OTP',
-                              style: TextStyle(
-                                fontFamily: FontConstants.fontFamily,
-                                fontSize: FontSize.s14,
-                                color: ColorManager.primary,
-                                fontWeight: FontWeightManager.medium,
-                              ),
-                            ),
-                          ),
-                        ],
                       ),
-                      const SizedBox(height: 20),
-              
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Enter OTP *',
+                  style: TextStyle(
+                    fontFamily: FontConstants.fontFamily,
+                    fontSize: FontSize.s14,
+                    fontWeight: FontWeightManager.medium,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                TextFormField(
+                  keyboardType: TextInputType.number,
+                  maxLength: 6,
+                  onChanged: (val) => otp = val,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: FontSize.s18,
+                    fontWeight: FontWeightManager.semiBold,
+                    letterSpacing: 8,
+                  ),
+                  decoration: InputDecoration(
+                    hintText: '• • • • • •',
+                    hintStyle: TextStyle(
+                      color: Colors.grey[400],
+                      fontSize: FontSize.s18,
+                      letterSpacing: 8,
+                    ),
+                    counterText: '',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: BorderSide(color: Colors.grey[300]!),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: BorderSide(color: Colors.grey[300]!),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: BorderSide(
+                        color: ColorManager.primary,
+                        width: 2,
+                      ),
+                    ),
+                    errorBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: BorderSide(color: Colors.red),
+                    ),
+                    errorText: otpError.isNotEmpty ? otpError : null,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  height: 50,
+                  child: ElevatedButton(
+                    onPressed: (otpLoading || otpVerified) ? null : verifyOtp,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor:
+                          otpVerified ? Colors.green : ColorManager.primary,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      elevation: 2,
+                    ),
+                    child:
+                        otpLoading
+                            ? SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: const AlwaysStoppedAnimation<Color>(
+                                  Colors.white,
+                                ),
+                              ),
+                            )
+                            : Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  otpVerified
+                                      ? Icons.check_circle
+                                      : Icons.verified,
+                                  size: 18,
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  otpVerified ? 'Verified' : 'Verify OTP',
+                                  style: TextStyle(
+                                    fontSize: FontSize.s16,
+                                    fontWeight: FontWeightManager.medium,
+                                  ),
+                                ),
+                              ],
+                            ),
+                  ),
+                ),
+              ],
+
+              // Resend OTP button
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    "Didn't receive the code? ",
+                    style: TextStyle(
+                      fontFamily: FontConstants.fontFamily,
+                      fontSize: FontSize.s14,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: otpLoading ? null : sendOtp,
+                    child: Text(
+                      'Resend OTP',
+                      style: TextStyle(
+                        fontFamily: FontConstants.fontFamily,
+                        fontSize: FontSize.s14,
+                        color: ColorManager.primary,
+                        fontWeight: FontWeightManager.medium,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+
               // License Photo
               Text(
-                'License Photo (Optional)',
+                'License Photo',
                 style: TextStyle(
                   fontFamily: FontConstants.fontFamily,
                   fontSize: FontSize.s14,
@@ -1149,6 +1249,8 @@ class _AddPartnerBottomSheetState extends State<_AddPartnerBottomSheet> {
                   if (pickedFile != null) {
                     setState(() {
                       licensePhotoFile = File(pickedFile.path);
+                      isLicensePhotoValid = true;
+                      print("isLicensePhotoValid :- $isLicensePhotoValid");
                     });
                   }
                 },
@@ -1158,7 +1260,10 @@ class _AddPartnerBottomSheetState extends State<_AddPartnerBottomSheet> {
                   decoration: BoxDecoration(
                     color: Colors.white,
                     border: Border.all(
-                      color: licensePhotoFile != null ? ColorManager.primary : Colors.grey[300]!,
+                      color:
+                          licensePhotoFile != null
+                              ? ColorManager.primary
+                              : Colors.grey[300]!,
                       width: 1,
                     ),
                     borderRadius: BorderRadius.circular(10),
@@ -1166,14 +1271,11 @@ class _AddPartnerBottomSheetState extends State<_AddPartnerBottomSheet> {
                   child: Row(
                     children: [
                       const SizedBox(width: 14),
-                      Icon(
-                        Icons.upload_file,
-                        color: ColorManager.primary,
-                      ),
+                      Icon(Icons.upload_file, color: ColorManager.primary),
                       const SizedBox(width: 14),
                       Expanded(
                         child: Text(
-                          licensePhotoFile != null 
+                          licensePhotoFile != null
                               ? licensePhotoFile!.path.split('/').last
                               : 'Select License Photo (Optional)',
                           style: TextStyle(
@@ -1190,8 +1292,17 @@ class _AddPartnerBottomSheetState extends State<_AddPartnerBottomSheet> {
                   ),
                 ),
               ),
+              SizedBox(height: 5),
+              if (!isLicensePhotoValid)
+                Padding(
+                  padding: const EdgeInsets.only(top: 4, left: 8),
+                  child: Text(
+                    'This field is mandatory',
+                    style: TextStyle(color: Colors.red, fontSize: 12),
+                  ),
+                ),
               const SizedBox(height: 20),
-              
+
               // Vehicle Document
               Text(
                 'Vehicle Document (Optional)',
@@ -1212,6 +1323,7 @@ class _AddPartnerBottomSheetState extends State<_AddPartnerBottomSheet> {
                   if (pickedFile != null) {
                     setState(() {
                       vehicleDocumentFile = File(pickedFile.path);
+                      isVehicleDocValid = true;
                     });
                   }
                 },
@@ -1221,7 +1333,10 @@ class _AddPartnerBottomSheetState extends State<_AddPartnerBottomSheet> {
                   decoration: BoxDecoration(
                     color: Colors.white,
                     border: Border.all(
-                      color: vehicleDocumentFile != null ? ColorManager.primary : Colors.grey[300]!,
+                      color:
+                          vehicleDocumentFile != null
+                              ? ColorManager.primary
+                              : Colors.grey[300]!,
                       width: 1,
                     ),
                     borderRadius: BorderRadius.circular(10),
@@ -1229,14 +1344,11 @@ class _AddPartnerBottomSheetState extends State<_AddPartnerBottomSheet> {
                   child: Row(
                     children: [
                       const SizedBox(width: 14),
-                      Icon(
-                        Icons.upload_file,
-                        color: ColorManager.primary,
-                      ),
+                      Icon(Icons.upload_file, color: ColorManager.primary),
                       const SizedBox(width: 14),
                       Expanded(
                         child: Text(
-                          vehicleDocumentFile != null 
+                          vehicleDocumentFile != null
                               ? vehicleDocumentFile!.path.split('/').last
                               : 'Select Vehicle Document (Optional)',
                           style: TextStyle(
@@ -1253,32 +1365,53 @@ class _AddPartnerBottomSheetState extends State<_AddPartnerBottomSheet> {
                   ),
                 ),
               ),
+              SizedBox(height: 5),
+              if (!isVehicleDocValid)
+                Padding(
+                  padding: const EdgeInsets.only(top: 4, left: 8),
+                  child: Text(
+                    'This field is mandatory',
+                    style: TextStyle(color: Colors.red, fontSize: 12),
+                  ),
+                ),
               const SizedBox(height: 30),
-              
+
               // Submit Button
               SizedBox(
                 width: double.infinity,
                 height: 50,
                 child: ElevatedButton(
-                  onPressed: (isSubmitting || !otpVerified)
-                      ? null
-                      : () async {
-                            if (formKey.currentState!.validate()) {
-                            setState(() => isSubmitting = true);
-                            widget.bloc.add(
-                              AddDeliveryPartner(
-                                partnerId: widget.partnerId,
-                                phone: phone,
-                                name: name,
-                                email: email,
-                                username: username,
-                                password: password,
-                                licensePhotoPath: licensePhotoFile?.path,
-                                vehicleDocumentPath: vehicleDocumentFile?.path,
-                              ),
-                            );
-                          }
-                        },
+                  onPressed:
+                      (isSubmitting || !otpVerified)
+                          ? null
+                          : () async {
+                            bool licenseValid = licensePhotoFile != null;
+                            bool vehicleValid = vehicleDocumentFile != null;
+
+                            setState(() {
+                              isLicensePhotoValid = licenseValid;
+                              isVehicleDocValid = vehicleValid;
+                            });
+
+                            if (formKey.currentState!.validate() &&
+                                licenseValid &&
+                                vehicleValid) {
+                              setState(() => isSubmitting = true);
+                              widget.bloc.add(
+                                AddDeliveryPartner(
+                                  partnerId: widget.partnerId,
+                                  phone: phone,
+                                  name: name,
+                                  email: email,
+                                  username: username,
+                                  password: password,
+                                  licensePhotoPath: licensePhotoFile?.path,
+                                  vehicleDocumentPath:
+                                      vehicleDocumentFile?.path,
+                                ),
+                              );
+                            }
+                          },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: ColorManager.primary,
                     foregroundColor: Colors.white,
@@ -1286,22 +1419,25 @@ class _AddPartnerBottomSheetState extends State<_AddPartnerBottomSheet> {
                       borderRadius: BorderRadius.circular(10),
                     ),
                   ),
-                  child: isSubmitting 
-                      ? SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
+                  child:
+                      isSubmitting
+                          ? SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: const AlwaysStoppedAnimation<Color>(
+                                Colors.white,
+                              ),
+                            ),
+                          )
+                          : const Text(
+                            'Add Partner',
+                            style: TextStyle(
+                              fontSize: FontSize.s16,
+                              fontWeight: FontWeightManager.medium,
+                            ),
                           ),
-                        )
-                      : const Text(
-                          'Add Partner',
-                          style: TextStyle(
-                            fontSize: FontSize.s16,
-                            fontWeight: FontWeightManager.medium,
-                          ),
-                        ),
                 ),
               ),
               const SizedBox(height: 20),
@@ -1311,7 +1447,7 @@ class _AddPartnerBottomSheetState extends State<_AddPartnerBottomSheet> {
       ),
     );
   }
-} 
+}
 
 class _EditPartnerBottomSheet extends StatefulWidget {
   final DeliveryPartner partner;
@@ -1320,7 +1456,8 @@ class _EditPartnerBottomSheet extends StatefulWidget {
   const _EditPartnerBottomSheet({required this.partner, required this.bloc});
 
   @override
-  State<_EditPartnerBottomSheet> createState() => _EditPartnerBottomSheetState();
+  State<_EditPartnerBottomSheet> createState() =>
+      _EditPartnerBottomSheetState();
 }
 
 class _EditPartnerBottomSheetState extends State<_EditPartnerBottomSheet> {
@@ -1385,34 +1522,74 @@ class _EditPartnerBottomSheetState extends State<_EditPartnerBottomSheet> {
               ),
               const SizedBox(height: 20),
               // Name Field
-              Text('Name *', style: TextStyle(fontFamily: FontConstants.fontFamily, fontSize: FontSize.s14, fontWeight: FontWeightManager.medium)),
+              Text(
+                'Name *',
+                style: TextStyle(
+                  fontFamily: FontConstants.fontFamily,
+                  fontSize: FontSize.s14,
+                  fontWeight: FontWeightManager.medium,
+                ),
+              ),
               const SizedBox(height: 8),
               TextFormField(
                 initialValue: name,
                 decoration: InputDecoration(
                   hintText: 'Enter delivery partner name',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey[300]!)),
-                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey[300]!)),
-                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: ColorManager.primary)),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide(color: Colors.grey[300]!),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide(color: Colors.grey[300]!),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide(color: ColorManager.primary),
+                  ),
                 ),
-                validator: (value) => value == null || value.isEmpty ? 'Name is required' : null,
+                validator:
+                    (value) =>
+                        value == null || value.isEmpty
+                            ? 'Name is required'
+                            : null,
                 onChanged: (value) => name = value,
               ),
               const SizedBox(height: 20),
               // Email Field
-              Text('Email', style: TextStyle(fontFamily: FontConstants.fontFamily, fontSize: FontSize.s14, fontWeight: FontWeightManager.medium)),
+              Text(
+                'Email',
+                style: TextStyle(
+                  fontFamily: FontConstants.fontFamily,
+                  fontSize: FontSize.s14,
+                  fontWeight: FontWeightManager.medium,
+                ),
+              ),
               const SizedBox(height: 8),
               TextFormField(
                 initialValue: email,
                 decoration: InputDecoration(
                   hintText: 'Enter email address',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey[300]!)),
-                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey[300]!)),
-                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: ColorManager.primary)),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide(color: Colors.grey[300]!),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide(color: Colors.grey[300]!),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide(color: ColorManager.primary),
+                  ),
                 ),
                 keyboardType: TextInputType.emailAddress,
                 validator: (value) {
-                  if (value != null && value.isNotEmpty && !RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
+                  if (value != null &&
+                      value.isNotEmpty &&
+                      !RegExp(
+                        r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
+                      ).hasMatch(value)) {
                     return 'Please enter a valid email address';
                   }
                   return null;
@@ -1421,16 +1598,32 @@ class _EditPartnerBottomSheetState extends State<_EditPartnerBottomSheet> {
               ),
               const SizedBox(height: 20),
               // Phone Field
-              Text('Phone *', style: TextStyle(fontFamily: FontConstants.fontFamily, fontSize: FontSize.s14, fontWeight: FontWeightManager.medium)),
+              Text(
+                'Phone *',
+                style: TextStyle(
+                  fontFamily: FontConstants.fontFamily,
+                  fontSize: FontSize.s14,
+                  fontWeight: FontWeightManager.medium,
+                ),
+              ),
               const SizedBox(height: 8),
               TextFormField(
                 initialValue: phone,
                 enabled: false, // Disable editing phone number
                 decoration: InputDecoration(
                   hintText: 'Enter phone number',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey[300]!)),
-                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey[300]!)),
-                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: ColorManager.primary)),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide(color: Colors.grey[300]!),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide(color: Colors.grey[300]!),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide(color: ColorManager.primary),
+                  ),
                 ),
                 keyboardType: TextInputType.phone,
                 validator: (value) {
@@ -1450,35 +1643,74 @@ class _EditPartnerBottomSheetState extends State<_EditPartnerBottomSheet> {
               ),
               const SizedBox(height: 20),
               // Vehicle Type
-              Text('Vehicle Type', style: TextStyle(fontFamily: FontConstants.fontFamily, fontSize: FontSize.s14, fontWeight: FontWeightManager.medium)),
+              Text(
+                'Vehicle Type',
+                style: TextStyle(
+                  fontFamily: FontConstants.fontFamily,
+                  fontSize: FontSize.s14,
+                  fontWeight: FontWeightManager.medium,
+                ),
+              ),
               const SizedBox(height: 8),
               TextFormField(
                 initialValue: vehicleType,
                 decoration: InputDecoration(
                   hintText: 'Enter vehicle type',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey[300]!)),
-                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey[300]!)),
-                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: ColorManager.primary)),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide(color: Colors.grey[300]!),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide(color: Colors.grey[300]!),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide(color: ColorManager.primary),
+                  ),
                 ),
                 onChanged: (value) => vehicleType = value,
               ),
               const SizedBox(height: 20),
               // Vehicle Number
-              Text('Vehicle Number', style: TextStyle(fontFamily: FontConstants.fontFamily, fontSize: FontSize.s14, fontWeight: FontWeightManager.medium)),
+              Text(
+                'Vehicle Number',
+                style: TextStyle(
+                  fontFamily: FontConstants.fontFamily,
+                  fontSize: FontSize.s14,
+                  fontWeight: FontWeightManager.medium,
+                ),
+              ),
               const SizedBox(height: 8),
               TextFormField(
                 initialValue: vehicleNumber,
                 decoration: InputDecoration(
                   hintText: 'Enter vehicle number',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey[300]!)),
-                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey[300]!)),
-                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: ColorManager.primary)),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide(color: Colors.grey[300]!),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide(color: Colors.grey[300]!),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide(color: ColorManager.primary),
+                  ),
                 ),
                 onChanged: (value) => vehicleNumber = value,
               ),
               const SizedBox(height: 20),
               // License Photo
-              Text('License Photo (Optional)', style: TextStyle(fontFamily: FontConstants.fontFamily, fontSize: FontSize.s14, fontWeight: FontWeightManager.medium)),
+              Text(
+                'License Photo (Optional)',
+                style: TextStyle(
+                  fontFamily: FontConstants.fontFamily,
+                  fontSize: FontSize.s14,
+                  fontWeight: FontWeightManager.medium,
+                ),
+              ),
               const SizedBox(height: 8),
               GestureDetector(
                 onTap: () async {
@@ -1499,7 +1731,10 @@ class _EditPartnerBottomSheetState extends State<_EditPartnerBottomSheet> {
                   decoration: BoxDecoration(
                     color: Colors.white,
                     border: Border.all(
-                      color: licensePhotoFile != null ? ColorManager.primary : Colors.grey[300]!,
+                      color:
+                          licensePhotoFile != null
+                              ? ColorManager.primary
+                              : Colors.grey[300]!,
                       width: 1,
                     ),
                     borderRadius: BorderRadius.circular(10),
@@ -1513,11 +1748,18 @@ class _EditPartnerBottomSheetState extends State<_EditPartnerBottomSheet> {
                         child: Text(
                           licensePhotoFile != null
                               ? licensePhotoFile!.path.split('/').last
-                              : (widget.partner.licensePhoto != null ? 'Current: ${widget.partner.licensePhoto!.split('/').last}' : 'Select License Photo (Optional)'),
-                          style: TextStyle(fontFamily: FontConstants.fontFamily, fontSize: FontSize.s14, color: Colors.grey[700]),
+                              : (widget.partner.licensePhoto != null
+                                  ? 'Current: ${widget.partner.licensePhoto!.split('/').last}'
+                                  : 'Select License Photo (Optional)'),
+                          style: TextStyle(
+                            fontFamily: FontConstants.fontFamily,
+                            fontSize: FontSize.s14,
+                            color: Colors.grey[700],
+                          ),
                         ),
                       ),
-                      if (licensePhotoFile != null || widget.partner.licensePhoto != null)
+                      if (licensePhotoFile != null ||
+                          widget.partner.licensePhoto != null)
                         const Icon(Icons.check_circle, color: Colors.green),
                       const SizedBox(width: 14),
                     ],
@@ -1526,7 +1768,14 @@ class _EditPartnerBottomSheetState extends State<_EditPartnerBottomSheet> {
               ),
               const SizedBox(height: 20),
               // Vehicle Document
-              Text('Vehicle Document (Optional)', style: TextStyle(fontFamily: FontConstants.fontFamily, fontSize: FontSize.s14, fontWeight: FontWeightManager.medium)),
+              Text(
+                'Vehicle Document (Optional)',
+                style: TextStyle(
+                  fontFamily: FontConstants.fontFamily,
+                  fontSize: FontSize.s14,
+                  fontWeight: FontWeightManager.medium,
+                ),
+              ),
               const SizedBox(height: 8),
               GestureDetector(
                 onTap: () async {
@@ -1547,7 +1796,10 @@ class _EditPartnerBottomSheetState extends State<_EditPartnerBottomSheet> {
                   decoration: BoxDecoration(
                     color: Colors.white,
                     border: Border.all(
-                      color: vehicleDocumentFile != null ? ColorManager.primary : Colors.grey[300]!,
+                      color:
+                          vehicleDocumentFile != null
+                              ? ColorManager.primary
+                              : Colors.grey[300]!,
                       width: 1,
                     ),
                     borderRadius: BorderRadius.circular(10),
@@ -1561,11 +1813,18 @@ class _EditPartnerBottomSheetState extends State<_EditPartnerBottomSheet> {
                         child: Text(
                           vehicleDocumentFile != null
                               ? vehicleDocumentFile!.path.split('/').last
-                              : (widget.partner.vehicleDocument != null ? 'Current: ${widget.partner.vehicleDocument!.split('/').last}' : 'Select Vehicle Document (Optional)'),
-                          style: TextStyle(fontFamily: FontConstants.fontFamily, fontSize: FontSize.s14, color: Colors.grey[700]),
+                              : (widget.partner.vehicleDocument != null
+                                  ? 'Current: ${widget.partner.vehicleDocument!.split('/').last}'
+                                  : 'Select Vehicle Document (Optional)'),
+                          style: TextStyle(
+                            fontFamily: FontConstants.fontFamily,
+                            fontSize: FontSize.s14,
+                            color: Colors.grey[700],
+                          ),
                         ),
                       ),
-                      if (vehicleDocumentFile != null || widget.partner.vehicleDocument != null)
+                      if (vehicleDocumentFile != null ||
+                          widget.partner.vehicleDocument != null)
                         const Icon(Icons.check_circle, color: Colors.green),
                       const SizedBox(width: 14),
                     ],
@@ -1578,25 +1837,28 @@ class _EditPartnerBottomSheetState extends State<_EditPartnerBottomSheet> {
                 width: double.infinity,
                 height: 50,
                 child: ElevatedButton(
-                  onPressed: isSubmitting
-                      ? null
-                      : () async {
-                          if (formKey.currentState!.validate()) {
-                            setState(() => isSubmitting = true);
-                            widget.bloc.add(
-                              EditDeliveryPartner(
-                                deliveryPartnerId: widget.partner.deliveryPartnerId,
-                                name: name,
-                                phone: phone,
-                                email: email,
-                                vehicleType: vehicleType,
-                                vehicleNumber: vehicleNumber,
-                                licensePhotoPath: licensePhotoFile?.path,
-                                vehicleDocumentPath: vehicleDocumentFile?.path,
-                              ),
-                            );
-                          }
-                        },
+                  onPressed:
+                      isSubmitting
+                          ? null
+                          : () async {
+                            if (formKey.currentState!.validate()) {
+                              setState(() => isSubmitting = true);
+                              widget.bloc.add(
+                                EditDeliveryPartner(
+                                  deliveryPartnerId:
+                                      widget.partner.deliveryPartnerId,
+                                  name: name,
+                                  phone: phone,
+                                  email: email,
+                                  vehicleType: vehicleType,
+                                  vehicleNumber: vehicleNumber,
+                                  licensePhotoPath: licensePhotoFile?.path,
+                                  vehicleDocumentPath:
+                                      vehicleDocumentFile?.path,
+                                ),
+                              );
+                            }
+                          },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: ColorManager.primary,
                     foregroundColor: Colors.white,
@@ -1604,22 +1866,25 @@ class _EditPartnerBottomSheetState extends State<_EditPartnerBottomSheet> {
                       borderRadius: BorderRadius.circular(10),
                     ),
                   ),
-                  child: isSubmitting
-                      ? SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
+                  child:
+                      isSubmitting
+                          ? SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: const AlwaysStoppedAnimation<Color>(
+                                Colors.white,
+                              ),
+                            ),
+                          )
+                          : const Text(
+                            'Save Changes',
+                            style: TextStyle(
+                              fontSize: FontSize.s16,
+                              fontWeight: FontWeightManager.medium,
+                            ),
                           ),
-                        )
-                      : const Text(
-                          'Save Changes',
-                          style: TextStyle(
-                            fontSize: FontSize.s16,
-                            fontWeight: FontWeightManager.medium,
-                          ),
-                        ),
                 ),
               ),
               const SizedBox(height: 20),
@@ -1629,4 +1894,4 @@ class _EditPartnerBottomSheetState extends State<_EditPartnerBottomSheet> {
       ),
     );
   }
-} 
+}

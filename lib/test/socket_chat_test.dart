@@ -170,7 +170,7 @@ class _SocketChatTestState extends State<SocketChatTest> {
     }
 
     try {
-      _chatService.emitMessageSeen(messageId);
+      // _chatService.emitMessageSeen(messageId);
       setState(() {
         _events.add('👁️ Emitted message_seen: $messageId');
         _lastEvent = '👁️ Emitted message_seen: $messageId';
@@ -387,7 +387,7 @@ class _SocketChatTestState extends State<SocketChatTest> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      const Text(
+                       Text(
                         'Messages (${_messages.length})',
                         style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                       ),
