@@ -29,6 +29,9 @@ class AddProductBloc extends Bloc<AddProductEvent, AddProductState> {
     on<ToggleCancellableEvent>(_onToggleCancellable);
     on<FetchFoodTypesEvent>(_onFetchFoodTypes);
     on<FoodTypeChangedEvent>(_onFoodTypeChanged);
+    on<ToggleAvailableAllDayEvent>(_onToggleAvailableAllDay);
+    on<AvailableFromTimeChangedEvent>(_onAvailableFromTimeChanged);
+    on<AvailableToTimeChangedEvent>(_onAvailableToTimeChanged);
     on<SubmitProductEvent>(_onSubmitProduct);
     on<ResetFormEvent>(_onResetForm);
   }
@@ -238,6 +241,39 @@ class AddProductBloc extends Bloc<AddProductEvent, AddProductState> {
     }
   }
 
+  void _onToggleAvailableAllDay(ToggleAvailableAllDayEvent event, Emitter<AddProductState> emit) {
+    if (state is AddProductFormState) {
+      final currentState = state as AddProductFormState;
+      emit(currentState.copyWith(
+        product: currentState.product.copyWith(
+          isAvailableAllDay: event.isAvailableAllDay,
+        ),
+      ));
+    }
+  }
+
+  void _onAvailableFromTimeChanged(AvailableFromTimeChangedEvent event, Emitter<AddProductState> emit) {
+    if (state is AddProductFormState) {
+      final currentState = state as AddProductFormState;
+      emit(currentState.copyWith(
+        product: currentState.product.copyWith(
+          availableFromTime: event.time,
+        ),
+      ));
+    }
+  }
+
+  void _onAvailableToTimeChanged(AvailableToTimeChangedEvent event, Emitter<AddProductState> emit) {
+    if (state is AddProductFormState) {
+      final currentState = state as AddProductFormState;
+      emit(currentState.copyWith(
+        product: currentState.product.copyWith(
+          availableToTime: event.time,
+        ),
+      ));
+    }
+  }
+
   void _onSubmitProduct(SubmitProductEvent event, Emitter<AddProductState> emit) async {
     if (state is AddProductFormState) {
       final currentState = state as AddProductFormState;
@@ -337,6 +373,17 @@ class AddProductBloc extends Bloc<AddProductEvent, AddProductState> {
       if (product.restaurantFoodTypeId != null && product.restaurantFoodTypeId!.isNotEmpty) {
         request.fields['restaurant_food_type_id'] = product.restaurantFoodTypeId!;
       }
+      
+      // Add timing fields (for UI demonstration)
+      if (!product.isAvailableAllDay) {
+        if (product.availableFromTime != null && product.availableFromTime!.isNotEmpty) {
+          request.fields['available_from_time'] = product.availableFromTime!;
+        }
+        if (product.availableToTime != null && product.availableToTime!.isNotEmpty) {
+          request.fields['available_to_time'] = product.availableToTime!;
+        }
+      }
+      request.fields['is_available_all_day'] = product.isAvailableAllDay.toString();
       
       // Add tags if available
       if (product.tags.isNotEmpty) {

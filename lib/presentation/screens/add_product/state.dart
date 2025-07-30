@@ -16,6 +16,9 @@ class ProductModel {
   final bool taxIncluded;
   final bool isCancellable;
   final String? restaurantFoodTypeId;
+  final String? availableFromTime;
+  final String? availableToTime;
+  final bool isAvailableAllDay;
 
   ProductModel({
     this.name = '',
@@ -29,6 +32,9 @@ class ProductModel {
     this.taxIncluded = false,
     this.isCancellable = false,
     this.restaurantFoodTypeId,
+    this.availableFromTime,
+    this.availableToTime,
+    this.isAvailableAllDay = true,
   });
 
   ProductModel copyWith({
@@ -43,6 +49,9 @@ class ProductModel {
     bool? taxIncluded,
     bool? isCancellable,
     String? restaurantFoodTypeId,
+    String? availableFromTime,
+    String? availableToTime,
+    bool? isAvailableAllDay,
   }) {
     return ProductModel(
       name: name ?? this.name,
@@ -56,6 +65,9 @@ class ProductModel {
       taxIncluded: taxIncluded ?? this.taxIncluded,
       isCancellable: isCancellable ?? this.isCancellable,
       restaurantFoodTypeId: restaurantFoodTypeId ?? this.restaurantFoodTypeId,
+      availableFromTime: availableFromTime ?? this.availableFromTime,
+      availableToTime: availableToTime ?? this.availableToTime,
+      isAvailableAllDay: isAvailableAllDay ?? this.isAvailableAllDay,
     );
   }
 }

@@ -99,6 +99,30 @@ class FoodTypeChangedEvent extends AddProductEvent {
   List<Object?> get props => [foodType];
 }
 
+class ToggleAvailableAllDayEvent extends AddProductEvent {
+  final bool isAvailableAllDay;
+  const ToggleAvailableAllDayEvent(this.isAvailableAllDay);
+  
+  @override
+  List<Object?> get props => [isAvailableAllDay];
+}
+
+class AvailableFromTimeChangedEvent extends AddProductEvent {
+  final String time;
+  const AvailableFromTimeChangedEvent(this.time);
+  
+  @override
+  List<Object?> get props => [time];
+}
+
+class AvailableToTimeChangedEvent extends AddProductEvent {
+  final String time;
+  const AvailableToTimeChangedEvent(this.time);
+  
+  @override
+  List<Object?> get props => [time];
+}
+
 class SubmitProductEvent extends AddProductEvent {
   const SubmitProductEvent();
 }

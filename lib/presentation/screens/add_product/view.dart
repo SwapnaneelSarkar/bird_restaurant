@@ -6,7 +6,6 @@ import '../../../models/catagory_model.dart';
 import '../../../models/food_type_model.dart';
 import '../../../ui_components/custom_textField.dart';
 import '../../../ui_components/image_picker.dart';
-import '../../../ui_components/universal_widget/topbar.dart';
 import '../../../presentation/resources/colors.dart';
 import '../../../presentation/resources/font.dart';
 import '../homePage/sidebar/sidebar_drawer.dart';
@@ -248,6 +247,12 @@ class _AddProductScreenState extends State<AddProductScreen> {
           _buildFoodTypeDropdown(context, state),
           const SizedBox(height: 16),
           
+          // Availability Timing
+          _buildFormLabel('Availability Timing'),
+          const SizedBox(height: 8),
+          _buildAvailabilityTimingSection(context, state),
+          const SizedBox(height: 16),
+          
           // Vegetarian toggle
           _buildToggleOption(
             context,
@@ -479,6 +484,183 @@ class _AddProductScreenState extends State<AddProductScreen> {
         ),
       ),
     );
+  }
+
+  Widget _buildAvailabilityTimingSection(BuildContext context, AddProductFormState state) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Available All Day Toggle
+        _buildToggleOption(
+          context,
+          'Available All Day',
+          state.product.isAvailableAllDay,
+          (value) => context.read<AddProductBloc>().add(ToggleAvailableAllDayEvent(value)),
+        ),
+        
+        // Time Range Section (only show if not available all day)
+        if (!state.product.isAvailableAllDay) ...[
+          const SizedBox(height: 12),
+          Text(
+            'Set specific availability hours:',
+            style: TextStyle(
+              fontSize: FontSize.s14,
+              fontWeight: FontWeightManager.medium,
+              color: ColorManager.black,
+            ),
+          ),
+          const SizedBox(height: 12),
+          
+          // Time Range Row
+          Row(
+            children: [
+              // From Time
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'From',
+                      style: TextStyle(
+                        fontSize: FontSize.s14,
+                        fontWeight: FontWeightManager.medium,
+                        color: ColorManager.black,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    _buildTimePickerField(
+                      context,
+                      'Start Time',
+                      state.product.availableFromTime ?? '09:00',
+                      (time) => context.read<AddProductBloc>().add(AvailableFromTimeChangedEvent(time)),
+                    ),
+                  ],
+                ),
+              ),
+              
+              const SizedBox(width: 16),
+              
+              // To Time
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'To',
+                      style: TextStyle(
+                        fontSize: FontSize.s14,
+                        fontWeight: FontWeightManager.medium,
+                        color: ColorManager.black,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    _buildTimePickerField(
+                      context,
+                      'End Time',
+                      state.product.availableToTime ?? '22:00',
+                      (time) => context.read<AddProductBloc>().add(AvailableToTimeChangedEvent(time)),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          
+          const SizedBox(height: 8),
+          Text(
+            'This product will be automatically available during these hours',
+            style: TextStyle(
+              fontSize: FontSize.s12,
+              color: Colors.grey[600],
+              fontStyle: FontStyle.italic,
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildTimePickerField(
+    BuildContext context,
+    String label,
+    String currentTime,
+    Function(String) onTimeChanged,
+  ) {
+    return InkWell(
+      onTap: () async {
+        final TimeOfDay? picked = await showTimePicker(
+          context: context,
+          initialTime: _parseTimeString(currentTime),
+          builder: (context, child) {
+            return Theme(
+              data: Theme.of(context).copyWith(
+                timePickerTheme: TimePickerThemeData(
+                  backgroundColor: Colors.white,
+                  hourMinuteTextColor: ColorManager.black,
+                  hourMinuteColor: Colors.grey[200],
+                  dialHandColor: const Color(0xFFCD6E32),
+                  dialBackgroundColor: Colors.grey[100],
+                  dialTextColor: ColorManager.black,
+                  entryModeIconColor: ColorManager.black,
+                ),
+              ),
+              child: child!,
+            );
+          },
+        );
+        
+        if (picked != null) {
+          final timeString = '${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}';
+          onTimeChanged(timeString);
+        }
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: Colors.grey[200],
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.grey[300]!),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              Icons.access_time,
+              color: Colors.grey[600],
+              size: 20,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              currentTime,
+              style: TextStyle(
+                fontSize: FontSize.s14,
+                color: ColorManager.black,
+                fontWeight: FontWeightManager.medium,
+              ),
+            ),
+            const Spacer(),
+            Icon(
+              Icons.arrow_drop_down,
+              color: Colors.grey[600],
+              size: 20,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  TimeOfDay _parseTimeString(String timeString) {
+    try {
+      final parts = timeString.split(':');
+      if (parts.length == 2) {
+        final hour = int.parse(parts[0]);
+        final minute = int.parse(parts[1]);
+        return TimeOfDay(hour: hour, minute: minute);
+      }
+    } catch (e) {
+      debugPrint('Error parsing time string: $e');
+    }
+    return const TimeOfDay(hour: 9, minute: 0);
   }
 
   Widget _buildToggleOption(
