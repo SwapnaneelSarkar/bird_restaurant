@@ -27,7 +27,7 @@ class RestaurantProfileBloc
       : super(
           RestaurantProfileState(
             hours: [
-              const OperationalDay(label: 'Sunday', start: TimeOfDay(hour: 9, minute: 0), end: TimeOfDay(hour: 21, minute: 0)),
+              const OperationalDay(label: 'Sunday', start: TimeOfDay(hour: 9, minute: 0), end: TimeOfDay(hour: 21, minute: 0), enabled: false),
               const OperationalDay(label: 'Monday', start: TimeOfDay(hour: 9, minute: 0), end: TimeOfDay(hour: 21, minute: 0), enabled: true),
               const OperationalDay(label: 'Tuesday', start: TimeOfDay(hour: 9, minute: 0), end: TimeOfDay(hour: 21, minute: 0), enabled: true),
               const OperationalDay(label: 'Wednesday', start: TimeOfDay(hour: 9, minute: 0), end: TimeOfDay(hour: 21, minute: 0), enabled: true),

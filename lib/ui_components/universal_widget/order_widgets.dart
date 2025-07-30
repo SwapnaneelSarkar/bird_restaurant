@@ -106,22 +106,21 @@ class OrderDetailsWidget extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildOrderHeader(orderDetails),
+          _buildRestaurantHeader(orderDetails),
           const SizedBox(height: 18),
-          _buildOrderItems(orderDetails, menuItems),
-          const SizedBox(height: 18),
-          _buildOrderSummary(orderDetails),
+          _buildOrderItemsAndSummary(orderDetails, menuItems),
           const SizedBox(height: 18),
           _buildOrderStatus(orderDetails),
+          const SizedBox(height: 18),
+          _buildDeliveryInfo(orderDetails),
         ],
       ),
     );
   }
 
-  Widget _buildOrderHeader(OrderDetails orderDetails) {
+    Widget _buildRestaurantHeader(OrderDetails orderDetails) {
     return Container(
       padding: const EdgeInsets.all(18),
-      margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
@@ -139,48 +138,306 @@ class OrderDetailsWidget extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(Icons.receipt_long, color: ColorManager.primary, size: 26),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: ColorManager.primary.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  Icons.restaurant,
+                  color: ColorManager.primary,
+                  size: 24,
+                ),
+              ),
               const SizedBox(width: 12),
               Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Restaurant Name', // This should come from orderDetails if available
+                      style: TextStyle(
+                        color: ColorManager.black,
+                        fontSize: 18,
+                        fontWeight: FontWeightManager.bold,
+                        fontFamily: FontFamily.Montserrat,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.location_on,
+                          color: Colors.grey[600],
+                          size: 16,
+                        ),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            orderDetails.deliveryAddress ?? 'Restaurant Location',
+                            style: TextStyle(
+                              color: Colors.grey[600],
+                              fontSize: 14,
+                              fontFamily: FontFamily.Montserrat,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 2,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: OrderService.getStatusColor(orderDetails.orderStatus).withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: OrderService.getStatusColor(orderDetails.orderStatus).withOpacity(0.3),
+                  ),
+                ),
                 child: Text(
-                  'Order #${orderDetails.orderId.length > 8 ? orderDetails.orderId.substring(orderDetails.orderId.length - 8) : orderDetails.orderId}',
+                  OrderService.formatOrderStatus(orderDetails.orderStatus),
                   style: TextStyle(
-                    color: ColorManager.primary,
-                    fontSize: 20,
-                    fontWeight: FontWeightManager.bold,
+                    color: OrderService.getStatusColor(orderDetails.orderStatus),
+                    fontSize: 12,
+                    fontWeight: FontWeightManager.semiBold,
                     fontFamily: FontFamily.Montserrat,
                   ),
-                  overflow: TextOverflow.ellipsis,
-                  maxLines: 2,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 14),
-          Row(
-            children: [
-              Icon(Icons.person_outline, color: Colors.grey[600], size: 20),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  'User ID: ${orderDetails.userId.length > 12 ? orderDetails.userId.substring(orderDetails.userId.length - 12) : orderDetails.userId}',
-                  style: TextStyle(
-                    color: Colors.grey[700],
-                    fontSize: 14,
-                    fontFamily: FontFamily.Montserrat,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                  maxLines: 1,
+          const SizedBox(height: 16),
+          // Customer Information Section
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: ColorManager.background,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: ColorManager.primary.withOpacity(0.1)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      Icons.person,
+                      color: ColorManager.primary,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Customer Information',
+                      style: TextStyle(
+                        color: ColorManager.black,
+                        fontSize: 16,
+                        fontWeight: FontWeightManager.semiBold,
+                        fontFamily: FontFamily.Montserrat,
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-            ],
+                const SizedBox(height: 12),
+                _buildCustomerInfoRow('Name', orderDetails.userName, Icons.person_outline),
+                _buildCustomerInfoRow('Order ID', orderDetails.orderId, Icons.tag),
+                if (orderDetails.deliveryAddress != null && orderDetails.deliveryAddress!.isNotEmpty)
+                  _buildCustomerInfoRow('Delivery Address', orderDetails.deliveryAddress!, Icons.location_on),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          FutureBuilder<Map<String, dynamic>?>(
+            future: OrderService.fetchOrderReview(
+              partnerId: orderDetails.partnerId,
+              orderId: orderDetails.orderId,
+            ),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(8.0),
+                    child: SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  ),
+                );
+              }
+              
+              if (snapshot.hasData && snapshot.data != null) {
+                final reviewData = snapshot.data!;
+                final rating = reviewData['rating'] ?? 0;
+                final reviewText = reviewData['review_text'] ?? '';
+                
+                return Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: ColorManager.background,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: ColorManager.primary.withOpacity(0.1)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.star,
+                            color: const Color(0xFFFFC107),
+                            size: 20,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Food Rating',
+                            style: TextStyle(
+                              color: ColorManager.black,
+                              fontSize: 16,
+                              fontWeight: FontWeightManager.semiBold,
+                              fontFamily: FontFamily.Montserrat,
+                            ),
+                          ),
+                          const Spacer(),
+                          Row(
+                            children: List.generate(5, (index) {
+                              return Icon(
+                                Icons.star,
+                                color: index < rating 
+                                    ? const Color(0xFFFFC107)
+                                    : Colors.grey[300],
+                                size: 18,
+                              );
+                            }),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            '$rating/5',
+                            style: TextStyle(
+                              color: ColorManager.primary,
+                              fontSize: 14,
+                              fontWeight: FontWeightManager.bold,
+                              fontFamily: FontFamily.Montserrat,
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (reviewText.isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        Text(
+                          '"$reviewText"',
+                          style: TextStyle(
+                            color: Colors.grey[700],
+                            fontSize: 14,
+                            fontStyle: FontStyle.italic,
+                            fontFamily: FontFamily.Montserrat,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                );
+              }
+              
+              return Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.grey[50],
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.grey[200]!),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.star_border,
+                      color: Colors.grey[400],
+                      size: 20,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'No rating available',
+                      style: TextStyle(
+                        color: Colors.grey[600],
+                        fontSize: 14,
+                        fontFamily: FontFamily.Montserrat,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
           ),
         ],
       ),
     );
   }
 
-  Widget _buildOrderItems(OrderDetails orderDetails, Map<String, MenuItem> menuItems) {
+  Widget _buildCustomerInfoRow(String label, String value, IconData icon) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.7),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: ColorManager.primary.withOpacity(0.1),
+          width: 1,
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              color: ColorManager.primary.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Icon(
+              icon,
+              color: ColorManager.primary,
+              size: 12,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    color: ColorManager.textGrey,
+                    fontSize: 10,
+                    fontWeight: FontWeightManager.medium,
+                    fontFamily: FontFamily.Montserrat,
+                  ),
+                ),
+                const SizedBox(height: 1),
+                Text(
+                  value,
+                  style: TextStyle(
+                    color: ColorManager.black,
+                    fontSize: 12,
+                    fontWeight: FontWeightManager.semiBold,
+                    fontFamily: FontFamily.Montserrat,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 2,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildOrderItemsAndSummary(OrderDetails orderDetails, Map<String, MenuItem> menuItems) {
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
@@ -327,29 +584,9 @@ class OrderDetailsWidget extends StatelessWidget {
               ),
             );
           }).toList(),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildOrderSummary(OrderDetails orderDetails) {
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: ColorManager.primary.withOpacity(0.07),
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.03),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
-          ),
-        ],
-        border: Border.all(color: ColorManager.primary.withOpacity(0.10)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+          const SizedBox(height: 20),
+          const Divider(height: 1, color: Colors.grey),
+          const SizedBox(height: 16),
           Row(
             children: [
               Icon(Icons.receipt, color: ColorManager.primary, size: 22),
@@ -396,6 +633,7 @@ class OrderDetailsWidget extends StatelessWidget {
                   ),
                   // Delivery Fees row (only if > 0)
                   if (orderDetails.deliveryFeesDouble > 0) ...[
+                    const SizedBox(height: 8),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -418,9 +656,10 @@ class OrderDetailsWidget extends StatelessWidget {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 8),
                   ],
-                  const Divider(height: 24),
+                  const SizedBox(height: 12),
+                  const Divider(height: 1, color: Colors.grey),
+                  const SizedBox(height: 8),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -452,6 +691,8 @@ class OrderDetailsWidget extends StatelessWidget {
       ),
     );
   }
+
+
 
   Widget _buildOrderStatus(OrderDetails orderDetails) {
     return Container(
@@ -518,7 +759,84 @@ class OrderDetailsWidget extends StatelessWidget {
       ),
     );
   }
+
+
+
+  Widget _buildDeliveryInfo(OrderDetails orderDetails) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+        border: Border.all(color: ColorManager.primary.withOpacity(0.08)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.local_shipping, color: ColorManager.primary, size: 22),
+              const SizedBox(width: 12),
+              Text(
+                'Delivery Information',
+                style: TextStyle(
+                  color: ColorManager.primary,
+                  fontSize: 18,
+                  fontWeight: FontWeightManager.bold,
+                  fontFamily: FontFamily.Montserrat,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Icon(Icons.calendar_today, color: Colors.grey[600], size: 20),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Delivery Date: ${orderDetails.deliveryDate ?? 'N/A'}',
+                  style: TextStyle(
+                    color: Colors.grey[700],
+                    fontSize: 15,
+                    fontFamily: FontFamily.Montserrat,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Icon(Icons.access_time, color: Colors.grey[600], size: 20),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Delivery Time: ${orderDetails.deliveryTime ?? 'N/A'}',
+                  style: TextStyle(
+                    color: Colors.grey[700],
+                    fontSize: 15,
+                    fontFamily: FontFamily.Montserrat,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          
+        ],
+      ),
+    );
+  }
 }
+
+
 
 // StatusChangeBottomSheet Widget - FOR CHAT SCREEN ONLY
 class StatusChangeBottomSheet extends StatefulWidget {
@@ -629,15 +947,15 @@ class _StatusChangeBottomSheetState extends State<StatusChangeBottomSheet> {
           const SizedBox(height: 20),
           
           // Show status options
-          Text(
-            'Select New Status:',
-            style: TextStyle(
-              color: ColorManager.black,
-              fontSize: 16,
-              fontWeight: FontWeightManager.medium,
-              fontFamily: FontFamily.Montserrat,
-            ),
-          ),
+          // Text(
+          //   'Select New Status:',
+          //   style: TextStyle(
+          //     color: ColorManager.black,
+          //     fontSize: 16,
+          //     fontWeight: FontWeightManager.medium,
+          //     fontFamily: FontFamily.Montserrat,
+          //   ),
+          // ),
           
           const SizedBox(height: 12),
           

@@ -243,7 +243,7 @@ class _BodyState extends State<_Body> {
               ),
               const SizedBox(width: 12),
               Text(
-                'Restaurant Profile',
+                'Store Profile',
                 style: TextStyle(
                   fontFamily: FontConstants.fontFamily,
                   fontSize: FontSize.s18,
@@ -299,7 +299,7 @@ class _BodyState extends State<_Body> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Restaurant Image
+                        // Store Image
                         Stack(
                           children: [
                             Container(
@@ -404,8 +404,8 @@ class _BodyState extends State<_Body> {
 
                         CustomTextField(
                           controller: _restNameCtrl,
-                          label: 'Restaurant Name',
-                          hintText: 'Enter restaurant name',
+                          label: 'Store Name',
+                          hintText: 'Enter store name',
                           onChanged: (v) => bloc.add(RestaurantNameChanged(v)),
                         ),
                         SizedBox(height: vert * .8),
@@ -436,7 +436,7 @@ class _BodyState extends State<_Body> {
                         ),
                         SizedBox(height: vert * 1.2),
 
-                        _sectionHeader('Restaurant Type', Icons.restaurant_outlined),
+                        _sectionHeader('Store Type', Icons.store_outlined),
                         Row(
                           children: [
                             _typeChip(
@@ -455,7 +455,7 @@ class _BodyState extends State<_Body> {
                           ],
                         ),
                         
-                        // Restaurant Type Dropdown - NEW SECTION
+                        // Store Type Dropdown - NEW SECTION
                         SizedBox(height: vert * 1.2),
                         _sectionHeader('Kitchen Type', Icons.store_outlined),
                         SizedBox(height: vert * 0.5),
@@ -496,7 +496,7 @@ class _BodyState extends State<_Body> {
                                   border: Border.all(color: Colors.grey.shade300),
                                 ),
                                 child: Text(
-                                  'No restaurant types available',
+                                  'No store types available',
                                   style: TextStyle(
                                     color: Colors.grey.shade600,
                                     fontSize: FontSize.s14,
@@ -517,7 +517,7 @@ class _BodyState extends State<_Body> {
                                   isExpanded: true,
                                   value: state.selectedRestaurantType,
                                   hint: Text(
-                                    'Select restaurant type',
+                                    'Select store type',
                                     style: TextStyle(
                                       color: Colors.grey.shade600,
                                       fontSize: FontSize.s14,

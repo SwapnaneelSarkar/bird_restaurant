@@ -16,7 +16,7 @@ if (keystorePropertiesFile.exists()) {
 android {
     namespace = "com.birdpartner.app"
     compileSdk = 35
-    ndkVersion = '29.0.13599879'
+    ndkVersion = flutter.ndkVersion
 
     compileOptions {
         // Enable core library desugaring for flutter_local_notifications

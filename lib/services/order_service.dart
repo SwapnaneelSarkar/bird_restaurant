@@ -486,4 +486,50 @@ static Map<String, dynamic> getStatusValidationInfo(String currentStatus, String
       return null;
     }
   }
+
+  static Future<Map<String, dynamic>?> fetchOrderReview({
+    required String partnerId,
+    required String orderId,
+  }) async {
+    try {
+      final token = await TokenService.getToken();
+      if (token == null) {
+        throw Exception('No authentication token found');
+      }
+      
+      final url = Uri.parse('$baseUrl/get-partner/reviews/order/$orderId?partner_id=$partnerId');
+      
+      print('OrderService: GET $url');
+      
+      final response = await http.get(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+      
+      print('OrderService: Review response status: ${response.statusCode}');
+      print('OrderService: Review response body: ${response.body}');
+      
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> responseBody = json.decode(response.body);
+        if (responseBody['status'] == 'SUCCESS' && responseBody['data'] != null) {
+          return responseBody['data'];
+        } else {
+          print('OrderService: Review API returned error: ${responseBody['message']}');
+          return null;
+        }
+      } else if (response.statusCode == 404) {
+        print('OrderService: No review found for order $orderId');
+        return null;
+      } else {
+        print('OrderService: Failed to fetch review. Status: ${response.statusCode}');
+        return null;
+      }
+    } catch (e) {
+      print('OrderService: Error fetching order review: $e');
+      return null;
+    }
+  }
 }

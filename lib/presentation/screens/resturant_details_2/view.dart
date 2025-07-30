@@ -111,7 +111,8 @@ class _BodyState extends State<_Body> with SingleTickerProviderStateMixin {
 
   // Method to get validation message
   String _getValidationMessage(RestaurantCategoryState state) {
-    if (state.selected.isEmpty) {
+    // Only require cuisine selection for Food supercategory
+    if (state.shouldShowCuisineTypes && state.selected.isEmpty) {
       return 'Please select at least one cuisine type to continue.';
     }
     
@@ -140,7 +141,7 @@ class _BodyState extends State<_Body> with SingleTickerProviderStateMixin {
         backgroundColor: Colors.white,
         toolbarHeight: 50,
         title: Text(
-          'Restaurant Details',
+          'Store Details',
           style: TextStyle(
             fontFamily: FontConstants.fontFamily,
             fontSize: FontSize.s16,
@@ -179,7 +180,7 @@ class _BodyState extends State<_Body> with SingleTickerProviderStateMixin {
                     children: [
                       SizedBox(height: verticalPadding),
                       Text(
-                        'Restaurant Category',
+                        'Store Category',
                         style: TextStyle(
                           fontFamily: FontConstants.fontFamily,
                           fontSize: FontSize.s18,
@@ -196,81 +197,84 @@ class _BodyState extends State<_Body> with SingleTickerProviderStateMixin {
                         ),
                       ),
                       SizedBox(height: verticalPadding),
-                      RichText(
-                        text: TextSpan(
-                          text: 'Type of Cuisine',
-                          style: TextStyle(
-                            fontFamily: FontConstants.fontFamily,
-                            fontSize: FontSize.s14,
-                            fontWeight: FontWeightManager.medium,
-                            color: ColorManager.black,
-                          ),
-                          children: [
-                            TextSpan(
-                              text: ' *',
-                              style: TextStyle(color: Colors.red, fontWeight: FontWeightManager.semiBold),
+                      // Conditionally show cuisine types section only for Food supercategory
+                      if (state.shouldShowCuisineTypes) ...[
+                        RichText(
+                          text: TextSpan(
+                            text: 'Type of Cuisine',
+                            style: TextStyle(
+                              fontFamily: FontConstants.fontFamily,
+                              fontSize: FontSize.s14,
+                              fontWeight: FontWeightManager.medium,
+                              color: ColorManager.black,
                             ),
-                          ],
-                        ),
-                      ),
-                      SizedBox(height: h * 0.01),
-                      GridView.count(
-                        crossAxisCount: (w > 600) ? 4 : 3,
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        mainAxisSpacing: h * 0.015,
-                        crossAxisSpacing: w * 0.03,
-                        childAspectRatio: 1,
-                        children: [
-                          for (final ct in CuisineType.values)
-                            CuisineCard(
-                              cuisine: ct,
-                              selected: state.selected.contains(ct),
-                              onTap: () {
-                                debugPrint('🍽️ Tapped cuisine: ${ct.label}');
-                                bloc.add(ToggleCuisineEvent(ct));
-                              },
-                            ),
-                        ],
-                      ),
-                      
-                      // Add validation message for cuisine selection
-                      if (state.selected.isEmpty)
-                        Container(
-                          margin: EdgeInsets.only(top: h * 0.01),
-                          padding: EdgeInsets.symmetric(
-                            horizontal: w * 0.03,
-                            vertical: h * 0.01,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.orange.shade50,
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
-                              color: Colors.orange.shade300,
-                              width: 1,
-                            ),
-                          ),
-                          child: Row(
                             children: [
-                              Icon(
-                                Icons.info_outline,
-                                color: Colors.orange.shade600,
-                                size: 16,
-                              ),
-                              SizedBox(width: w * 0.02),
-                              Expanded(
-                                child: Text(
-                                  'Please select at least one cuisine type',
-                                  style: TextStyle(
-                                    fontFamily: FontConstants.fontFamily,
-                                    fontSize: FontSize.s12,
-                                    color: Colors.orange.shade700,
-                                  ),
-                                ),
+                              TextSpan(
+                                text: ' *',
+                                style: TextStyle(color: Colors.red, fontWeight: FontWeightManager.semiBold),
                               ),
                             ],
                           ),
                         ),
+                        SizedBox(height: h * 0.01),
+                        GridView.count(
+                          crossAxisCount: (w > 600) ? 4 : 3,
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          mainAxisSpacing: h * 0.015,
+                          crossAxisSpacing: w * 0.03,
+                          childAspectRatio: 1,
+                          children: [
+                            for (final ct in CuisineType.values)
+                              CuisineCard(
+                                cuisine: ct,
+                                selected: state.selected.contains(ct),
+                                onTap: () {
+                                  debugPrint('🍽️ Tapped cuisine: ${ct.label}');
+                                  bloc.add(ToggleCuisineEvent(ct));
+                                },
+                              ),
+                          ],
+                        ),
+                        
+                        // Add validation message for cuisine selection
+                        if (state.selected.isEmpty)
+                          Container(
+                            margin: EdgeInsets.only(top: h * 0.01),
+                            padding: EdgeInsets.symmetric(
+                              horizontal: w * 0.03,
+                              vertical: h * 0.01,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.orange.shade50,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: Colors.orange.shade300,
+                                width: 1,
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.info_outline,
+                                  color: Colors.orange.shade600,
+                                  size: 16,
+                                ),
+                                SizedBox(width: w * 0.02),
+                                Expanded(
+                                  child: Text(
+                                    'Please select at least one cuisine type',
+                                    style: TextStyle(
+                                      fontFamily: FontConstants.fontFamily,
+                                      fontSize: FontSize.s12,
+                                      color: Colors.orange.shade700,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                      ],
                       
                       SizedBox(height: verticalPadding * 1.5),
                       RichText(

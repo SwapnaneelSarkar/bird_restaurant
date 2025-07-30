@@ -1,5 +1,5 @@
 import 'package:equatable/equatable.dart';
-import '../../../models/food_type_model.dart';
+import '../../../models/supercategory_model.dart';
 
 abstract class RestaurantDetailsEvent extends Equatable {
   const RestaurantDetailsEvent();
@@ -56,6 +56,16 @@ class NextPressed extends RestaurantDetailsEvent {}
 
 class LoadSavedDataEvent extends RestaurantDetailsEvent {}
 
+// New events for supercategory
+class FetchSupercategoriesEvent extends RestaurantDetailsEvent {}
+
+class SupercategoryChanged extends RestaurantDetailsEvent {
+  final SupercategoryModel supercategory;
+  const SupercategoryChanged(this.supercategory);
+  @override
+  List<Object?> get props => [supercategory];
+}
+
 // New events for restaurant type
 class FetchRestaurantTypesEvent extends RestaurantDetailsEvent {}
 
@@ -66,12 +76,3 @@ class RestaurantTypeChanged extends RestaurantDetailsEvent {
   List<Object?> get props => [restaurantType];
 }
 
-// New events for food types
-class FetchFoodTypesEvent extends RestaurantDetailsEvent {}
-
-class FoodTypeChanged extends RestaurantDetailsEvent {
-  final FoodTypeModel foodType;
-  const FoodTypeChanged(this.foodType);
-  @override
-  List<Object?> get props => [foodType];
-}

@@ -33,6 +33,22 @@ class RestaurantDocumentsBloc
     on<SubmitDocumentsEvent>(_onSubmitDocuments);
     on<RemoveDocumentEvent>(_onRemoveDocument);
     on<RemovePhotoEvent>(_onRemovePhoto);
+    
+    // Load supercategory information on initialization
+    _loadSupercategoryInfo();
+  }
+
+  Future<void> _loadSupercategoryInfo() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final selectedSupercategoryId = prefs.getString('selected_supercategory_id');
+      
+      emit(state.copyWith(
+        selectedSupercategoryId: selectedSupercategoryId,
+      ));
+    } catch (e) {
+      debugPrint('Error loading supercategory info: $e');
+    }
   }
 
   Future<void> _onUploadDocument(
@@ -230,6 +246,9 @@ class RestaurantDocumentsBloc
     // Get food type ID from SharedPreferences
     final restaurantFoodType = prefs.getString('restaurant_food_type_id');
     
+    // Get supercategory ID from SharedPreferences
+    final supercategoryId = prefs.getString('selected_supercategory_id');
+    
     debugPrint('Submitting with data:');
     debugPrint('Restaurant Name: $restaurantName');
     debugPrint('Address: $address');
@@ -240,6 +259,7 @@ class RestaurantDocumentsBloc
     debugPrint('Operational Hours: $operationalHours');
     debugPrint('Restaurant Type: $restaurantType');
     debugPrint('Restaurant Food Type ID: $restaurantFoodType');
+    debugPrint('Supercategory ID: $supercategoryId');
 
     await TokenService.saveUserId(userId);
     
@@ -276,6 +296,7 @@ class RestaurantDocumentsBloc
       cookingTime: prefs.getString('cooking_time') ?? '30',
       restaurantType: restaurantType, // Pass the restaurant type text (not ID)
       restaurantFoodType: restaurantFoodType, // Pass the food type ID
+      supercategory: supercategoryId, // Pass the supercategory ID
       fssaiLicense: fssaiLicense,
       gstCertificate: gstCertificate,
       panCard: panCard,

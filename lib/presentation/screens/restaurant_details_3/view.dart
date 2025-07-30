@@ -91,7 +91,8 @@ class _Body extends StatelessWidget {
   List<String> _getMissingItems(RestaurantDocumentsState state) {
     List<String> missing = [];
     
-    if (state.uploadedDocs[DocumentType.fssai] == null) {
+    // Only require FSSAI license for Food supercategory
+    if (state.isFssaiRequired && state.uploadedDocs[DocumentType.fssai] == null) {
       missing.add('FSSAI License');
     }
     if (state.uploadedDocs[DocumentType.gst] == null) {
@@ -212,7 +213,7 @@ class _Body extends StatelessWidget {
         backgroundColor: Colors.white,
         toolbarHeight: 50,
         title: Text(
-          'Restaurant Details',
+          'Store Details',
           style: TextStyle(
             fontFamily: FontConstants.fontFamily,
             fontSize: FontSize.s16,
@@ -327,7 +328,9 @@ class _Body extends StatelessWidget {
                   
                   LegalDocumentCard(
                     title: 'FSSAI License',
-                    description: 'Upload your FSSAI license',
+                    description: state.isFssaiRequired 
+                        ? 'Upload your FSSAI license' 
+                        : 'Upload your FSSAI license (Optional)',
                     hint: 'PDF, JPG or PNG (Max 5MB)',
                     icon: Icons.upload_file,
                     uploaded: state.uploadedDocs[DocumentType.fssai] != null,
@@ -362,7 +365,7 @@ class _Body extends StatelessWidget {
 
                   RichText(
                     text: TextSpan(
-                      text: 'Restaurant Photos',
+                      text: 'Store Photos',
                       style: TextStyle(
                         fontFamily: FontConstants.fontFamily,
                         fontSize: FontSize.s14,
@@ -381,7 +384,7 @@ class _Body extends StatelessWidget {
                   
                   LegalDocumentCard(
                     title: 'Add Photos',
-                    description: 'Upload restaurant photos',
+                    description: 'Upload store photos',
                     hint: 'Multiple photos allowed',
                     icon: Icons.add_photo_alternate,
                     uploaded: state.restaurantPhotos.isNotEmpty,
@@ -431,7 +434,9 @@ class _Body extends StatelessWidget {
                           ),
                           SizedBox(height: h * 0.01),
                           Text(
-                            'Please upload all legal documents and at least one restaurant photo to proceed.',
+                            state.isFssaiRequired
+                                ? 'Please upload all legal documents and at least one store photo to proceed.'
+                                : 'Please upload GST Certificate, PAN Card, and at least one store photo to proceed.',
                             style: TextStyle(
                               fontFamily: FontConstants.fontFamily,
                               fontSize: FontSize.s12,

@@ -9,8 +9,7 @@ import '../../../constants/api_constants.dart';
 import 'event.dart';
 import 'state.dart';
 import '../../../services/restaurant_info_service.dart';
-import '../../../services/api_service.dart';
-import '../../../models/food_type_model.dart';
+import '../../../models/supercategory_model.dart';
 
 class RestaurantDetailsBloc
     extends Bloc<RestaurantDetailsEvent, RestaurantDetailsState> {
@@ -24,13 +23,13 @@ class RestaurantDetailsBloc
     on<NextPressed>(_onNextPressed);
     on<LoadSavedDataEvent>(_onLoadSavedData);
     
+    // New event handlers for supercategory
+    on<FetchSupercategoriesEvent>(_onFetchSupercategories);
+    on<SupercategoryChanged>(_onSupercategoryChanged);
+    
     // New event handlers
     on<FetchRestaurantTypesEvent>(_onFetchRestaurantTypes);
     on<RestaurantTypeChanged>(_onRestaurantTypeChanged);
-    
-    // Food types event handlers
-    on<FetchFoodTypesEvent>(_onFetchFoodTypes);
-    on<FoodTypeChanged>(_onFoodTypeChanged);
   }
 
   void _onNameChanged(
@@ -43,8 +42,8 @@ class RestaurantDetailsBloc
         address: state.address,
         phoneNumber: state.phoneNumber,
         email: state.email,
+        supercategory: state.selectedSupercategory,
         restaurantType: state.selectedRestaurantType,
-        foodType: state.selectedFoodType,
       ),
     ));
     _saveData();
@@ -60,8 +59,8 @@ class RestaurantDetailsBloc
         address: address,
         phoneNumber: state.phoneNumber,
         email: state.email,
+        supercategory: state.selectedSupercategory,
         restaurantType: state.selectedRestaurantType,
-        foodType: state.selectedFoodType,
       ),
     ));
     _saveData();
@@ -77,8 +76,8 @@ class RestaurantDetailsBloc
         address: state.address,
         phoneNumber: phone,
         email: state.email,
+        supercategory: state.selectedSupercategory,
         restaurantType: state.selectedRestaurantType,
-        foodType: state.selectedFoodType,
       ),
     ));
     _saveData();
@@ -94,8 +93,8 @@ class RestaurantDetailsBloc
         address: state.address,
         phoneNumber: state.phoneNumber,
         email: email,
+        supercategory: state.selectedSupercategory,
         restaurantType: state.selectedRestaurantType,
-        foodType: state.selectedFoodType,
       ),
     ));
     _saveData();
@@ -118,8 +117,8 @@ class RestaurantDetailsBloc
         address: event.address,
         phoneNumber: state.phoneNumber,
         email: state.email,
+        supercategory: state.selectedSupercategory,
         restaurantType: state.selectedRestaurantType,
-        foodType: state.selectedFoodType,
       ),
     ));
     
@@ -132,46 +131,39 @@ class RestaurantDetailsBloc
     emit(state.copyWith(isLocationLoading: true));
     
     try {
-      // Check location services
+      // Check if location services are enabled
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-      debugPrint('Location services enabled: $serviceEnabled');
-      
       if (!serviceEnabled) {
-        emit(state.copyWith(isLocationLoading: false));
         debugPrint('Location services are disabled.');
+        emit(state.copyWith(isLocationLoading: false));
         return;
       }
 
-      // Check permissions
+      // Check location permission
       LocationPermission permission = await Geolocator.checkPermission();
-      debugPrint('Current permission: $permission');
-      
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
-        debugPrint('Requested permission: $permission');
-        
         if (permission == LocationPermission.denied) {
-          emit(state.copyWith(isLocationLoading: false));
           debugPrint('Location permissions are denied');
+          emit(state.copyWith(isLocationLoading: false));
           return;
         }
       }
 
       if (permission == LocationPermission.deniedForever) {
-        emit(state.copyWith(isLocationLoading: false));
         debugPrint('Location permissions are permanently denied');
+        emit(state.copyWith(isLocationLoading: false));
         return;
       }
 
       // Get current position
-      debugPrint('Getting current position...');
       Position position = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high,
       );
-      debugPrint('Position: ${position.latitude}, ${position.longitude}');
+
+      debugPrint('Current position: ${position.latitude}, ${position.longitude}');
 
       // Get address from coordinates
-      debugPrint('Getting address from coordinates...');
       List<Placemark> placemarks = await placemarkFromCoordinates(
         position.latitude,
         position.longitude,
@@ -179,38 +171,35 @@ class RestaurantDetailsBloc
 
       if (placemarks.isNotEmpty) {
         Placemark place = placemarks[0];
-        String address = '${place.street ?? ''}, ${place.subLocality ?? ''}, '
-            '${place.locality ?? ''}, ${place.postalCode ?? ''}, '
-            '${place.administrativeArea ?? ''}, ${place.country ?? ''}';
-        
-        // Clean up the address by removing empty parts
-        address = address.replaceAll(', , ', ', ').replaceAll(', ,', ',').trim();
-        if (address.startsWith(', ')) {
-          address = address.substring(2);
-        }
-        if (address.endsWith(', ')) {
-          address = address.substring(0, address.length - 2);
-        }
-        
+        String address = [
+          place.street,
+          place.subLocality,
+          place.locality,
+          place.administrativeArea,
+          place.postalCode,
+          place.country,
+        ].where((element) => element != null && element.isNotEmpty).join(', ');
+
         debugPrint('Address: $address');
-        
+
         emit(state.copyWith(
-          isLocationLoading: false,
           address: address,
           latitude: position.latitude,
           longitude: position.longitude,
+          isLocationLoading: false,
           isFormValid: _validateForm(
             name: state.name,
             address: address,
             phoneNumber: state.phoneNumber,
             email: state.email,
+            supercategory: state.selectedSupercategory,
             restaurantType: state.selectedRestaurantType,
-            foodType: state.selectedFoodType,
           ),
         ));
+        
         _saveData();
       } else {
-        debugPrint('No placemarks found');
+        debugPrint('No address found for coordinates');
         emit(state.copyWith(isLocationLoading: false));
       }
     } catch (e) {
@@ -232,6 +221,13 @@ class RestaurantDetailsBloc
       debugPrint('Latitude: ${state.latitude}');
       debugPrint('Longitude: ${state.longitude}');
       
+      // Log supercategory data
+      if (state.selectedSupercategory != null) {
+        debugPrint('Supercategory: ${state.selectedSupercategory!.name} (ID: ${state.selectedSupercategory!.id})');
+      } else {
+        debugPrint('Supercategory: Not selected');
+      }
+      
       // Log restaurant type data
       if (state.selectedRestaurantType != null) {
         debugPrint('Restaurant Type: ${state.selectedRestaurantType!['name']} (ID: ${state.selectedRestaurantType!['id']})');
@@ -239,18 +235,102 @@ class RestaurantDetailsBloc
         debugPrint('Restaurant Type: Not selected');
       }
       
-      // Log food type data
-      if (state.selectedFoodType != null) {
-        debugPrint('Food Type: ${state.selectedFoodType!.name} (ID: ${state.selectedFoodType!.restaurantFoodTypeId})');
-      } else {
-        debugPrint('Food Type: Not selected');
-      }
-      
       // The navigation now happens in the UI
     } else {
       debugPrint('Form validation failed');
       // No navigation, just show error messages via the isAttemptedSubmit flag
     }
+  }
+
+  // New method to fetch supercategories
+  Future<void> _onFetchSupercategories(
+      FetchSupercategoriesEvent event, Emitter<RestaurantDetailsState> emit) async {
+    emit(state.copyWith(isLoadingSupercategories: true));
+    
+    try {
+      final url = Uri.parse('${ApiConstants.baseUrl}/partner/supercategories');
+      
+      // Use existing token from SharedPreferences
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('token');
+      
+      if (token == null) {
+        debugPrint('No token found for supercategories API call');
+        emit(state.copyWith(isLoadingSupercategories: false));
+        return;
+      }
+      
+      final response = await http.get(
+        url,
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      );
+      
+      if (response.statusCode == 200) {
+        final responseData = jsonDecode(response.body);
+        
+        if (responseData['status'] == 'SUCCESS' && responseData['data'] != null) {
+          final List<dynamic> supercategoriesJson = responseData['data'];
+          final supercategories = supercategoriesJson
+              .map((json) => SupercategoryModel.fromJson(json))
+              .toList();
+          
+          emit(state.copyWith(
+            supercategories: supercategories,
+            isLoadingSupercategories: false,
+          ));
+          
+          // Load selected supercategory from shared preferences if available
+          final savedSupercategoryId = prefs.getString('selected_supercategory_id');
+          
+          if (savedSupercategoryId != null && supercategories.isNotEmpty) {
+            final savedSupercategory = supercategories.firstWhere(
+              (supercategory) => supercategory.id == savedSupercategoryId,
+              orElse: () => supercategories.first,
+            );
+            
+            emit(state.copyWith(
+              selectedSupercategory: savedSupercategory,
+              isFormValid: _validateForm(
+                name: state.name,
+                address: state.address,
+                phoneNumber: state.phoneNumber,
+                email: state.email,
+                supercategory: savedSupercategory,
+                restaurantType: state.selectedRestaurantType,
+              ),
+            ));
+          }
+        } else {
+          debugPrint('Failed to fetch supercategories: ${responseData['message']}');
+        }
+      } else {
+        debugPrint('Supercategories API error: ${response.statusCode}');
+      }
+    } catch (e) {
+      debugPrint('Error fetching supercategories: $e');
+    }
+    
+    emit(state.copyWith(isLoadingSupercategories: false));
+  }
+
+  // New method to handle supercategory selection
+  void _onSupercategoryChanged(
+      SupercategoryChanged event, Emitter<RestaurantDetailsState> emit) {
+    emit(state.copyWith(
+      selectedSupercategory: event.supercategory,
+      isFormValid: _validateForm(
+        name: state.name,
+        address: state.address,
+        phoneNumber: state.phoneNumber,
+        email: state.email,
+        supercategory: event.supercategory,
+        restaurantType: state.selectedRestaurantType,
+      ),
+    ));
+    _saveData();
   }
 
   // New method to fetch restaurant types
@@ -301,14 +381,14 @@ class RestaurantDetailsBloc
             
             emit(state.copyWith(
               selectedRestaurantType: savedType,
-                          isFormValid: _validateForm(
-              name: state.name,
-              address: state.address,
-              phoneNumber: state.phoneNumber,
-              email: state.email,
-              restaurantType: savedType,
-              foodType: state.selectedFoodType,
-            ),
+              isFormValid: _validateForm(
+                name: state.name,
+                address: state.address,
+                phoneNumber: state.phoneNumber,
+                email: state.email,
+                supercategory: state.selectedSupercategory,
+                restaurantType: savedType,
+              ),
             ));
           }
         } else {
@@ -334,21 +414,21 @@ class RestaurantDetailsBloc
         address: state.address,
         phoneNumber: state.phoneNumber,
         email: state.email,
+        supercategory: state.selectedSupercategory,
         restaurantType: event.restaurantType,
-        foodType: state.selectedFoodType,
       ),
     ));
     _saveData();
   }
 
-  // Update validation function to include restaurant type and food type
+  // Update validation function to include supercategory and restaurant type
   bool _validateForm({
     required String name,
     required String address,
     required String phoneNumber,
     required String email,
+    SupercategoryModel? supercategory,
     Map<String, dynamic>? restaurantType,
-    FoodTypeModel? foodType,
   }) {
     final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
     
@@ -356,8 +436,8 @@ class RestaurantDetailsBloc
         address.isNotEmpty &&
         email.isNotEmpty &&
         emailRegex.hasMatch(email) &&
-        restaurantType != null &&
-        foodType != null; // Add food type validation
+        supercategory != null &&
+        restaurantType != null;
   }
 
   Future<void> _onLoadSavedData(
@@ -374,12 +454,12 @@ class RestaurantDetailsBloc
       isDataLoaded: true,
     ));
     
-    // Fetch restaurant types and food types after loading saved data
+    // Fetch supercategories and restaurant types after loading saved data
+    add(FetchSupercategoriesEvent());
     add(FetchRestaurantTypesEvent());
-    add(FetchFoodTypesEvent());
   }
 
-  // Update _saveData method to include restaurant type
+  // Update _saveData method to include supercategory and restaurant type
   Future<void> _saveData() async {
     final prefs = await SharedPreferences.getInstance();
     
@@ -390,16 +470,16 @@ class RestaurantDetailsBloc
     await prefs.setDouble('restaurant_latitude', state.latitude);
     await prefs.setDouble('restaurant_longitude', state.longitude);
     
+    // Save supercategory
+    if (state.selectedSupercategory != null) {
+      await prefs.setString('selected_supercategory_id', state.selectedSupercategory!.id);
+      await prefs.setString('selected_supercategory_name', state.selectedSupercategory!.name);
+    }
+    
     // Save restaurant type
     if (state.selectedRestaurantType != null) {
       await prefs.setInt('restaurant_type_id', state.selectedRestaurantType!['id']);
       await prefs.setString('restaurant_type_name', state.selectedRestaurantType!['name']);
-    }
-    
-    // Save food type
-    if (state.selectedFoodType != null) {
-      await prefs.setString('restaurant_food_type_id', state.selectedFoodType!.restaurantFoodTypeId);
-      await prefs.setString('restaurant_food_type_name', state.selectedFoodType!.name);
     }
     
     // Update restaurant info service cache
@@ -410,68 +490,5 @@ class RestaurantDetailsBloc
     
     debugPrint('Saved restaurant data to SharedPreferences');
     debugPrint('Latitude: ${state.latitude}, Longitude: ${state.longitude}');
-  }
-
-  // Food types methods
-  Future<void> _onFetchFoodTypes(
-      FetchFoodTypesEvent event, Emitter<RestaurantDetailsState> emit) async {
-    emit(state.copyWith(isLoadingFoodTypes: true));
-    
-    try {
-      final apiService = ApiServices();
-      final response = await apiService.getRestaurantFoodTypes();
-      
-      if (response.status == 'SUCCESS') {
-        emit(state.copyWith(
-          foodTypes: response.data,
-          isLoadingFoodTypes: false,
-        ));
-        
-        // Load selected food type from shared preferences if available
-        final prefs = await SharedPreferences.getInstance();
-        final savedFoodTypeId = prefs.getString('restaurant_food_type_id');
-        
-        if (savedFoodTypeId != null && response.data.isNotEmpty) {
-          final savedFoodType = response.data.firstWhere(
-            (type) => type.restaurantFoodTypeId == savedFoodTypeId,
-            orElse: () => response.data.first,
-          );
-          
-          emit(state.copyWith(
-            selectedFoodType: savedFoodType,
-            isFormValid: _validateForm(
-              name: state.name,
-              address: state.address,
-              phoneNumber: state.phoneNumber,
-              email: state.email,
-              restaurantType: state.selectedRestaurantType,
-              foodType: savedFoodType,
-            ),
-          ));
-        }
-      } else {
-        debugPrint('Failed to fetch food types: ${response.message}');
-      }
-    } catch (e) {
-      debugPrint('Error fetching food types: $e');
-    }
-    
-    emit(state.copyWith(isLoadingFoodTypes: false));
-  }
-
-  void _onFoodTypeChanged(
-      FoodTypeChanged event, Emitter<RestaurantDetailsState> emit) {
-    emit(state.copyWith(
-      selectedFoodType: event.foodType,
-      isFormValid: _validateForm(
-        name: state.name,
-        address: state.address,
-        phoneNumber: state.phoneNumber,
-        email: state.email,
-        restaurantType: state.selectedRestaurantType,
-        foodType: event.foodType,
-      ),
-    ));
-    _saveData();
   }
 }

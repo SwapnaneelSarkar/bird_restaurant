@@ -518,13 +518,13 @@ class _OrdersViewState extends State<OrdersView> {
                       customerPhone: order.customerPhone,
                       deliveryAddress: order.deliveryAddress,
                       onTap: () {
-                        final ordersBloc = context.read<OrdersBloc>();
-                        showModalBottomSheet(
-                          context: context,
-                          isScrollControlled: true,
-                          backgroundColor: Colors.transparent,
-                          builder: (context) => OrderOptionsBottomSheetForOrdersPage(order: order, ordersBloc: ordersBloc),
-                        );
+                        // final ordersBloc = context.read<OrdersBloc>();
+                        // showModalBottomSheet(
+                        //   context: context,
+                        //   isScrollControlled: true,
+                        //   backgroundColor: Colors.transparent,
+                        //   builder: (context) => OrderOptionsBottomSheetForOrdersPage(order: order, ordersBloc: ordersBloc),
+                        // );
                       },
                     );
                   } else {
@@ -542,13 +542,13 @@ class _OrdersViewState extends State<OrdersView> {
                             customerPhone: order.customerPhone,
                             deliveryAddress: order.deliveryAddress,
                             onTap: () {
-                              final ordersBloc = context.read<OrdersBloc>();
-                              showModalBottomSheet(
-                                context: context,
-                                isScrollControlled: true,
-                                backgroundColor: Colors.transparent,
-                                builder: (context) => OrderOptionsBottomSheetForOrdersPage(order: order, ordersBloc: ordersBloc),
-                              );
+                              // final ordersBloc = context.read<OrdersBloc>();
+                              // showModalBottomSheet(
+                              //   context: context,
+                              //   isScrollControlled: true,
+                              //   backgroundColor: Colors.transparent,
+                              //   builder: (context) => OrderOptionsBottomSheetForOrdersPage(order: order, ordersBloc: ordersBloc),
+                              // );
                             },
                           );
                         }
@@ -567,13 +567,13 @@ class _OrdersViewState extends State<OrdersView> {
                           customerPhone: order.customerPhone,
                           deliveryAddress: order.deliveryAddress,
                           onTap: () {
-                            final ordersBloc = context.read<OrdersBloc>();
-                            showModalBottomSheet(
-                              context: context,
-                              isScrollControlled: true,
-                              backgroundColor: Colors.transparent,
-                              builder: (context) => OrderOptionsBottomSheetForOrdersPage(order: order, ordersBloc: ordersBloc),
-                            );
+                            // final ordersBloc = context.read<OrdersBloc>();
+                            // showModalBottomSheet(
+                            //   context: context,
+                            //   isScrollControlled: true,
+                            //   backgroundColor: Colors.transparent,
+                            //   builder: (context) => OrderOptionsBottomSheetForOrdersPage(order: order, ordersBloc: ordersBloc),
+                            // );
                           },
                         );
                       },

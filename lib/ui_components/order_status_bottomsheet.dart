@@ -172,15 +172,15 @@ class _OrderStatusBottomSheetState extends State<OrderStatusBottomSheet> {
           const SizedBox(height: 20),
           
           // Show status options
-          Text(
-            'Select New Status:',
-            style: TextStyle(
-              color: ColorManager.black,
-              fontSize: 16,
-              fontWeight: FontWeightManager.medium,
-              fontFamily: FontFamily.Montserrat,
-            ),
-          ),
+          // Text(
+          //   'Select New Status:',
+          //   style: TextStyle(
+          //     color: ColorManager.black,
+          //     fontSize: 16,
+          //     fontWeight: FontWeightManager.medium,
+          //     fontFamily: FontFamily.Montserrat,
+          //   ),
+          // ),
           
           const SizedBox(height: 12),
           

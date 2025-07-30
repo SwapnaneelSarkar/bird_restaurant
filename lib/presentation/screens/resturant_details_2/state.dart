@@ -88,9 +88,9 @@ class OperationalDay extends Equatable {
 
   const OperationalDay({
     required this.label,
-    this.enabled = false,
-    this.start = const TimeOfDay(hour: 9, minute: 0),
-    this.end = const TimeOfDay(hour: 21, minute: 0),
+    required this.enabled,
+    required this.start,
+    required this.end,
   });
 
   OperationalDay copyWith({
@@ -114,39 +114,95 @@ class OperationalDay extends Equatable {
 class RestaurantCategoryState extends Equatable {
   final List<CuisineType> selected;
   final List<OperationalDay> days;
+  final String? selectedSupercategoryId;
+  final String? selectedSupercategoryName;
 
   const RestaurantCategoryState({
     this.selected = const [],
     required this.days,
+    this.selectedSupercategoryId,
+    this.selectedSupercategoryName,
   });
 
   factory RestaurantCategoryState.initial() {
     return RestaurantCategoryState(
       selected: [],
       days: [
-        const OperationalDay(label: 'Sunday', enabled: false),
-        const OperationalDay(label: 'Monday', enabled: true),
-        const OperationalDay(label: 'Tuesday', enabled: true),
-        const OperationalDay(label: 'Wednesday', enabled: true),
-        const OperationalDay(label: 'Thursday', enabled: true),
-        const OperationalDay(label: 'Friday', enabled: true),
-        const OperationalDay(label: 'Saturday', enabled: true),
+        const OperationalDay(
+          label: 'Sunday', 
+          enabled: false,
+          start: TimeOfDay(hour: 9, minute: 0),
+          end: TimeOfDay(hour: 21, minute: 0),
+        ),
+        const OperationalDay(
+          label: 'Monday', 
+          enabled: true,
+          start: TimeOfDay(hour: 9, minute: 0),
+          end: TimeOfDay(hour: 21, minute: 0),
+        ),
+        const OperationalDay(
+          label: 'Tuesday', 
+          enabled: true,
+          start: TimeOfDay(hour: 9, minute: 0),
+          end: TimeOfDay(hour: 21, minute: 0),
+        ),
+        const OperationalDay(
+          label: 'Wednesday', 
+          enabled: true,
+          start: TimeOfDay(hour: 9, minute: 0),
+          end: TimeOfDay(hour: 21, minute: 0),
+        ),
+        const OperationalDay(
+          label: 'Thursday', 
+          enabled: true,
+          start: TimeOfDay(hour: 9, minute: 0),
+          end: TimeOfDay(hour: 21, minute: 0),
+        ),
+        const OperationalDay(
+          label: 'Friday', 
+          enabled: true,
+          start: TimeOfDay(hour: 9, minute: 0),
+          end: TimeOfDay(hour: 21, minute: 0),
+        ),
+        const OperationalDay(
+          label: 'Saturday', 
+          enabled: true,
+          start: TimeOfDay(hour: 9, minute: 0),
+          end: TimeOfDay(hour: 21, minute: 0),
+        ),
       ],
+      selectedSupercategoryId: null,
+      selectedSupercategoryName: null,
     );
   }
 
-  bool get canProceed => selected.isNotEmpty;
+  bool get canProceed {
+    // If supercategory is Food (ID: "7acc47a2fa5a4eeb906a753b3"), require cuisine selection
+    if (selectedSupercategoryId == "7acc47a2fa5a4eeb906a753b3") {
+      return selected.isNotEmpty;
+    }
+    // For other supercategories, only require operational hours
+    return true;
+  }
+
+  bool get shouldShowCuisineTypes {
+    return selectedSupercategoryId == "7acc47a2fa5a4eeb906a753b3";
+  }
 
   RestaurantCategoryState copyWith({
     List<CuisineType>? selected,
     List<OperationalDay>? days,
+    String? selectedSupercategoryId,
+    String? selectedSupercategoryName,
   }) {
     return RestaurantCategoryState(
       selected: selected ?? this.selected,
       days: days ?? this.days,
+      selectedSupercategoryId: selectedSupercategoryId ?? this.selectedSupercategoryId,
+      selectedSupercategoryName: selectedSupercategoryName ?? this.selectedSupercategoryName,
     );
   }
 
   @override
-  List<Object?> get props => [selected, days];
+  List<Object?> get props => [selected, days, selectedSupercategoryId, selectedSupercategoryName];
 }

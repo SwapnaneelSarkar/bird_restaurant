@@ -2,6 +2,7 @@
 import 'dart:io';
 import 'package:equatable/equatable.dart';
 import '../../../models/catagory_model.dart';
+import '../../../models/food_type_model.dart';
 
 class ProductModel {
   final String name;
@@ -14,6 +15,7 @@ class ProductModel {
   final bool codAllowed;
   final bool taxIncluded;
   final bool isCancellable;
+  final String? restaurantFoodTypeId;
 
   ProductModel({
     this.name = '',
@@ -26,6 +28,7 @@ class ProductModel {
     this.codAllowed = false,
     this.taxIncluded = false,
     this.isCancellable = false,
+    this.restaurantFoodTypeId,
   });
 
   ProductModel copyWith({
@@ -39,6 +42,7 @@ class ProductModel {
     bool? codAllowed,
     bool? taxIncluded,
     bool? isCancellable,
+    String? restaurantFoodTypeId,
   }) {
     return ProductModel(
       name: name ?? this.name,
@@ -51,6 +55,7 @@ class ProductModel {
       codAllowed: codAllowed ?? this.codAllowed,
       taxIncluded: taxIncluded ?? this.taxIncluded,
       isCancellable: isCancellable ?? this.isCancellable,
+      restaurantFoodTypeId: restaurantFoodTypeId ?? this.restaurantFoodTypeId,
     );
   }
 }
@@ -67,6 +72,9 @@ class AddProductInitial extends AddProductState {}
 class AddProductFormState extends AddProductState {
   final ProductModel product;
   final List<CategoryModel> categories;
+  final List<FoodTypeModel> foodTypes;
+  final FoodTypeModel? selectedFoodType;
+  final bool isLoadingFoodTypes;
   final bool isSubmitting;
   final bool isSuccess;
   final String? errorMessage;
@@ -74,17 +82,23 @@ class AddProductFormState extends AddProductState {
   const AddProductFormState({
     required this.product,
     this.categories = const [],
+    this.foodTypes = const [],
+    this.selectedFoodType,
+    this.isLoadingFoodTypes = false,
     this.isSubmitting = false,
     this.isSuccess = false,
     this.errorMessage,
   });
   
   @override
-  List<Object?> get props => [product, categories, isSubmitting, isSuccess, errorMessage];
+  List<Object?> get props => [product, categories, foodTypes, selectedFoodType, isLoadingFoodTypes, isSubmitting, isSuccess, errorMessage];
   
   AddProductFormState copyWith({
     ProductModel? product,
     List<CategoryModel>? categories,
+    List<FoodTypeModel>? foodTypes,
+    FoodTypeModel? selectedFoodType,
+    bool? isLoadingFoodTypes,
     bool? isSubmitting,
     bool? isSuccess,
     String? errorMessage,
@@ -92,6 +106,9 @@ class AddProductFormState extends AddProductState {
     return AddProductFormState(
       product: product ?? this.product,
       categories: categories ?? this.categories,
+      foodTypes: foodTypes ?? this.foodTypes,
+      selectedFoodType: selectedFoodType ?? this.selectedFoodType,
+      isLoadingFoodTypes: isLoadingFoodTypes ?? this.isLoadingFoodTypes,
       isSubmitting: isSubmitting ?? this.isSubmitting,
       isSuccess: isSuccess ?? this.isSuccess,
       errorMessage: errorMessage,

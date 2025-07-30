@@ -447,6 +447,31 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       // Debug the initial message state
       _debugMessageState('Initial Load', messages);
       
+      // OPTIMIZATION: Load order details immediately after initial state
+      if (_currentPartnerId != null) {
+        debugPrint('ChatBloc: 🚀 Loading order details immediately for optimization');
+        try {
+          final orderDetails = await OrderService.getOrderDetails(
+            partnerId: _currentPartnerId!,
+            orderId: _fullOrderId!,
+          );
+          
+          if (orderDetails != null && state is ChatLoaded) {
+            final currentState = state as ChatLoaded;
+            emit(currentState.copyWith(
+              orderDetails: orderDetails,
+              isLoadingOrderDetails: false,
+            ));
+            
+            // Load menu items in parallel for better performance
+            _loadMenuItemsForOrder(orderDetails, emit);
+          }
+        } catch (e) {
+          debugPrint('ChatBloc: ⚠️ Failed to load order details immediately: $e');
+          // Don't fail the entire chat load if order details fail
+        }
+      }
+      
       // Small delay to prevent immediate update cycle
       await Future.delayed(const Duration(milliseconds: 100));
     } catch (e) {

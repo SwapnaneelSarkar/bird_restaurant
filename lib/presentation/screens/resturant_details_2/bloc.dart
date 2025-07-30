@@ -81,6 +81,10 @@ class RestaurantCategoryBloc extends Bloc<RestaurantCategoryEvent, RestaurantCat
             ))
         .toList();
     
+    // Load supercategory information
+    final selectedSupercategoryId = prefs.getString('selected_supercategory_id');
+    final selectedSupercategoryName = prefs.getString('selected_supercategory_name');
+    
     // Load operational days
     final daysJson = prefs.getString('operational_days');
     List<OperationalDay> loadedDays = state.days; // default
@@ -106,6 +110,8 @@ class RestaurantCategoryBloc extends Bloc<RestaurantCategoryEvent, RestaurantCat
     emit(state.copyWith(
       selected: selectedCuisines,
       days: loadedDays,
+      selectedSupercategoryId: selectedSupercategoryId,
+      selectedSupercategoryName: selectedSupercategoryName,
     ));
   }
 

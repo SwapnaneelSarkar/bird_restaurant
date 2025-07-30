@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../models/catagory_model.dart';
+import '../../../models/food_type_model.dart';
 import '../../../ui_components/custom_textField.dart';
 import '../../../ui_components/image_picker.dart';
 import '../../../ui_components/universal_widget/topbar.dart';
@@ -241,6 +242,12 @@ class _AddProductScreenState extends State<AddProductScreen> {
           _buildCategoryDropdown(context, state),
           const SizedBox(height: 16),
           
+          // Food Type
+          _buildFormLabel('Food Type'),
+          const SizedBox(height: 8),
+          _buildFoodTypeDropdown(context, state),
+          const SizedBox(height: 16),
+          
           // Vegetarian toggle
           _buildToggleOption(
             context,
@@ -415,6 +422,57 @@ class _AddProductScreenState extends State<AddProductScreen> {
             if (newValue != null) {
               context.read<AddProductBloc>().add(
                 ProductCategoryChangedEvent(newValue.name, newValue.id),
+              );
+            }
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFoodTypeDropdown(BuildContext context, AddProductFormState state) {
+    if (state.isLoadingFoodTypes) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: Colors.grey[200],
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: const Row(
+          children: [
+            SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+            SizedBox(width: 12),
+            Text('Loading food types...'),
+          ],
+        ),
+      );
+    }
+    
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      decoration: BoxDecoration(
+        color: Colors.grey[200],
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<FoodTypeModel>(
+          isExpanded: true,
+          value: state.selectedFoodType,
+          hint: const Text('Select food type'),
+          items: state.foodTypes.map((FoodTypeModel foodType) {
+            return DropdownMenuItem<FoodTypeModel>(
+              value: foodType,
+              child: Text(foodType.name),
+            );
+          }).toList(),
+          onChanged: (FoodTypeModel? newValue) {
+            if (newValue != null) {
+              context.read<AddProductBloc>().add(
+                FoodTypeChangedEvent(newValue),
               );
             }
           },

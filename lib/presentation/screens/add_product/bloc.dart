@@ -10,6 +10,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../constants/api_constants.dart';
 import '../../../models/catagory_model.dart';
 import '../../../models/menu_item_model.dart';
+import '../../../models/food_type_model.dart';
+import '../../../services/api_service.dart';
 import 'event.dart';
 import 'state.dart';
 
@@ -25,37 +27,23 @@ class AddProductBloc extends Bloc<AddProductEvent, AddProductState> {
     on<ToggleCodAllowedEvent>(_onToggleCodAllowed);
     on<ToggleTaxIncludedEvent>(_onToggleTaxIncluded);
     on<ToggleCancellableEvent>(_onToggleCancellable);
+    on<FetchFoodTypesEvent>(_onFetchFoodTypes);
+    on<FoodTypeChangedEvent>(_onFoodTypeChanged);
     on<SubmitProductEvent>(_onSubmitProduct);
     on<ResetFormEvent>(_onResetForm);
   }
 
   void _onInitialize(AddProductInitEvent event, Emitter<AddProductState> emit) async {
-    // Initially emit a state with an empty categories list
-    debugPrint('BLoC: Emitting initial AddProductFormState (empty categories)');
-    emit(AddProductFormState(
-      product: ProductModel(),
-      categories: [],
-    ));
+    emit(AddProductFormState(product: ProductModel()));
     
-    try {
-      // Fetch categories from API
-      final categories = await _fetchCategories();
-      debugPrint('BLoC: Emitting AddProductFormState (categories loaded, count: [32m${categories.length}[0m)');
-      emit(AddProductFormState(
-        product: ProductModel(),
-        categories: categories,
-      ));
-    } catch (e) {
-      debugPrint('BLoC: Emitting AddProductFormState (error: $e)');
-      emit(AddProductFormState(
-        product: ProductModel(),
-        categories: [],
-        errorMessage: 'Failed to load categories: ${e.toString()}',
-      ));
-    }
+    // Fetch categories
+    await _fetchCategories(emit);
+    
+    // Fetch food types
+    add(const FetchFoodTypesEvent());
   }
 
-  Future<List<CategoryModel>> _fetchCategories() async {
+  Future<List<CategoryModel>> _fetchCategories(Emitter<AddProductState> emit) async {
     // Get token from SharedPreferences
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('token');
@@ -65,7 +53,14 @@ class AddProductBloc extends Bloc<AddProductEvent, AddProductState> {
     }
     
     // Prepare API endpoint
-    final url = Uri.parse('${ApiConstants.baseUrl}/partner/categories');
+    final sharedPrefs = await SharedPreferences.getInstance();
+    final selectedSupercategoryId = sharedPrefs.getString('selected_supercategory_id');
+    
+    String urlString = '${ApiConstants.baseUrl}/partner/categories';
+    if (selectedSupercategoryId != null && selectedSupercategoryId.isNotEmpty) {
+      urlString += '?supercategory=$selectedSupercategoryId';
+    }
+    final url = Uri.parse(urlString);
     
     try {
       // Make GET request
@@ -84,6 +79,10 @@ class AddProductBloc extends Bloc<AddProductEvent, AddProductState> {
         
         if (responseData['status'] == 'SUCCESS') {
           final List<dynamic> categoriesJson = responseData['data'];
+          emit(AddProductFormState(
+            product: ProductModel(),
+            categories: categoriesJson.map((json) => CategoryModel.fromJson(json)).toList(),
+          ));
           return categoriesJson.map((json) => CategoryModel.fromJson(json)).toList();
         } else {
           throw Exception(responseData['message'] ?? 'Failed to fetch categories');
@@ -181,6 +180,64 @@ class AddProductBloc extends Bloc<AddProductEvent, AddProductState> {
     }
   }
 
+  void _onFetchFoodTypes(FetchFoodTypesEvent event, Emitter<AddProductState> emit) async {
+    if (state is AddProductFormState) {
+      final currentState = state as AddProductFormState;
+      emit(currentState.copyWith(isLoadingFoodTypes: true));
+      
+      try {
+        final apiService = ApiServices();
+        final response = await apiService.getRestaurantFoodTypes();
+        
+        if (response.status == 'SUCCESS') {
+          // Load selected food type from shared preferences if available
+          final prefs = await SharedPreferences.getInstance();
+          final savedFoodTypeId = prefs.getString('restaurant_food_type_id');
+          
+          FoodTypeModel? selectedFoodType;
+          if (savedFoodTypeId != null && response.data.isNotEmpty) {
+            selectedFoodType = response.data.firstWhere(
+              (type) => type.restaurantFoodTypeId == savedFoodTypeId,
+              orElse: () => response.data.first,
+            );
+          }
+          
+          emit(currentState.copyWith(
+            foodTypes: response.data,
+            selectedFoodType: selectedFoodType,
+            isLoadingFoodTypes: false,
+            product: currentState.product.copyWith(
+              restaurantFoodTypeId: selectedFoodType?.restaurantFoodTypeId,
+            ),
+          ));
+        } else {
+          emit(currentState.copyWith(isLoadingFoodTypes: false));
+        }
+      } catch (e) {
+        debugPrint('Error fetching food types: $e');
+        emit(currentState.copyWith(isLoadingFoodTypes: false));
+      }
+    }
+  }
+
+  void _onFoodTypeChanged(FoodTypeChangedEvent event, Emitter<AddProductState> emit) async {
+    if (state is AddProductFormState) {
+      final currentState = state as AddProductFormState;
+      
+      emit(currentState.copyWith(
+        selectedFoodType: event.foodType,
+        product: currentState.product.copyWith(
+          restaurantFoodTypeId: event.foodType.restaurantFoodTypeId,
+        ),
+      ));
+      
+      // Save to shared preferences
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('restaurant_food_type_id', event.foodType.restaurantFoodTypeId);
+      await prefs.setString('restaurant_food_type_name', event.foodType.name);
+    }
+  }
+
   void _onSubmitProduct(SubmitProductEvent event, Emitter<AddProductState> emit) async {
     if (state is AddProductFormState) {
       final currentState = state as AddProductFormState;
@@ -275,6 +332,11 @@ class AddProductBloc extends Bloc<AddProductEvent, AddProductState> {
       // Add new fields from the image
       request.fields['isTaxIncluded'] = product.taxIncluded.toString();
       request.fields['isCancellable'] = product.isCancellable.toString();
+      
+      // Add restaurant food type ID if available
+      if (product.restaurantFoodTypeId != null && product.restaurantFoodTypeId!.isNotEmpty) {
+        request.fields['restaurant_food_type_id'] = product.restaurantFoodTypeId!;
+      }
       
       // Add tags if available
       if (product.tags.isNotEmpty) {

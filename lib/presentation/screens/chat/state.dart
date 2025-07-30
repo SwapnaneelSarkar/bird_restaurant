@@ -199,21 +199,31 @@ class OrderDetails {
   final String orderId;
   final String userId;
   final String userName;
+  final String partnerId;
   final List<String> itemIds;
   final List<OrderItem> items;
   final String totalAmount;
   final String deliveryFees;
   final String orderStatus;
+  final String? deliveryAddress;
+  final String? deliveryDate;
+  final String? deliveryTime;
+  final double deliveryPrice;
 
   const OrderDetails({
     required this.orderId,
     required this.userId,
     required this.userName,
+    required this.partnerId,
     required this.itemIds,
     required this.items,
     required this.totalAmount,
     required this.deliveryFees,
     required this.orderStatus,
+    this.deliveryAddress,
+    this.deliveryDate,
+    this.deliveryTime,
+    this.deliveryPrice = 0.0,
   });
 
   factory OrderDetails.fromJson(Map<String, dynamic> json) {
@@ -221,6 +231,7 @@ class OrderDetails {
       orderId: json['order_id'] ?? '',
       userId: json['user_id'] ?? '',
       userName: json['user_name'] ?? '',
+      partnerId: json['partner_id'] ?? '',
       itemIds: List<String>.from(json['item_ids'] ?? []),
       items: (json['items'] as List<dynamic>?)
           ?.map((item) => OrderItem.fromJson(item))
@@ -228,6 +239,10 @@ class OrderDetails {
       totalAmount: _parseAmount(json['total_price']),
       deliveryFees: _parseAmount(json['delivery_fees']),
       orderStatus: json['order_status'] ?? 'UNKNOWN',
+      deliveryAddress: json['delivery_address'] ?? json['address'],
+      deliveryDate: json['delivery_date'],
+      deliveryTime: json['delivery_time'],
+      deliveryPrice: double.tryParse(json['delivery_price']?.toString() ?? '0') ?? 0.0,
     );
   }
 
@@ -235,21 +250,31 @@ class OrderDetails {
     String? orderId,
     String? userId,
     String? userName,
+    String? partnerId,
     List<String>? itemIds,
     List<OrderItem>? items,
     String? totalAmount,
     String? deliveryFees,
     String? orderStatus,
+    String? deliveryAddress,
+    String? deliveryDate,
+    String? deliveryTime,
+    double? deliveryPrice,
   }) {
     return OrderDetails(
       orderId: orderId ?? this.orderId,
       userId: userId ?? this.userId,
       userName: userName ?? this.userName,
+      partnerId: partnerId ?? this.partnerId,
       itemIds: itemIds ?? this.itemIds,
       items: items ?? this.items,
       totalAmount: totalAmount ?? this.totalAmount,
       deliveryFees: deliveryFees ?? this.deliveryFees,
       orderStatus: orderStatus ?? this.orderStatus,
+      deliveryAddress: deliveryAddress ?? this.deliveryAddress,
+      deliveryDate: deliveryDate ?? this.deliveryDate,
+      deliveryTime: deliveryTime ?? this.deliveryTime,
+      deliveryPrice: deliveryPrice ?? this.deliveryPrice,
     );
   }
 

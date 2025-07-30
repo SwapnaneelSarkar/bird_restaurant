@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../models/food_type_model.dart';
+import '../../../models/supercategory_model.dart';
 
 import '../../../ui_components/custom_button_locatin.dart';
 import '../../../ui_components/custom_button_slim.dart';
@@ -75,7 +76,7 @@ class _RestaurantDetailsBodyState extends State<_RestaurantDetailsBody> {
         backgroundColor: Colors.white,
         toolbarHeight: 50,
         title: Text(
-          'Restaurant Details',
+          'Store Details',
           style: TextStyle(
             fontFamily: FontConstants.fontFamily,
             fontSize: FontSize.s16,
@@ -126,7 +127,7 @@ class _RestaurantDetailsBodyState extends State<_RestaurantDetailsBody> {
                 ),
                 SizedBox(height: h * 0.005),
                 Text(
-                  'Please provide your restaurant details',
+                  'Please provide your store details',
                   style: GoogleFonts.poppins(
                     fontSize: FontSize.s14,
                     fontWeight: FontWeightManager.regular,
@@ -138,7 +139,7 @@ class _RestaurantDetailsBodyState extends State<_RestaurantDetailsBody> {
                 // Restaurant Name
                 RichText(
                   text: TextSpan(
-                    text: 'Restaurant Name',
+                    text: 'Store Name',
                     style: GoogleFonts.poppins(
                       fontSize: FontSize.s16,
                       fontWeight: FontWeightManager.regular,
@@ -155,7 +156,7 @@ class _RestaurantDetailsBodyState extends State<_RestaurantDetailsBody> {
                 SizedBox(height: h * 0.01),
                 CustomTextField(
                   controller: _nameCtrl,
-                  hintText: 'Enter restaurant name',
+                  hintText: 'Enter store name',
                   onChanged: (v) => bloc.add(RestaurantNameChanged(v)),
                 ),
                 BlocBuilder<RestaurantDetailsBloc, RestaurantDetailsState>(
@@ -165,7 +166,7 @@ class _RestaurantDetailsBodyState extends State<_RestaurantDetailsBody> {
                         ? Padding(
                             padding: EdgeInsets.only(top: 5),
                             child: Text(
-                              'Restaurant name is required',
+                              'Store name is required',
                               style: TextStyle(
                                 color: Colors.red,
                                 fontSize: FontSize.s12,
@@ -303,12 +304,119 @@ class _RestaurantDetailsBodyState extends State<_RestaurantDetailsBody> {
                   },
                 ),
                 
-                // Restaurant Type - NEW SECTION
+                // Supercategory - NEW SECTION
                 SizedBox(height: h * 0.03),
                 
                 RichText(
                   text: TextSpan(
-                    text: 'Restaurant Type',
+                    text: 'Store Category',
+                    style: GoogleFonts.poppins(
+                      fontSize: FontSize.s16,
+                      fontWeight: FontWeightManager.regular,
+                      color: ColorManager.black,
+                    ),
+                    children: [
+                      TextSpan(
+                        text: ' *',
+                        style: GoogleFonts.poppins(color: Colors.red, fontWeight: FontWeightManager.semiBold),
+                      ),
+                    ],
+                  ),
+                ),
+                SizedBox(height: h * 0.01),
+                BlocBuilder<RestaurantDetailsBloc, RestaurantDetailsState>(
+                  buildWhen: (p, c) => 
+                    p.supercategories != c.supercategories || 
+                    p.selectedSupercategory != c.selectedSupercategory ||
+                    p.isLoadingSupercategories != c.isLoadingSupercategories,
+                  builder: (context, state) {
+                    if (state.isLoadingSupercategories) {
+                      return Container(
+                        height: 48,
+                        alignment: Alignment.center,
+                        child: SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: ColorManager.primary,
+                          ),
+                        ),
+                      );
+                    }
+                    
+                    return Container(
+                      padding: EdgeInsets.symmetric(horizontal: 16),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: Colors.grey.shade300,
+                        ),
+                      ),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<SupercategoryModel>(
+                          isExpanded: true,
+                          value: state.selectedSupercategory,
+                          hint: Text(
+                            'Select store category',
+                            style: TextStyle(
+                              color: Colors.grey.shade600,
+                              fontSize: FontSize.s14,
+                            ),
+                          ),
+                          items: state.supercategories.map<DropdownMenuItem<SupercategoryModel>>(
+                            (SupercategoryModel supercategory) {
+                              return DropdownMenuItem<SupercategoryModel>(
+                                value: supercategory,
+                                child: Text(
+                                  supercategory.name,
+                                  style: TextStyle(
+                                    fontSize: FontSize.s14,
+                                    color: ColorManager.black,
+                                  ),
+                                ),
+                              );
+                            }
+                          ).toList(),
+                          onChanged: (SupercategoryModel? selectedSupercategory) {
+                            if (selectedSupercategory != null) {
+                              context.read<RestaurantDetailsBloc>().add(
+                                SupercategoryChanged(selectedSupercategory),
+                              );
+                            }
+                          },
+                        ),
+                      ),
+                    );
+                  },
+                ),
+                BlocBuilder<RestaurantDetailsBloc, RestaurantDetailsState>(
+                  buildWhen: (p, c) => 
+                    p.selectedSupercategory != c.selectedSupercategory || 
+                    p.isAttemptedSubmit != c.isAttemptedSubmit,
+                  builder: (context, state) {
+                    return state.selectedSupercategory == null && state.isAttemptedSubmit
+                        ? Padding(
+                            padding: EdgeInsets.only(top: 5),
+                            child: Text(
+                              'Store category is required',
+                              style: TextStyle(
+                                color: Colors.red,
+                                fontSize: FontSize.s12,
+                              ),
+                            ),
+                          )
+                        : SizedBox.shrink();
+                  },
+                ),
+
+                // Store Type - NEW SECTION
+                SizedBox(height: h * 0.03),
+                
+                RichText(
+                  text: TextSpan(
+                    text: 'Store Type',
                     style: GoogleFonts.poppins(
                       fontSize: FontSize.s16,
                       fontWeight: FontWeightManager.regular,
@@ -358,7 +466,7 @@ class _RestaurantDetailsBodyState extends State<_RestaurantDetailsBody> {
                           isExpanded: true,
                           value: state.selectedRestaurantType,
                           hint: Text(
-                            'Select restaurant type',
+                            'Select store type',
                             style: TextStyle(
                               color: Colors.grey.shade600,
                               fontSize: FontSize.s14,
@@ -399,7 +507,7 @@ class _RestaurantDetailsBodyState extends State<_RestaurantDetailsBody> {
                         ? Padding(
                             padding: EdgeInsets.only(top: 5),
                             child: Text(
-                              'Restaurant type is required',
+                              'Store type is required',
                               style: TextStyle(
                                 color: Colors.red,
                                 fontSize: FontSize.s12,
@@ -410,112 +518,7 @@ class _RestaurantDetailsBodyState extends State<_RestaurantDetailsBody> {
                   },
                 ),
 
-                // Food Types - NEW SECTION
-                SizedBox(height: h * 0.03),
-                
-                RichText(
-                  text: TextSpan(
-                    text: 'Food Types',
-                    style: GoogleFonts.poppins(
-                      fontSize: FontSize.s16,
-                      fontWeight: FontWeightManager.regular,
-                      color: ColorManager.black,
-                    ),
-                    children: [
-                      TextSpan(
-                        text: ' *',
-                        style: GoogleFonts.poppins(color: Colors.red, fontWeight: FontWeightManager.semiBold),
-                      ),
-                    ],
-                  ),
-                ),
-                SizedBox(height: h * 0.01),
-                BlocBuilder<RestaurantDetailsBloc, RestaurantDetailsState>(
-                  buildWhen: (p, c) => 
-                    p.foodTypes != c.foodTypes || 
-                    p.selectedFoodType != c.selectedFoodType ||
-                    p.isLoadingFoodTypes != c.isLoadingFoodTypes,
-                  builder: (context, state) {
-                    if (state.isLoadingFoodTypes) {
-                      return Container(
-                        height: 48,
-                        alignment: Alignment.center,
-                        child: SizedBox(
-                          width: 24,
-                          height: 24,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: ColorManager.primary,
-                          ),
-                        ),
-                      );
-                    }
-                    
-                    return Container(
-                      padding: EdgeInsets.symmetric(horizontal: 16),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: Colors.grey.shade300,
-                        ),
-                      ),
-                      child: DropdownButtonHideUnderline(
-                        child: DropdownButton<FoodTypeModel>(
-                          isExpanded: true,
-                          value: state.selectedFoodType,
-                          hint: Text(
-                            'Select food type',
-                            style: TextStyle(
-                              color: Colors.grey.shade600,
-                              fontSize: FontSize.s14,
-                            ),
-                          ),
-                          items: state.foodTypes.map<DropdownMenuItem<FoodTypeModel>>(
-                            (FoodTypeModel type) {
-                              return DropdownMenuItem<FoodTypeModel>(
-                                value: type,
-                                child: Text(
-                                  type.name,
-                                  style: TextStyle(
-                                    fontSize: FontSize.s14,
-                                    color: ColorManager.black,
-                                  ),
-                                ),
-                              );
-                            }
-                          ).toList(),
-                          onChanged: (FoodTypeModel? selectedType) {
-                            if (selectedType != null) {
-                              context.read<RestaurantDetailsBloc>().add(
-                                FoodTypeChanged(selectedType),
-                              );
-                            }
-                          },
-                        ),
-                      ),
-                    );
-                  },
-                ),
-                BlocBuilder<RestaurantDetailsBloc, RestaurantDetailsState>(
-                  buildWhen: (p, c) => 
-                    p.selectedFoodType != c.selectedFoodType || 
-                    p.isAttemptedSubmit != c.isAttemptedSubmit,
-                  builder: (context, state) {
-                    return state.selectedFoodType == null && state.isAttemptedSubmit
-                        ? Padding(
-                            padding: EdgeInsets.only(top: 5),
-                            child: Text(
-                              'Food type is required',
-                              style: TextStyle(
-                                color: Colors.red,
-                                fontSize: FontSize.s12,
-                              ),
-                            ),
-                          )
-                        : SizedBox.shrink();
-                  },
-                ),
+
 
                 // Coordinates display for debugging (can be removed in production)
                 BlocBuilder<RestaurantDetailsBloc, RestaurantDetailsState>(

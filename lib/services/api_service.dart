@@ -134,6 +134,7 @@ Future<ApiResponse> getPartnerSummaryLegacy() async {
     required String operationalHours,
     double? latitude,
     double? longitude,
+    String? supercategory,
     File? fssaiLicense,
     File? gstCertificate,
     File? panCard,
@@ -165,6 +166,10 @@ Future<ApiResponse> getPartnerSummaryLegacy() async {
       request.fields['email'] = email;
       request.fields['category'] = category;
       request.fields['operational_hours'] = operationalHours;
+      
+      if (supercategory != null && supercategory.isNotEmpty) {
+        request.fields['supercategory'] = supercategory;
+      }
       
       if (latitude != null && !latitude.isNaN && !latitude.isInfinite) {
         request.fields['latitude'] = latitude.toString();
@@ -275,6 +280,7 @@ Future<ApiResponse> updatePartnerWithAllFields({
   required String cookingTime,
   String? restaurantType,
   String? restaurantFoodType,
+  String? supercategory,
   File? fssaiLicense,
   File? gstCertificate,
   File? panCard,
@@ -331,6 +337,11 @@ Future<ApiResponse> updatePartnerWithAllFields({
     if (restaurantFoodType != null && restaurantFoodType.isNotEmpty) {
       request.fields['restaurantFoodType'] = restaurantFoodType;
       debugPrint('Adding restaurantFoodType to API request: $restaurantFoodType');
+    }
+    
+    if (supercategory != null && supercategory.isNotEmpty) {
+      request.fields['supercategory'] = supercategory;
+      debugPrint('Adding supercategory to API request: $supercategory');
     }
     
     final prefs = await SharedPreferences.getInstance();

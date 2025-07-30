@@ -103,7 +103,14 @@ class EditProductBloc extends Bloc<EditProductEvent, EditProductState> {
     }
     
     // Prepare API endpoint
-    final url = Uri.parse('${ApiConstants.baseUrl}/partner/categories');
+    final sharedPrefs = await SharedPreferences.getInstance();
+    final selectedSupercategoryId = sharedPrefs.getString('selected_supercategory_id');
+    
+    String urlString = '${ApiConstants.baseUrl}/partner/categories';
+    if (selectedSupercategoryId != null && selectedSupercategoryId.isNotEmpty) {
+      urlString += '?supercategory=$selectedSupercategoryId';
+    }
+    final url = Uri.parse(urlString);
     
     try {
       // Make GET request

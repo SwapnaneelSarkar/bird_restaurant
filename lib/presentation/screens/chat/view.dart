@@ -1,4 +1,4 @@
-// lib/presentation/screens/chat/view.dart - ORIGINAL VERSION
+// lib/presentation/screens/chat/view.dart - ENHANCED WITH ORDER DETAILS
 
 import 'dart:async';
 import 'package:flutter/material.dart';
@@ -7,6 +7,7 @@ import '../../../ui_components/universal_widget/order_widgets.dart';
 import '../../../ui_components/universal_widget/topbar.dart';
 import '../../resources/colors.dart';
 import '../../resources/font.dart';
+import '../../../services/menu_item_service.dart';
 import 'bloc.dart';
 import 'event.dart';
 import 'event.dart' as chat_event;
@@ -324,6 +325,8 @@ class _ChatViewState extends State<ChatView> with WidgetsBindingObserver {
     }
   }
 
+
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -539,6 +542,8 @@ class _ChatViewState extends State<ChatView> with WidgetsBindingObserver {
               ),
             ),
           
+          // Order details will be shown as a chat bubble in the messages list
+          
           Expanded(
             child: _buildMessagesList(context, state.messages),
           ),
@@ -738,47 +743,545 @@ class _ChatViewState extends State<ChatView> with WidgetsBindingObserver {
     }
   }
 
-  Widget _buildMessagesList(BuildContext context, List<chat_state.ChatMessage> messages) {
-    if (messages.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.chat_bubble_outline,
-              size: 48,
-              color: Colors.grey.shade400,
+  // NEW: Build loading state for order details as chat bubble
+  Widget _buildOrderDetailsLoadingChatBubble() {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8.0, left: 16.0, right: 16.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Customer avatar
+          Container(
+            width: 32,
+            height: 32,
+            margin: const EdgeInsets.only(right: 8, top: 4),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade300,
+              shape: BoxShape.circle,
             ),
-            const SizedBox(height: 16),
-            Text(
-              'No messages yet',
-              style: TextStyle(
-                fontSize: 16,
-                color: Colors.grey.shade600,
-                fontFamily: FontFamily.Montserrat,
-              ),
+            child: Icon(
+              Icons.person,
+              color: Colors.grey.shade600,
+              size: 20,
             ),
-            const SizedBox(height: 8),
-            Text(
-              'Start a conversation with your customer',
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey.shade500,
-                fontFamily: FontFamily.Montserrat,
-              ),
+          ),
+          
+          // Loading bubble
+          ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: MediaQuery.of(context).size.width * 0.75,
+              minWidth: MediaQuery.of(context).size.width * 0.15,
             ),
-          ],
-        ),
-      );
-    }
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade100,
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(18),
+                      topRight: Radius.circular(18),
+                      bottomLeft: Radius.circular(4),
+                      bottomRight: Radius.circular(18),
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.05),
+                        blurRadius: 3,
+                        offset: const Offset(0, 1),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: ColorManager.primary.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Icon(
+                          Icons.shopping_cart,
+                          color: ColorManager.primary,
+                          size: 16,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Loading Order Details...',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeightManager.medium,
+                                color: ColorManager.black,
+                                fontFamily: FontFamily.Montserrat,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'Please wait',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Colors.grey.shade600,
+                                fontFamily: FontFamily.Montserrat,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: ColorManager.primary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Padding(
+                  padding: const EdgeInsets.only(left: 8),
+                  child: Text(
+                    'Now',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeightManager.regular,
+                      color: Colors.grey.shade500,
+                      fontFamily: FontFamily.Montserrat,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
-    return ListView.builder(
-      controller: _scrollController,
-      padding: const EdgeInsets.symmetric(vertical: 8), // Reduced padding
-      itemCount: messages.length,
-      itemBuilder: (context, index) {
-        final message = messages[index];
-        return _buildMessageBubble(message);
+  // NEW: Build order details as chat bubble
+  Widget _buildOrderDetailsChatBubble(chat_state.OrderDetails orderDetails, Map<String, MenuItem> menuItems) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8.0, left: 16.0, right: 16.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Customer avatar
+          Container(
+            width: 32,
+            height: 32,
+            margin: const EdgeInsets.only(right: 8, top: 4),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade300,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.person,
+              color: Colors.grey.shade600,
+              size: 20,
+            ),
+          ),
+          
+          // Order details bubble
+          ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: MediaQuery.of(context).size.width * 0.75,
+              minWidth: MediaQuery.of(context).size.width * 0.15,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade100,
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(18),
+                      topRight: Radius.circular(18),
+                      bottomLeft: Radius.circular(4),
+                      bottomRight: Radius.circular(18),
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.05),
+                        blurRadius: 3,
+                        offset: const Offset(0, 1),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Header
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              color: ColorManager.primary.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Icon(
+                              Icons.shopping_cart,
+                              color: ColorManager.primary,
+                              size: 16,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Order Details',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeightManager.bold,
+                                    color: ColorManager.black,
+                                    fontFamily: FontFamily.Montserrat,
+                                  ),
+                                ),
+                                Text(
+                                  '${orderDetails.items.length} items • ${orderDetails.formattedGrandTotal('₹')}',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: Colors.grey.shade600,
+                                    fontFamily: FontFamily.Montserrat,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      
+                      // Order items (compact version)
+                      ...orderDetails.items.take(3).map((item) {
+                        final menuItem = menuItems[item.menuId];
+                        final itemName = menuItem?.name ?? 'Unknown Item';
+                        
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 6),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  '${item.quantity}x $itemName',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeightManager.medium,
+                                    color: ColorManager.black,
+                                    fontFamily: FontFamily.Montserrat,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              Text(
+                                '₹${(item.itemPrice * item.quantity).toStringAsFixed(2)}',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeightManager.bold,
+                                  color: ColorManager.primary,
+                                  fontFamily: FontFamily.Montserrat,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }).toList(),
+                      
+                      // Show more items indicator if there are more than 3
+                      if (orderDetails.items.length > 3)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 6),
+                          child: Text(
+                            '+${orderDetails.items.length - 3} more items',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Colors.grey.shade600,
+                              fontStyle: FontStyle.italic,
+                              fontFamily: FontFamily.Montserrat,
+                            ),
+                          ),
+                        ),
+                      
+                      const Divider(height: 12, thickness: 1),
+                      
+                      // Price summary
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'Subtotal',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey.shade600,
+                              fontFamily: FontFamily.Montserrat,
+                            ),
+                          ),
+                          Text(
+                            orderDetails.formattedTotal('₹'),
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeightManager.medium,
+                              color: ColorManager.black,
+                              fontFamily: FontFamily.Montserrat,
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (orderDetails.deliveryFeesDouble > 0) ...[
+                        const SizedBox(height: 2),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'Delivery Fee',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey.shade600,
+                                fontFamily: FontFamily.Montserrat,
+                              ),
+                            ),
+                            Text(
+                              orderDetails.formattedDeliveryFees('₹'),
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeightManager.medium,
+                                color: ColorManager.black,
+                                fontFamily: FontFamily.Montserrat,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                      const SizedBox(height: 4),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'Total',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeightManager.bold,
+                              color: ColorManager.black,
+                              fontFamily: FontFamily.Montserrat,
+                            ),
+                          ),
+                          Text(
+                            orderDetails.formattedGrandTotal('₹'),
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeightManager.bold,
+                              color: ColorManager.primary,
+                              fontFamily: FontFamily.Montserrat,
+                            ),
+                          ),
+                        ],
+                      ),
+                      
+                      const SizedBox(height: 8),
+                      
+                      // Order status
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: _getStatusColor(orderDetails.orderStatus).withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: _getStatusColor(orderDetails.orderStatus).withOpacity(0.3),
+                            width: 0.5,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              _getStatusIcon(orderDetails.orderStatus),
+                              color: _getStatusColor(orderDetails.orderStatus),
+                              size: 12,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              _formatOrderStatus(orderDetails.orderStatus),
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeightManager.medium,
+                                color: _getStatusColor(orderDetails.orderStatus),
+                                fontFamily: FontFamily.Montserrat,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Padding(
+                  padding: const EdgeInsets.only(left: 8),
+                  child: Text(
+                    'Now',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeightManager.regular,
+                      color: Colors.grey.shade500,
+                      fontFamily: FontFamily.Montserrat,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+
+
+  Color _getStatusColor(String status) {
+    switch (status.toUpperCase()) {
+      case 'PENDING':
+        return Colors.orange;
+      case 'CONFIRMED':
+        return Colors.blue;
+      case 'PREPARING':
+        return Colors.purple;
+      case 'READY':
+        return Colors.green;
+      case 'OUT_FOR_DELIVERY':
+        return Colors.indigo;
+      case 'DELIVERED':
+        return Colors.green;
+      case 'CANCELLED':
+        return Colors.red;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  IconData _getStatusIcon(String status) {
+    switch (status.toUpperCase()) {
+      case 'PENDING':
+        return Icons.schedule;
+      case 'CONFIRMED':
+        return Icons.check_circle;
+      case 'PREPARING':
+        return Icons.restaurant;
+      case 'READY':
+        return Icons.done_all;
+      case 'OUT_FOR_DELIVERY':
+        return Icons.delivery_dining;
+      case 'DELIVERED':
+        return Icons.check_circle;
+      case 'CANCELLED':
+        return Icons.cancel;
+      default:
+        return Icons.info;
+    }
+  }
+
+  String _formatOrderStatus(String status) {
+    switch (status.toUpperCase()) {
+      case 'PENDING':
+        return 'Pending';
+      case 'CONFIRMED':
+        return 'Confirmed';
+      case 'PREPARING':
+        return 'Preparing';
+      case 'READY':
+        return 'Ready for Pickup';
+      case 'OUT_FOR_DELIVERY':
+        return 'Out for Delivery';
+      case 'DELIVERED':
+        return 'Delivered';
+      case 'CANCELLED':
+        return 'Cancelled';
+      default:
+        return status;
+    }
+  }
+
+  Widget _buildMessagesList(BuildContext context, List<chat_state.ChatMessage> messages) {
+    return BlocBuilder<ChatBloc, chat_state.ChatState>(
+      builder: (context, state) {
+        if (state is chat_state.ChatLoaded) {
+          // Show order details as first chat bubble if available
+          final hasOrderDetails = state.orderDetails != null;
+          final isLoadingOrderDetails = state.isLoadingOrderDetails;
+          
+          if (messages.isEmpty && !hasOrderDetails && !isLoadingOrderDetails) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.chat_bubble_outline,
+                    size: 48,
+                    color: Colors.grey.shade400,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'No messages yet',
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: Colors.grey.shade600,
+                      fontFamily: FontFamily.Montserrat,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Start a conversation with your customer',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey.shade500,
+                      fontFamily: FontFamily.Montserrat,
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }
+
+          return ListView.builder(
+            controller: _scrollController,
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            itemCount: messages.length + (hasOrderDetails ? 1 : 0),
+            itemBuilder: (context, index) {
+              // Show order details as the first item
+              if (index == 0 && hasOrderDetails) {
+                return _buildOrderDetailsChatBubble(state.orderDetails!, state.menuItems);
+              }
+              
+              // Show loading bubble if order details are loading
+              if (index == 0 && isLoadingOrderDetails) {
+                return _buildOrderDetailsLoadingChatBubble();
+              }
+              
+              // Show regular messages (adjust index for order details)
+              final messageIndex = hasOrderDetails ? index - 1 : index;
+              if (messageIndex >= 0 && messageIndex < messages.length) {
+                final message = messages[messageIndex];
+                return _buildMessageBubble(message);
+              }
+              
+              return const SizedBox.shrink();
+            },
+          );
+        }
+        
+        return const SizedBox.shrink();
       },
     );
   }
@@ -926,6 +1429,30 @@ class _ChatViewState extends State<ChatView> with WidgetsBindingObserver {
       ),
       child: Row(
         children: [
+          // Status change icon button
+          GestureDetector(
+            onTap: () => _showStatusChangeBottomSheet(context),
+            child: Container(
+              width: MediaQuery.of(context).size.width * 0.11,
+              height: MediaQuery.of(context).size.width * 0.11,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade100,
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: Colors.grey.shade300,
+                  width: 1,
+                ),
+              ),
+              child: Center(
+                child: Icon(
+                  Icons.edit_note,
+                  color: Colors.grey.shade600,
+                  size: MediaQuery.of(context).size.width * 0.045,
+                ),
+              ),
+            ),
+          ),
+          SizedBox(width: MediaQuery.of(context).size.width * 0.028),
           Expanded(
             child: Container(
               padding: EdgeInsets.symmetric(
@@ -1066,6 +1593,30 @@ class _ChatViewState extends State<ChatView> with WidgetsBindingObserver {
     );
   }
 
+  void _showStatusChangeBottomSheet(BuildContext context) {
+    final chatBloc = context.read<ChatBloc>();
+    final partnerId = chatBloc.currentPartnerId ?? '';
+    
+    if (partnerId.isNotEmpty && widget.orderId.isNotEmpty) {
+      showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (context) => StatusChangeBottomSheet(
+          orderId: widget.orderId,
+          partnerId: partnerId,
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Unable to change status. Please try again.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
   void _sendMessage() {
     final message = _messageController.text.trim();
     if (message.isNotEmpty && mounted) {
@@ -1089,28 +1640,5 @@ class _ChatViewState extends State<ChatView> with WidgetsBindingObserver {
     }
   }
 
-  Widget _buildConnectionStatusIndicator(chat_state.ChatLoaded state) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      color: state.isConnected ? Colors.green.withOpacity(0.1) : Colors.orange.withOpacity(0.1),
-      child: Row(
-        children: [
-          Icon(
-            state.isConnected ? Icons.wifi : Icons.wifi_off,
-            size: 16,
-            color: state.isConnected ? Colors.green : Colors.orange,
-          ),
-          const SizedBox(width: 8),
-          Text(
-            state.isConnected ? 'Connected' : 'Connecting...',
-            style: TextStyle(
-              fontSize: 12,
-              color: state.isConnected ? Colors.green : Colors.orange,
-              fontWeight: FontWeightManager.medium,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+
 }

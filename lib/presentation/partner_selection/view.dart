@@ -271,9 +271,9 @@ class _PartnerSelectionViewState extends State<PartnerSelectionView>
                               // Restaurant Partner Option
                               _buildPartnerOption(
                                 context: context,
-                                title: 'Enter as Restaurant Partner',
-                                subtitle: 'List your restaurant and reach more customers',
-                                icon: Icons.restaurant,
+                                title: 'Enter as Store Partner',
+                                subtitle: 'List your store and reach more customers',
+                                icon: Icons.store,
                                 onTap: () => _navigateToAuth('restaurant'),
                                 delay: 200,
                               ),

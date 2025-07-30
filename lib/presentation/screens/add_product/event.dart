@@ -2,6 +2,7 @@
 // lib/presentation/screens/add_product/event.dart
 import 'dart:io';
 import 'package:equatable/equatable.dart';
+import '../../../models/food_type_model.dart';
 
 abstract class AddProductEvent extends Equatable {
   const AddProductEvent();
@@ -84,6 +85,18 @@ class ToggleCancellableEvent extends AddProductEvent {
   
   @override
   List<Object?> get props => [isCancellable];
+}
+
+class FetchFoodTypesEvent extends AddProductEvent {
+  const FetchFoodTypesEvent();
+}
+
+class FoodTypeChangedEvent extends AddProductEvent {
+  final FoodTypeModel foodType;
+  const FoodTypeChangedEvent(this.foodType);
+  
+  @override
+  List<Object?> get props => [foodType];
 }
 
 class SubmitProductEvent extends AddProductEvent {
