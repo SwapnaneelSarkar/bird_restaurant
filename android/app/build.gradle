@@ -10,6 +10,7 @@ def keystorePropertiesFile = rootProject.file('key.properties')
 def keystoreProperties = new Properties()
 if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+    println "[DEBUG] keystoreProperties['storeFile']: ${keystoreProperties['storeFile']}"
 }
 
 android {
