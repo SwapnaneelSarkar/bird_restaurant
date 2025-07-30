@@ -78,7 +78,7 @@ class _BlueTickLoggingTestState extends State<BlueTickLoggingTest> {
             ElevatedButton(
               onPressed: () {
                 _addLog('👁️ Testing message seen');
-                _chatService.emitMessageSeen('test-message-123');
+                // _chatService.emitMessageSeen('test-message-123');
               },
               child: const Text('Test Message Seen'),
             ),
