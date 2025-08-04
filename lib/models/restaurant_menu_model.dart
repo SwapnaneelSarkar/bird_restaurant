@@ -1,4 +1,6 @@
 // lib/models/restaurant_menu_model.dart
+import '../presentation/screens/add_product/state.dart'; // Import timing schedule models
+
 class RestaurantMenuResponse {
   final String status;
   final String message;
@@ -77,6 +79,11 @@ class MenuItem {
   final bool isTaxIncluded;
   final bool isCancellable;
   final String? tags;
+  final String? restaurantFoodTypeId;
+  // New timing fields
+  final bool timingEnabled;
+  final TimingSchedule? timingSchedule;
+  final String? timezone;
 
   MenuItem({
     required this.menuId,
@@ -90,6 +97,10 @@ class MenuItem {
     required this.isTaxIncluded,
     required this.isCancellable,
     this.tags,
+    this.restaurantFoodTypeId,
+    this.timingEnabled = true,
+    this.timingSchedule,
+    this.timezone,
   });
 
   factory MenuItem.fromJson(Map<String, dynamic> json) {
@@ -112,6 +123,13 @@ class MenuItem {
       isTaxIncluded: _convertToBool(json['isTaxIncluded']),
       isCancellable: _convertToBool(json['isCancellable']),
       tags: json['tags']?.toString(),
+      restaurantFoodTypeId: json['restaurant_food_type_id'],
+      // New timing fields
+      timingEnabled: _convertToBool(json['timing_enabled']),
+      timingSchedule: json['timing_schedule'] != null 
+          ? TimingSchedule.fromJson(json['timing_schedule']) 
+          : null,
+      timezone: json['timezone'] ?? 'Asia/Kolkata',
     );
   }
 

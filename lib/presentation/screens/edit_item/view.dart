@@ -8,13 +8,14 @@ import '../../../models/restaurant_menu_model.dart';
 import '../../../ui_components/custom_button_slim.dart';
 import '../../../ui_components/custom_textField.dart';
 import '../../../ui_components/image_picker.dart';
-
+import '../../../ui_components/timing_schedule_widget.dart';
 import '../../../presentation/resources/colors.dart';
 import '../../../ui_components/universal_widget/topbar.dart';
 import 'bloc.dart';
 import 'event.dart';
 import 'state.dart';
 import '../../../models/catagory_model.dart';
+import '../../../models/food_type_model.dart';
 
 class EditProductView extends StatefulWidget {
   final MenuItem menuItem;
@@ -50,13 +51,21 @@ class _EditProductViewState extends State<EditProductView> {
           if (state is EditProductFormState) {
             if (state.errorMessage != null) {
               ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text(state.errorMessage!)),
+                SnackBar(
+                  content: Text(state.errorMessage!),
+                  backgroundColor: Colors.red,
+                  duration: const Duration(seconds: 5),
+                ),
               );
             }
             
             if (state.isSuccess) {
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Product updated successfully!')),
+                const SnackBar(
+                  content: Text('Product updated successfully!'),
+                  backgroundColor: Colors.green,
+                  duration: Duration(seconds: 2),
+                ),
               );
               
               // Go back to previous screen after showing success message
@@ -269,6 +278,50 @@ class _EditProductViewState extends State<EditProductView> {
           ),
           const SizedBox(height: 16),
           
+          // Food Type - Commented out as not supported by API
+          // Text(
+          //   'Food Type',
+          //   style: TextStyle(
+          //     fontSize: 16,
+          //     fontWeight: FontWeight.w500,
+          //     color: ColorManager.black,
+          //   ),
+          // ),
+          // const SizedBox(height: 8),
+          // _buildFoodTypeDropdown(context, state),
+          // const SizedBox(height: 16),
+          
+          // Timing Schedule
+          Text(
+            'Availability Timing',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+              color: ColorManager.black,
+            ),
+          ),
+          const SizedBox(height: 8),
+          TimingScheduleWidget(
+            timingSchedule: state.timingSchedule,
+            timingEnabled: state.timingEnabled,
+            timezone: state.timezone,
+            onTimingEnabledChanged: (enabled) {
+              context.read<EditProductBloc>().add(ToggleTimingEnabledEvent(enabled));
+            },
+            onDayScheduleChanged: (day, enabled, start, end) {
+              context.read<EditProductBloc>().add(UpdateDayScheduleEvent(
+                day: day,
+                enabled: enabled,
+                start: start,
+                end: end,
+              ));
+            },
+            onTimezoneChanged: (timezone) {
+              context.read<EditProductBloc>().add(UpdateTimezoneEvent(timezone));
+            },
+          ),
+          const SizedBox(height: 16),
+          
           // Description
           CustomTextField(
             label: 'Description',
@@ -318,13 +371,45 @@ class _EditProductViewState extends State<EditProductView> {
           // Submit Button
           NextButton(
             label: state.isSubmitting ? 'Updating...' : 'Update Menu Item',
-            onPressed: state.isSubmitting
+            onPressed: (state.isSubmitting || state.name.isEmpty || state.categoryId == null || state.categoryId!.isEmpty || state.price.isEmpty)
                 ? null
                 : () => context.read<EditProductBloc>().add(const SubmitEditProductEvent()),
           ),
+          
+          // Show retry info if there's an error
+          if (state.errorMessage != null && state.errorMessage!.contains('timeout'))
+            Container(
+              margin: const EdgeInsets.only(top: 8),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.orange.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.orange.withOpacity(0.3)),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline, color: Colors.orange, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Network issue detected. The app will automatically retry.',
+                      style: TextStyle(
+                        color: Colors.orange[800],
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           const SizedBox(height: 40),
         ],
       ),
     );
   }
+
+  // Widget _buildFoodTypeDropdown(BuildContext context, EditProductFormState state) {
+  //   // Commented out as food type is not supported by the API
+  //   return Container();
+  // }
 }

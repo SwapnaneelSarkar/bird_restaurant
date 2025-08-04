@@ -673,6 +673,18 @@ Future<ApiResponse> registerPartner(String mobile) async {
         await TokenService.saveMobile(mobile);
         debugPrint('Mobile saved to SharedPreferences: $mobile');
       }
+      
+      // NEW: Save supercategory ID if present in the response
+      if (data['supercategory'] != null) {
+        final supercategory = data['supercategory'] as Map<String, dynamic>;
+        if (supercategory['id'] != null) {
+          final supercategoryId = supercategory['id'] as String;
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setString('supercategory_id', supercategoryId);
+          await TokenService.saveSupercategoryId(supercategoryId);
+          debugPrint('Supercategory ID extracted and saved to SharedPreferences: $supercategoryId');
+        }
+      }
     } else {
       if (rawResponseBody.contains('token')) {
         final tokenRegex = RegExp(r'"token":"([^"]+)"');
@@ -711,6 +723,21 @@ Future<ApiResponse> registerPartner(String mobile) async {
             await prefs.setString('user_id', userId);
             await TokenService.saveUserId(userId);
             debugPrint('User ID extracted and saved to SharedPreferences using regex: $userId');
+          }
+        }
+      }
+      
+      // NEW: Extract supercategory ID using regex if data is null
+      if (rawResponseBody.contains('"supercategory"')) {
+        final supercategoryIdRegex = RegExp(r'"supercategory":\s*\{[^}]*"id":\s*"([^"]+)"');
+        final match = supercategoryIdRegex.firstMatch(rawResponseBody);
+        if (match != null && match.groupCount >= 1) {
+          final supercategoryId = match.group(1);
+          if (supercategoryId != null) {
+            final prefs = await SharedPreferences.getInstance();
+            await prefs.setString('supercategory_id', supercategoryId);
+            await TokenService.saveSupercategoryId(supercategoryId);
+            debugPrint('Supercategory ID extracted and saved to SharedPreferences using regex: $supercategoryId');
           }
         }
       }

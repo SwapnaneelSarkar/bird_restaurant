@@ -206,148 +206,74 @@ class SocketChatService extends ChangeNotifier {
   }
 
   void _setupSocketEventHandlers() {
-    if (_socket == null || _isDisposed) return;
+    if (_socket == null) return;
 
-    debugPrint('SocketChatService: 🔧 Setting up socket event handlers...');
-
-    // Connection events
     _socket!.onConnect((_) {
-      debugPrint('SocketChatService: ✅ Socket connected successfully');
-      debugPrint('SocketChatService: 🔍 Socket ID: ${_socket!.id}');
-      debugPrint('SocketChatService: 🔍 Socket connected: ${_socket!.connected}');
       _isConnected = true;
-      _reconnectAttempts = 0;
+      _reconnectAttempts = 0; // Reset reconnection attempts on successful connection
       notifyListeners();
       
       // Rejoin current room if we have one
       if (_currentRoomId != null) {
         _socket!.emit('join_room', _currentRoomId);
-        debugPrint('SocketChatService: 🏠 Rejoined room: $_currentRoomId');
       }
     });
 
     _socket!.onDisconnect((_) {
-      debugPrint('SocketChatService: ❌ Socket disconnected');
-      debugPrint('SocketChatService: 🔍 Socket connected: ${_socket!.connected}');
       _isConnected = false;
       notifyListeners();
-      _handleReconnection();
+      
+      // Handle reconnection
+      if (!_isDisposed) {
+        _handleReconnection();
+      }
     });
 
     _socket!.onConnectError((data) {
-      debugPrint('SocketChatService: ❌ Connection error: $data');
-      debugPrint('SocketChatService: 🔍 Socket connected: ${_socket!.connected}');
       _isConnected = false;
       notifyListeners();
-      _handleReconnection();
+      
+      // Handle reconnection
+      if (!_isDisposed) {
+        _handleReconnection();
+      }
     });
 
     _socket!.onError((data) {
-      debugPrint('SocketChatService: ❌ Socket error: $data');
+      // Handle socket errors silently
     });
 
-    // Message events
-    _socket!.on('receive_message', (data) {
-      debugPrint('SocketChatService: 📥 Received message via socket: $data');
+    _socket!.on('message', (data) {
       _handleReceivedMessage(data);
     });
 
-    // NEW: Message sent confirmation
     _socket!.on('message_sent', (data) {
-      debugPrint('SocketChatService: 📥 Processing message sent confirmation...');
-      debugPrint('SocketChatService: Raw confirmation data: $data');
-      
-      Map<String, dynamic> messageData;
-      
-      if (data is String) {
-        messageData = jsonDecode(data);
-      } else if (data is Map<String, dynamic>) {
-        messageData = data;
-      } else {
-        debugPrint('SocketChatService: ❌ Invalid confirmation data format');
-        return;
-      }
-      
-      final message = ApiChatMessage.fromJson(messageData);
-      
-      // IMPROVED: Better optimistic message update logic
-      final existingIndex = _messages.indexWhere((msg) => 
-        msg.content == message.content && 
-        msg.senderId == message.senderId &&
-        msg.createdAt.difference(message.createdAt).abs().inSeconds < 3);
-      
-      if (existingIndex != -1) {
-        // Update the optimistic message with the real message from server
-        final oldMessage = _messages[existingIndex];
-        if (oldMessage.id != message.id) {
-          _messages[existingIndex] = message;
-          debugPrint('SocketChatService: ✅ Updated optimistic message with server confirmation');
-          debugPrint('SocketChatService: 🔄 Old ID: ${oldMessage.id} -> New ID: ${message.id}');
-        } else {
-          debugPrint('SocketChatService: 🔄 Message already has correct ID, no update needed');
-        }
-      } else {
-        // Check if this is a completely new message (shouldn't happen for sent confirmations)
-        final isNewMessage = !_messages.any((msg) => 
-          msg.id == message.id ||
-          (msg.content == message.content && 
-           msg.senderId == message.senderId &&
-           msg.createdAt.difference(message.createdAt).abs().inSeconds < 3));
-        
-        if (isNewMessage) {
-          _messages.add(message);
-          _messages.sort((a, b) => a.createdAt.compareTo(b.createdAt));
-          debugPrint('SocketChatService: ✅ Added confirmed message to list');
-        } else {
-          debugPrint('SocketChatService: 🔄 Confirmed message already exists, skipping');
-        }
-      }
-      
-      _debouncedNotify();
-      
+      _handleMessageSentConfirmation(data);
     });
 
-    // NEW: Read status events
     _socket!.on('message_read', (data) {
-      debugPrint('SocketChatService: 📖 Received message_read event: $data');
       _handleMessageReadUpdate(data);
     });
 
     _socket!.on('messages_marked_read', (data) {
-      debugPrint('SocketChatService: 📖 Received messages_marked_read event: $data');
       _handleMessagesMarkedRead(data);
     });
 
-    // NEW: Message seen event for real-time read status
-    // _socket!.on('message_seen', (data) {
-    //   debugPrint('SocketChatService: 👁️ Message seen event received: $data');
-    //   _handleMessageSeen(data);
-    // });
-
-    // User events
     _socket!.on('user_joined', (data) {
-      debugPrint('SocketChatService: 👋 User joined: $data');
+      // Handle user joined silently
     });
 
     _socket!.on('user_left', (data) {
-      debugPrint('SocketChatService: 👋 User left: $data');
+      // Handle user left silently
     });
 
-    // Typing events - NEW: Use typing to trigger mark as read and blue ticks
     _socket!.on('user_typing', (data) {
-      debugPrint('SocketChatService: ⌨️ User typing: $data');
-      
-      // NEW: When someone starts typing, mark all messages as read and update blue ticks
-      if (_currentRoomId != null && _currentUserId != null) {
-        _markAllMessagesAsReadForBlueTicks();
-      }
+      // Handle typing events silently
     });
 
-    _socket!.on('user_stop_typing', (data) {
-      debugPrint('SocketChatService: ⌨️ User stopped typing: $data');
+    _socket!.on('user_stopped_typing', (data) {
+      // Handle stop typing events silently
     });
-
-    debugPrint('SocketChatService: ✅ Socket event handlers set up successfully');
   }
 
   // NEW: Debounced notification method
@@ -363,9 +289,6 @@ class SocketChatService extends ChangeNotifier {
 
   void _handleReceivedMessage(dynamic data) {
     try {
-      debugPrint('SocketChatService: 📥 Processing received message...');
-      debugPrint('SocketChatService: Raw data: $data');
-      
       Map<String, dynamic> messageData;
       
       if (data is String) {
@@ -373,74 +296,92 @@ class SocketChatService extends ChangeNotifier {
       } else if (data is Map<String, dynamic>) {
         messageData = data;
       } else {
-        debugPrint('SocketChatService: ❌ Invalid message format');
         return;
       }
       
       final message = ApiChatMessage.fromJson(messageData);
       
-      // CRITICAL: Skip messages from current user to avoid duplicates
+      // Skip if it's our own message (avoid duplicates)
       if (message.isFromCurrentUser(_currentUserId)) {
-        debugPrint('SocketChatService: 🔄 Skipping own message from socket: ${message.content}');
         return;
       }
       
-      // IMPROVED: Better duplicate detection using multiple criteria
-      final messageExists = _messages.any((m) => 
-        m.id == message.id || // Same ID (definite duplicate)
-        (m.content == message.content && 
-         m.senderId == message.senderId &&
-         m.createdAt.difference(message.createdAt).abs().inMilliseconds < 100) // Same content, sender, and very close time (within 100ms - likely duplicate)
-      );
+      // Check for duplicates before adding
+      final isDuplicate = _messages.any((msg) => 
+        msg.id == message.id || 
+        (msg.content == message.content && 
+         msg.senderId == message.senderId &&
+         msg.createdAt.difference(message.createdAt).abs().inSeconds < 3));
       
-      if (!messageExists) {
+      if (!isDuplicate) {
         _messages.add(message);
         _messages.sort((a, b) => a.createdAt.compareTo(b.createdAt));
         
-        debugPrint('SocketChatService: ✨ New message added from ${message.senderType}: "${message.content}"');
-        debugPrint('SocketChatService: 📊 Total messages: ${_messages.length}');
+        // Emit to stream for real-time updates
+        _messageStreamController.add(message);
         
-        // Emit to stream for immediate UI updates (only for other users' messages)
-        if (!_messageStreamController.isClosed) {
-          _messageStreamController.add(message);
+        // Auto-emit typing when message is received (partner is reading)
+        if (_currentRoomId != null && _socket != null && _isConnected) {
+          _socket!.emit('typing', _currentRoomId);
         }
         
-        // NEW: Auto-emit typing when receiving a message on active chat page
-        if (_currentRoomId != null) {
-          debugPrint('SocketChatService: 🔍 Auto-emission check - Room ID: $_currentRoomId');
-          debugPrint('SocketChatService: 🔍 Auto-emission check - Socket ready: ${_socket != null && _isConnected}');
-          
-          sendTyping(_currentRoomId!);
-          debugPrint('SocketChatService: ⌨️ Auto-emitted typing for received message');
-          
-          // Stop typing after 3 seconds
-          Timer(const Duration(seconds: 3), () {
-            if (_currentRoomId != null) {
-              debugPrint('SocketChatService: 🔍 Auto-stop typing check - Room ID: $_currentRoomId');
-              sendStopTyping(_currentRoomId!);
-              debugPrint('SocketChatService: ⌨️ Auto-stopped typing after received message');
-            } else {
-              debugPrint('SocketChatService: ⚠️ Cannot auto-stop typing - no current room');
-            }
-          });
-        } else {
-          debugPrint('SocketChatService: ⚠️ Cannot auto-emit typing - no current room ID');
-        }
+        // Auto-stop typing after a delay
+        Timer(const Duration(seconds: 3), () {
+          if (_currentRoomId != null && _socket != null && _isConnected) {
+            _socket!.emit('stop_typing', _currentRoomId);
+          }
+        });
         
-        // AUTO mark as read for incoming messages via SOCKET
-        if (_currentRoomId != null) {
-          markAsReadViaSocket(_currentRoomId!);
-          debugPrint('SocketChatService: 📖 Auto-marked incoming message as read via socket');
-        }
+        // Auto-mark message as read via socket
+        markAsReadViaSocket(_currentRoomId ?? '');
         
         _debouncedNotify();
-      } else {
-        debugPrint('SocketChatService: 🔄 Message already exists, skipping duplicate: "${message.content}"');
-        debugPrint('SocketChatService: 🔍 Duplicate check - ID: ${message.id}, Content: ${message.content}, Sender: ${message.senderId}');
       }
     } catch (e) {
-      debugPrint('SocketChatService: ❌ Error handling received message: $e');
+      // Handle error silently
     }
+  }
+
+  void _handleMessageSentConfirmation(dynamic data) {
+    Map<String, dynamic> messageData;
+    
+    if (data is String) {
+      messageData = jsonDecode(data);
+    } else if (data is Map<String, dynamic>) {
+      messageData = data;
+    } else {
+      return;
+    }
+    
+    final message = ApiChatMessage.fromJson(messageData);
+    
+    // IMPROVED: Better optimistic message update logic
+    final existingIndex = _messages.indexWhere((msg) => 
+      msg.content == message.content && 
+      msg.senderId == message.senderId &&
+      msg.createdAt.difference(message.createdAt).abs().inSeconds < 3);
+    
+    if (existingIndex != -1) {
+      // Update the optimistic message with the real message from server
+      final oldMessage = _messages[existingIndex];
+      if (oldMessage.id != message.id) {
+        _messages[existingIndex] = message;
+      }
+    } else {
+      // Check if this is a completely new message (shouldn't happen for sent confirmations)
+      final isNewMessage = !_messages.any((msg) => 
+        msg.id == message.id ||
+        (msg.content == message.content && 
+         msg.senderId == message.senderId &&
+         msg.createdAt.difference(message.createdAt).abs().inSeconds < 3));
+      
+      if (isNewMessage) {
+        _messages.add(message);
+        _messages.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+      }
+    }
+    
+    _debouncedNotify();
   }
 
   // NEW: Handle individual message read update
@@ -642,38 +583,30 @@ class SocketChatService extends ChangeNotifier {
 
   void _handleReconnection() {
     if (_isDisposed || _reconnectAttempts >= _maxReconnectAttempts) {
-      debugPrint('SocketChatService: ❌ Max reconnection attempts reached or service disposed');
       return;
     }
 
     _reconnectAttempts++;
     final delay = Duration(seconds: _reconnectAttempts * 2); // Exponential backoff
     
-    debugPrint('SocketChatService: 🔄 Reconnection attempt $_reconnectAttempts/$_maxReconnectAttempts in ${delay.inSeconds}s');
-    
     _reconnectTimer?.cancel();
     _reconnectTimer = Timer(delay, () async {
       if (_isDisposed) return;
       
       try {
-        debugPrint('SocketChatService: 🔌 Attempting to reconnect...');
         await connect();
         
         if (_isConnected) {
-          debugPrint('SocketChatService: ✅ Reconnection successful');
           _reconnectAttempts = 0; // Reset attempts on successful connection
           
           // Rejoin current room if we have one
           if (_currentRoomId != null) {
             await joinRoom(_currentRoomId!);
-            debugPrint('SocketChatService: 🏠 Rejoined room after reconnection: $_currentRoomId');
           }
         } else {
-          debugPrint('SocketChatService: ❌ Reconnection failed, will retry');
           _handleReconnection(); // Retry
         }
       } catch (e) {
-        debugPrint('SocketChatService: ❌ Reconnection error: $e');
         _handleReconnection(); // Retry
       }
     });
@@ -688,9 +621,6 @@ class SocketChatService extends ChangeNotifier {
       }
       
       if (_socket != null && !_isConnected) {
-        debugPrint('SocketChatService: 🔌 Connecting socket...');
-        debugPrint('SocketChatService: 🔍 Socket state before connect: ${_socket!.connected}');
-        
         _socket!.connect();
         
         // Wait for connection with timeout
@@ -698,18 +628,13 @@ class SocketChatService extends ChangeNotifier {
         while (!_isConnected && attempts < 10 && !_isDisposed) {
           await Future.delayed(const Duration(milliseconds: 500));
           attempts++;
-          debugPrint('SocketChatService: ⏳ Waiting for connection... attempt $attempts');
         }
         
-        if (_isConnected) {
-          debugPrint('SocketChatService: ✅ Socket connected successfully');
-        } else {
-          debugPrint('SocketChatService: ❌ Socket connection timeout');
+        if (!_isConnected) {
           _handleConnectionFailure('Connection timeout');
         }
       }
     } catch (e) {
-      debugPrint('SocketChatService: ❌ Error connecting: $e');
       _handleConnectionFailure('Connection error: $e');
     }
   }
@@ -726,12 +651,9 @@ class SocketChatService extends ChangeNotifier {
     if (_isDisposed) return;
     
     try {
-      debugPrint('SocketChatService: 🏠 Joining room: $roomId');
-      
       // Ensure we have current user ID
       if (_currentUserId == null) {
         _currentUserId = await TokenService.getUserId();
-        debugPrint('SocketChatService: 🆔 Retrieved user ID: $_currentUserId');
       }
       
       // Leave current room if we have one
@@ -751,7 +673,6 @@ class SocketChatService extends ChangeNotifier {
       // Join room via socket
       if (_socket != null && _isConnected) {
         _socket!.emit('join_room', roomId);
-        debugPrint('SocketChatService: 📤 Sent join_room event for: $roomId');
       }
       
       // Load initial chat history via REST API
@@ -759,18 +680,13 @@ class SocketChatService extends ChangeNotifier {
       
       // Mark messages as read when joining room via SOCKET
       markAsReadViaSocket(roomId);
-      debugPrint('SocketChatService: 📖 Auto-marked room messages as read via socket on join');
-      
-      debugPrint('SocketChatService: ✅ Successfully joined room and loaded history');
       
     } catch (e) {
-      debugPrint('SocketChatService: ❌ Error joining room: $e');
+      // Handle error silently to prevent continuous retry logs
     }
   }
 
   void leaveRoom(String roomId) {
-    debugPrint('SocketChatService: 👋 Leaving room: $roomId');
-    
     if (_socket != null && _isConnected) {
       _socket!.emit('leave_room', roomId);
     }
@@ -788,12 +704,8 @@ class SocketChatService extends ChangeNotifier {
       final userId = _currentUserId ?? await TokenService.getUserId();
       
       if (token == null || userId == null) {
-        debugPrint('SocketChatService: ❌ No token or user ID found');
         return false;
       }
-
-      debugPrint('SocketChatService: 📤 Sending message: "$content"');
-      debugPrint('SocketChatService: 🆔 Using sender ID: $userId');
 
       // PRIMARY: Send via REST API first for reliable message delivery
       final messageData = {
@@ -804,139 +716,65 @@ class SocketChatService extends ChangeNotifier {
         'messageType': messageType,
       };
 
-      final url = Uri.parse('${baseUrl}chat/message');
-      
-      debugPrint('SocketChatService: 📨 Sending via REST API to: $url');
-      
+      final url = Uri.parse('${baseUrl}chat/send-message');
       final response = await http.post(
         url,
         headers: {
-          'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
         },
-        body: jsonEncode(messageData),
-      ).timeout(const Duration(seconds: 10));
-
-      debugPrint('SocketChatService: 📨 REST API response: ${response.statusCode}');
+        body: json.encode(messageData),
+      );
 
       if (response.statusCode == 200 || response.statusCode == 201) {
-        final responseData = jsonDecode(response.body);
-        final sentMessage = ApiChatMessage.fromJson(responseData);
+        final responseBody = json.decode(response.body);
         
-        // Add the confirmed message from API
-        final apiMessageExists = _messages.any((msg) => 
-            msg.content == content && 
-            msg.senderId == userId &&
-            msg.createdAt.difference(sentMessage.createdAt).abs().inSeconds < 3);
-        
-        if (!apiMessageExists) {
-          _messages.add(sentMessage);
+        if (responseBody['status'] == 'SUCCESS' && responseBody['data'] != null) {
+          final message = ApiChatMessage.fromJson(responseBody['data']);
+          
+          // Add to local list
+          _messages.add(message);
           _messages.sort((a, b) => a.createdAt.compareTo(b.createdAt));
-          notifyListeners();
-          debugPrint('SocketChatService: ✅ Added API message to local list');
-        }
-        
-        // SECONDARY: Send via Socket.IO for real-time notifications (if connected)
-        if (_socket != null && _isConnected) {
-          final socketMessageData = {
-            'roomId': roomId,
-            'senderId': userId,
-            'senderType': 'partner',
-            'content': content,
-            'messageType': messageType,
-            'timestamp': DateTime.now().toIso8601String(),
-          };
-
-          debugPrint('SocketChatService: 📡 Sending via socket for real-time notification: $socketMessageData');
-          _socket!.emit('send_message', socketMessageData);
-        }
-        
-        // Mark as read via socket if connected
-        if (_socket != null && _isConnected) {
-          markAsReadViaSocket(roomId);
-          debugPrint('SocketChatService: 📖 Marked message as read via socket');
-        }
-        
-        return true;
-      } else {
-        debugPrint('SocketChatService: ❌ Failed to send message via API: ${response.statusCode}');
-        debugPrint('SocketChatService: ❌ Response body: ${response.body}');
-        
-        // FALLBACK: Try WebSocket if API fails
-        if (_socket != null && _isConnected) {
-          debugPrint('SocketChatService: ⚠️ Falling back to WebSocket due to API failure');
           
-          final socketMessageData = {
-            'roomId': roomId,
-            'senderId': userId,
-            'senderType': 'partner',
-            'content': content,
-            'messageType': messageType,
-            'timestamp': DateTime.now().toIso8601String(),
-          };
-
-          _socket!.emit('send_message', socketMessageData);
-          
-          // Create optimistic message for immediate UI update
-          final optimisticMessage = ApiChatMessage(
-            id: DateTime.now().millisecondsSinceEpoch.toString(),
-            roomId: roomId,
-            senderId: userId,
-            senderType: 'partner',
-            content: content,
-            messageType: messageType,
-            readBy: [],
-            createdAt: DateTime.now(),
-          );
-          
-          // Add optimistic message
-          final optimisticExists = _messages.any((msg) => 
-              msg.content == content && 
-              msg.senderId == userId &&
-              msg.createdAt.difference(optimisticMessage.createdAt).abs().inSeconds < 2);
-          
-          if (!optimisticExists) {
-            _messages.add(optimisticMessage);
-            _messages.sort((a, b) => a.createdAt.compareTo(b.createdAt));
-            notifyListeners();
-            debugPrint('SocketChatService: ✅ Added optimistic message to local list');
+          // SECONDARY: Send via socket for real-time notification
+          if (_socket != null && _isConnected) {
+            final socketMessageData = {
+              'roomId': roomId,
+              'senderId': userId,
+              'senderType': 'partner',
+              'content': content,
+              'messageType': messageType,
+            };
+            
+            _socket!.emit('send_message', socketMessageData);
           }
           
+          // Mark as read via socket
+          markAsReadViaSocket(roomId);
+          
+          _debouncedNotify();
           return true;
         }
-        
-        return false;
       }
-    } catch (e) {
-      debugPrint('SocketChatService: ❌ Error sending message: $e');
       
-      // FALLBACK: Try WebSocket if API throws exception
-      if (_socket != null && _isConnected) {
-        debugPrint('SocketChatService: ⚠️ Falling back to WebSocket due to API exception');
-        
+      // Fallback to WebSocket if API fails
+      if (_socket != null && _isConnected && _currentUserId != null) {
         try {
-          final userId = _currentUserId ?? await TokenService.getUserId();
-          if (userId == null) {
-            debugPrint('SocketChatService: ❌ No user ID available for WebSocket fallback');
-            return false;
-          }
-          
           final socketMessageData = {
             'roomId': roomId,
-            'senderId': userId,
+            'senderId': _currentUserId!,
             'senderType': 'partner',
             'content': content,
             'messageType': messageType,
-            'timestamp': DateTime.now().toIso8601String(),
           };
-
+          
           _socket!.emit('send_message', socketMessageData);
           
-          // Create optimistic message
+          // Add optimistic message
           final optimisticMessage = ApiChatMessage(
             id: DateTime.now().millisecondsSinceEpoch.toString(),
             roomId: roomId,
-            senderId: userId,
+            senderId: _currentUserId!,
             senderType: 'partner',
             content: content,
             messageType: messageType,
@@ -946,11 +784,47 @@ class SocketChatService extends ChangeNotifier {
           
           _messages.add(optimisticMessage);
           _messages.sort((a, b) => a.createdAt.compareTo(b.createdAt));
-          notifyListeners();
           
+          _debouncedNotify();
           return true;
         } catch (socketError) {
-          debugPrint('SocketChatService: ❌ WebSocket fallback also failed: $socketError');
+          return false;
+        }
+      }
+      
+      return false;
+    } catch (e) {
+      // Fallback to WebSocket if API exception occurs
+      if (_socket != null && _isConnected && _currentUserId != null) {
+        try {
+          final socketMessageData = {
+            'roomId': roomId,
+            'senderId': _currentUserId!,
+            'senderType': 'partner',
+            'content': content,
+            'messageType': messageType,
+          };
+          
+          _socket!.emit('send_message', socketMessageData);
+          
+          // Add optimistic message
+          final optimisticMessage = ApiChatMessage(
+            id: DateTime.now().millisecondsSinceEpoch.toString(),
+            roomId: roomId,
+            senderId: _currentUserId!,
+            senderType: 'partner',
+            content: content,
+            messageType: messageType,
+            readBy: [],
+            createdAt: DateTime.now(),
+          );
+          
+          _messages.add(optimisticMessage);
+          _messages.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+          
+          _debouncedNotify();
+          return true;
+        } catch (socketError) {
           return false;
         }
       }

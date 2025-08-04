@@ -4,6 +4,126 @@ import 'package:equatable/equatable.dart';
 import '../../../models/catagory_model.dart';
 import '../../../models/food_type_model.dart';
 
+// Timing schedule model for each day
+class DaySchedule {
+  final bool enabled;
+  final String start;
+  final String end;
+
+  DaySchedule({
+    required this.enabled,
+    required this.start,
+    required this.end,
+  });
+
+  DaySchedule copyWith({
+    bool? enabled,
+    String? start,
+    String? end,
+  }) {
+    return DaySchedule(
+      enabled: enabled ?? this.enabled,
+      start: start ?? this.start,
+      end: end ?? this.end,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'enabled': enabled,
+      'start': start,
+      'end': end,
+    };
+  }
+
+  factory DaySchedule.fromJson(Map<String, dynamic> json) {
+    return DaySchedule(
+      enabled: json['enabled'] ?? false,
+      start: json['start'] ?? '09:00',
+      end: json['end'] ?? '22:00',
+    );
+  }
+}
+
+// Weekly timing schedule
+class TimingSchedule {
+  final DaySchedule monday;
+  final DaySchedule tuesday;
+  final DaySchedule wednesday;
+  final DaySchedule thursday;
+  final DaySchedule friday;
+  final DaySchedule saturday;
+  final DaySchedule sunday;
+
+  TimingSchedule({
+    required this.monday,
+    required this.tuesday,
+    required this.wednesday,
+    required this.thursday,
+    required this.friday,
+    required this.saturday,
+    required this.sunday,
+  });
+
+  TimingSchedule copyWith({
+    DaySchedule? monday,
+    DaySchedule? tuesday,
+    DaySchedule? wednesday,
+    DaySchedule? thursday,
+    DaySchedule? friday,
+    DaySchedule? saturday,
+    DaySchedule? sunday,
+  }) {
+    return TimingSchedule(
+      monday: monday ?? this.monday,
+      tuesday: tuesday ?? this.tuesday,
+      wednesday: wednesday ?? this.wednesday,
+      thursday: thursday ?? this.thursday,
+      friday: friday ?? this.friday,
+      saturday: saturday ?? this.saturday,
+      sunday: sunday ?? this.sunday,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'monday': monday.toJson(),
+      'tuesday': tuesday.toJson(),
+      'wednesday': wednesday.toJson(),
+      'thursday': thursday.toJson(),
+      'friday': friday.toJson(),
+      'saturday': saturday.toJson(),
+      'sunday': sunday.toJson(),
+    };
+  }
+
+  factory TimingSchedule.fromJson(Map<String, dynamic> json) {
+    return TimingSchedule(
+      monday: DaySchedule.fromJson(json['monday'] ?? {}),
+      tuesday: DaySchedule.fromJson(json['tuesday'] ?? {}),
+      wednesday: DaySchedule.fromJson(json['wednesday'] ?? {}),
+      thursday: DaySchedule.fromJson(json['thursday'] ?? {}),
+      friday: DaySchedule.fromJson(json['friday'] ?? {}),
+      saturday: DaySchedule.fromJson(json['saturday'] ?? {}),
+      sunday: DaySchedule.fromJson(json['sunday'] ?? {}),
+    );
+  }
+
+  // Default timing schedule
+  factory TimingSchedule.defaultSchedule() {
+    final defaultDay = DaySchedule(enabled: true, start: '09:00', end: '22:00');
+    return TimingSchedule(
+      monday: defaultDay,
+      tuesday: defaultDay,
+      wednesday: defaultDay,
+      thursday: defaultDay,
+      friday: defaultDay,
+      saturday: defaultDay,
+      sunday: DaySchedule(enabled: false, start: '09:00', end: '22:00'),
+    );
+  }
+}
+
 class ProductModel {
   final String name;
   final String description;
@@ -19,6 +139,10 @@ class ProductModel {
   final String? availableFromTime;
   final String? availableToTime;
   final bool isAvailableAllDay;
+  // New timing fields
+  final bool timingEnabled;
+  final TimingSchedule timingSchedule;
+  final String timezone;
 
   ProductModel({
     this.name = '',
@@ -35,7 +159,10 @@ class ProductModel {
     this.availableFromTime,
     this.availableToTime,
     this.isAvailableAllDay = true,
-  });
+    this.timingEnabled = true,
+    TimingSchedule? timingSchedule,
+    this.timezone = 'Asia/Kolkata',
+  }) : timingSchedule = timingSchedule ?? TimingSchedule.defaultSchedule();
 
   ProductModel copyWith({
     String? name,
@@ -52,6 +179,9 @@ class ProductModel {
     String? availableFromTime,
     String? availableToTime,
     bool? isAvailableAllDay,
+    bool? timingEnabled,
+    TimingSchedule? timingSchedule,
+    String? timezone,
   }) {
     return ProductModel(
       name: name ?? this.name,
@@ -68,6 +198,9 @@ class ProductModel {
       availableFromTime: availableFromTime ?? this.availableFromTime,
       availableToTime: availableToTime ?? this.availableToTime,
       isAvailableAllDay: isAvailableAllDay ?? this.isAvailableAllDay,
+      timingEnabled: timingEnabled ?? this.timingEnabled,
+      timingSchedule: timingSchedule ?? this.timingSchedule,
+      timezone: timezone ?? this.timezone,
     );
   }
 }

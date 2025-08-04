@@ -135,8 +135,13 @@ class _OrderStatusBottomSheetState extends State<OrderStatusBottomSheet> {
 
   @override
   Widget build(BuildContext context) {
-    // Get all status options
-    final allStatuses = OrderStatus.values.where((status) => status != OrderStatus.all).toList();
+    // Get partner-specific status options (excluding PENDING and delivery-related statuses)
+    final partnerStatuses = OrderService.getPartnerValidStatuses()
+        .where((status) => status != 'PENDING') // Remove PENDING since it's default
+        .map((status) => OrderStatus.values.firstWhere(
+            (enumStatus) => enumStatus.apiValue == status,
+            orElse: () => OrderStatus.pending))
+        .toList();
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -184,8 +189,8 @@ class _OrderStatusBottomSheetState extends State<OrderStatusBottomSheet> {
           
           const SizedBox(height: 12),
           
-          // Show all status options
-          ...allStatuses.map((status) => _buildStatusOption(
+          // Show partner-specific status options
+          ...partnerStatuses.map((status) => _buildStatusOption(
             status: status,
             isCurrent: status == widget.currentStatus,
             onTap: () {

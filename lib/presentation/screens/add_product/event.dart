@@ -123,6 +123,40 @@ class AvailableToTimeChangedEvent extends AddProductEvent {
   List<Object?> get props => [time];
 }
 
+// New timing schedule events
+class ToggleTimingEnabledEvent extends AddProductEvent {
+  final bool enabled;
+  const ToggleTimingEnabledEvent(this.enabled);
+  
+  @override
+  List<Object?> get props => [enabled];
+}
+
+class UpdateDayScheduleEvent extends AddProductEvent {
+  final String day;
+  final bool enabled;
+  final String start;
+  final String end;
+  
+  const UpdateDayScheduleEvent({
+    required this.day,
+    required this.enabled,
+    required this.start,
+    required this.end,
+  });
+  
+  @override
+  List<Object?> get props => [day, enabled, start, end];
+}
+
+class UpdateTimezoneEvent extends AddProductEvent {
+  final String timezone;
+  const UpdateTimezoneEvent(this.timezone);
+  
+  @override
+  List<Object?> get props => [timezone];
+}
+
 class SubmitProductEvent extends AddProductEvent {
   const SubmitProductEvent();
 }

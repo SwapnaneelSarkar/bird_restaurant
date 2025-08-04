@@ -86,40 +86,22 @@ class _ChatViewState extends State<ChatView> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
     
-    debugPrint('ChatView: 📱 App lifecycle state changed: $state');
-    
     switch (state) {
       case AppLifecycleState.paused:
       case AppLifecycleState.inactive:
-        debugPrint('ChatView: 📱 App going to background');
         _isAppInBackground = true;
         break;
         
       case AppLifecycleState.resumed:
-        debugPrint('ChatView: 📱 App resumed from background');
         _isAppInBackground = false;
         
-        // Refresh chat data when app resumes to ensure we have the latest messages
+        // Handle app resume in chat bloc
         if (mounted) {
-          debugPrint('ChatView: 🔄 Refreshing chat data on app resume');
-          context.read<ChatBloc>().add(const RefreshChat());
           context.read<ChatBloc>().add(const AppResume());
-          
-          // Mark messages as read after refresh
-          Future.delayed(const Duration(milliseconds: 1500), () {
-            if (mounted) {
-              _markMessagesAsReadOnView();
-            }
-          });
         }
         break;
         
-      case AppLifecycleState.detached:
-        debugPrint('ChatView: 📱 App detached');
-        break;
-        
-      case AppLifecycleState.hidden:
-        debugPrint('ChatView: 📱 App hidden');
+      default:
         break;
     }
   }
@@ -296,13 +278,9 @@ class _ChatViewState extends State<ChatView> with WidgetsBindingObserver {
 
   // NEW: Emit typing when chat page opens to trigger blue tick updates for previous messages
   void _emitTypingOnPageOpen() {
-    debugPrint('ChatView: 🔍 _emitTypingOnPageOpen called');
-    debugPrint('ChatView: 🔍 Mounted: $mounted');
-    
     if (!mounted) return;
     
     try {
-      debugPrint('ChatView: 📡 Adding StartTyping event to bloc');
       final chatBloc = context.read<ChatBloc>();
       chatBloc.add(const StartTyping());
       
@@ -310,18 +288,14 @@ class _ChatViewState extends State<ChatView> with WidgetsBindingObserver {
       Timer(const Duration(seconds: 3), () {
         if (mounted) {
           try {
-            debugPrint('ChatView: 📡 Adding StopTyping event to bloc (page open timer)');
             chatBloc.add(const StopTyping());
           } catch (e) {
-            debugPrint('Error stopping typing after page open: $e');
+            // Handle error silently
           }
-        } else {
-          debugPrint('ChatView: ⚠️ Widget not mounted, skipping stop typing');
         }
       });
-      debugPrint('ChatView: ✅ _emitTypingOnPageOpen completed');
     } catch (e) {
-      debugPrint('Error emitting typing on page open: $e');
+      // Handle error silently
     }
   }
 
@@ -1495,31 +1469,20 @@ class _ChatViewState extends State<ChatView> with WidgetsBindingObserver {
           ),
           SizedBox(width: MediaQuery.of(context).size.width * 0.028),
           GestureDetector(
-            onTap: isSending ? null : _sendMessage,
+            onTap: _sendMessage,
             child: Container(
               width: MediaQuery.of(context).size.width * 0.11,
               height: MediaQuery.of(context).size.width * 0.11,
               decoration: BoxDecoration(
-                color: isSending 
-                    ? Colors.grey.shade400 
-                    : const Color(0xFFE17A47),
+                color: const Color(0xFFE17A47),
                 shape: BoxShape.circle,
               ),
               child: Center(
-                child: isSending
-                    ? SizedBox(
-                        width: MediaQuery.of(context).size.width * 0.035,
-                        height: MediaQuery.of(context).size.width * 0.035,
-                        child: const CircularProgressIndicator(
-                          color: Colors.white,
-                          strokeWidth: 2,
-                        ),
-                      )
-                    : Icon(
-                        Icons.send,
-                        color: Colors.white,
-                        size: MediaQuery.of(context).size.width * 0.045,
-                      ),
+                child: Icon(
+                  Icons.send,
+                  color: Colors.white,
+                  size: MediaQuery.of(context).size.width * 0.045,
+                ),
               ),
             ),
           ),
@@ -1619,15 +1582,25 @@ class _ChatViewState extends State<ChatView> with WidgetsBindingObserver {
 
   void _sendMessage() {
     final message = _messageController.text.trim();
-    if (message.isNotEmpty && mounted) {
+    if (mounted) {
       try {
-        context.read<ChatBloc>().add(SendMessage(message));
-        _messageController.clear();
-        
-        // Ensure we scroll to bottom after sending
-        _shouldAutoScroll = true;
-        _scrollToBottom();
-        
+        if (message.isNotEmpty) {
+          context.read<ChatBloc>().add(SendMessage(message));
+          _messageController.clear();
+          
+          // Ensure we scroll to bottom after sending
+          _shouldAutoScroll = true;
+          _scrollToBottom();
+        } else {
+          // Show feedback for empty message
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Please enter a message to send'),
+              backgroundColor: Colors.orange,
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
       } catch (e) {
         debugPrint('Error sending message: $e');
         ScaffoldMessenger.of(context).showSnackBar(

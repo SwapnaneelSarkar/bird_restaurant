@@ -4,13 +4,11 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:http/http.dart' as http;
-import 'package:http_parser/http_parser.dart';
-import 'package:path/path.dart' as path;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../constants/api_constants.dart';
 import '../../../models/catagory_model.dart';
-import '../../../models/restaurant_menu_model.dart';
 import '../../../models/update_menu_item_model.dart';
+import '../add_product/state.dart'; // Import timing schedule models
 import 'event.dart';
 import 'state.dart';
 
@@ -23,23 +21,30 @@ class EditProductBloc extends Bloc<EditProductEvent, EditProductState> {
     on<ProductPriceChangedEvent>(_onPriceChanged);
     on<ProductIsVegChangedEvent>(_onIsVegChanged);
     on<ProductImageSelectedEvent>(_onImageSelected);
+    // New timing schedule events
+    on<ToggleTimingEnabledEvent>(_onToggleTimingEnabled);
+    on<UpdateDayScheduleEvent>(_onUpdateDaySchedule);
+    on<UpdateTimezoneEvent>(_onUpdateTimezone);
     on<SubmitEditProductEvent>(_onSubmitProduct);
   }
 
   void _onInitialize(EditProductInitEvent event, Emitter<EditProductState> emit) async {
     final menuItem = event.menuItem;
     // Initially emit a state with current product data and empty categories list
-    emit(EditProductFormState(
-      menuId: menuItem.menuId,
-      name: menuItem.name,
-      description: menuItem.description,
-      category: menuItem.category,
-      categoryId: null,
-      price: menuItem.price.toString(),
-      isVeg: menuItem.isVeg,
-      imageUrl: menuItem.imageUrl,
-      categories: [],
-    ));
+          emit(EditProductFormState(
+        menuId: menuItem.menuId,
+        name: menuItem.name,
+        description: menuItem.description,
+        category: menuItem.category,
+        categoryId: null,
+        price: menuItem.price.toString(),
+        isVeg: menuItem.isVeg,
+        imageUrl: menuItem.imageUrl,
+        categories: [],
+        timingEnabled: menuItem.timingEnabled,
+        timingSchedule: menuItem.timingSchedule ?? TimingSchedule.defaultSchedule(),
+        timezone: menuItem.timezone ?? 'Asia/Kolkata',
+      ));
     try {
       // Fetch categories from API
       final categories = await _fetchCategories();
@@ -76,6 +81,9 @@ class EditProductBloc extends Bloc<EditProductEvent, EditProductState> {
         isVeg: menuItem.isVeg,
         imageUrl: menuItem.imageUrl,
         categories: finalCategories,
+        timingEnabled: menuItem.timingEnabled,
+        timingSchedule: menuItem.timingSchedule ?? TimingSchedule.defaultSchedule(),
+        timezone: menuItem.timezone ?? 'Asia/Kolkata',
       ));
     } catch (e) {
       emit(EditProductFormState(
@@ -89,6 +97,9 @@ class EditProductBloc extends Bloc<EditProductEvent, EditProductState> {
         imageUrl: menuItem.imageUrl,
         categories: [],
         errorMessage: 'Failed to load categories:  [31m${e.toString()} [0m',
+        timingEnabled: menuItem.timingEnabled,
+        timingSchedule: menuItem.timingSchedule ?? TimingSchedule.defaultSchedule(),
+        timezone: menuItem.timezone ?? 'Asia/Kolkata',
       ));
     }
   }
@@ -205,7 +216,7 @@ class EditProductBloc extends Bloc<EditProductEvent, EditProductState> {
     if (state is EditProductFormState) {
       final currentState = state as EditProductFormState;
       // Validation
-      if (currentState.name.isEmpty) {
+      if (currentState.name.trim().isEmpty) {
         emit(currentState.copyWith(errorMessage: 'Product name is required'));
         return;
       }
@@ -213,8 +224,13 @@ class EditProductBloc extends Bloc<EditProductEvent, EditProductState> {
         emit(currentState.copyWith(errorMessage: 'Please select a category'));
         return;
       }
-      if (currentState.price.isEmpty || double.tryParse(currentState.price) == null) {
-        emit(currentState.copyWith(errorMessage: 'Please enter a valid price'));
+      if (currentState.price.trim().isEmpty) {
+        emit(currentState.copyWith(errorMessage: 'Please enter a price'));
+        return;
+      }
+      final priceValue = double.tryParse(currentState.price);
+      if (priceValue == null || priceValue <= 0) {
+        emit(currentState.copyWith(errorMessage: 'Please enter a valid price greater than 0'));
         return;
       }
       // Start submission
@@ -228,6 +244,9 @@ class EditProductBloc extends Bloc<EditProductEvent, EditProductState> {
           price: currentState.price,
           isVeg: currentState.isVeg,
           image: currentState.image,
+          timingEnabled: currentState.timingEnabled,
+          timingSchedule: currentState.timingSchedule,
+          timezone: currentState.timezone,
         );
         if (response.status == 'SUCCESS') {
           // Success
@@ -249,7 +268,7 @@ class EditProductBloc extends Bloc<EditProductEvent, EditProductState> {
     }
   }
 
-  // Updated _updateMenuItem method
+  // Updated _updateMenuItem method with timing schedule support
   Future<UpdateMenuItemResponse> _updateMenuItem({
     required String menuId,
     required String name,
@@ -258,130 +277,217 @@ class EditProductBloc extends Bloc<EditProductEvent, EditProductState> {
     required String price,
     required bool isVeg,
     File? image,
+    // String? restaurantFoodTypeId, // Not supported by API
+    bool timingEnabled = false,
+    TimingSchedule? timingSchedule,
+    String? timezone,
   }) async {
+    return _updateMenuItemWithRetry(
+      menuId: menuId,
+      name: name,
+      description: description,
+      categoryId: categoryId,
+      price: price,
+      isVeg: isVeg,
+      image: image,
+      timingEnabled: timingEnabled,
+      timingSchedule: timingSchedule,
+      timezone: timezone,
+      retryCount: 0,
+    );
+  }
+
+  Future<UpdateMenuItemResponse> _updateMenuItemWithRetry({
+    required String menuId,
+    required String name,
+    required String description,
+    required String categoryId,
+    required String price,
+    required bool isVeg,
+    File? image,
+    bool timingEnabled = false,
+    TimingSchedule? timingSchedule,
+    String? timezone,
+    int retryCount = 0,
+  }) async {
+    debugPrint('🔄 _updateMenuItem: Method called with menuId: $menuId');
+    debugPrint('🔄 _updateMenuItem: timingEnabled: $timingEnabled');
+    debugPrint('🔄 _updateMenuItem: timezone: $timezone');
     try {
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('token');
-      
       if (token == null) {
         throw Exception('Authentication information not found. Please login again.');
       }
-      
       final url = Uri.parse('${ApiConstants.baseUrl}/partner/menu_item/$menuId');
       
-      // Include all the required fields
-      Map<String, dynamic> requestData = {
+      // Convert price to double for API
+      final double priceValue = double.tryParse(price) ?? 0.0;
+      
+      // Build request body matching the API specification
+      final body = {
         'name': name,
-        'price': price,
-        'available': 'true',
-        'description': description,
+        'price': priceValue,
         'category': categoryId,
-        'isVeg': isVeg.toString(),
-        'isTaxIncluded': 'true',
-        'isCancellable': 'false',
-        'tags': '{"AB", "CD", "DE"}',
+        'description': description,
+        'isVeg': isVeg,
+        'isTaxIncluded': true,
+        'isCancellable': true,
+        'available': true,
+        'timing_enabled': timingEnabled,
+        'timezone': timezone ?? 'Asia/Kolkata',
       };
       
-      debugPrint('Updating menu item: $url');
-      debugPrint('Request data: $requestData');
-      
-      if (image != null && await image.exists()) {
-        // Multipart request for updating with image
-        var request = http.MultipartRequest('PUT', url);
-        
-        // Add authorization header
-        request.headers['Authorization'] = 'Bearer $token';
-        
-        // Add all fields
-        requestData.forEach((key, value) {
-          request.fields[key] = value;
-        });
-        
-        // Add image file
-        final fileName = path.basename(image.path);
-        final extension = path.extension(fileName).toLowerCase();
-        String contentType;
-        
-        if (extension == '.jpg' || extension == '.jpeg') {
-          contentType = 'image/jpeg';
-        } else if (extension == '.png') {
-          contentType = 'image/png';
-        } else {
-          contentType = 'application/octet-stream';
-        }
-        
-        request.files.add(
-          http.MultipartFile(
-            'image',
-            image.readAsBytes().asStream(),
-            await image.length(),
-            filename: fileName,
-            contentType: MediaType.parse(contentType),
-          ),
-        );
-        
-        // Send request
-        final streamedResponse = await request.send();
-        final response = await http.Response.fromStream(streamedResponse);
-        
-        debugPrint('Response status: ${response.statusCode}');
-        debugPrint('Response body: ${response.body}');
-        
-        if (response.statusCode == 200) {
-          final data = json.decode(response.body);
-          return UpdateMenuItemResponse.fromJson(data);
-        } else {
-          try {
-            final errorData = json.decode(response.body);
-            return UpdateMenuItemResponse(
-              status: 'ERROR',
-              message: errorData['message'] ?? 'Failed to update menu item',
-            );
-          } catch (e) {
-            return UpdateMenuItemResponse(
-              status: 'ERROR',
-              message: 'Failed to update menu item. Status: ${response.statusCode}',
-            );
-          }
-        }
-      } else {
-        // Regular JSON request without image
-        final response = await http.put(
-          url,
-          headers: {
-            'Authorization': 'Bearer $token',
-            'Content-Type': 'application/json',
-          },
-          body: jsonEncode(requestData),
-        );
-        
-        debugPrint('Response status: ${response.statusCode}');
-        debugPrint('Response body: ${response.body}');
-        
-        if (response.statusCode == 200) {
-          final data = json.decode(response.body);
-          return UpdateMenuItemResponse.fromJson(data);
-        } else {
-          try {
-            final errorData = json.decode(response.body);
-            return UpdateMenuItemResponse(
-              status: 'ERROR',
-              message: errorData['message'] ?? 'Failed to update menu item',
-            );
-          } catch (e) {
-            return UpdateMenuItemResponse(
-              status: 'ERROR',
-              message: 'Failed to update menu item. Status: ${response.statusCode}',
-            );
-          }
+      // Only add timing_schedule if timing is enabled
+      if (timingEnabled && timingSchedule != null) {
+        try {
+          final timingJson = timingSchedule.toJson();
+          debugPrint('🔄 Timing schedule JSON: ${json.encode(timingJson)}');
+          body['timing_schedule'] = timingJson;
+        } catch (e) {
+          debugPrint('🔄 Error serializing timing schedule: $e');
+          // Continue without timing schedule if there's an error
         }
       }
-    } catch (e) {
-      debugPrint('Error updating menu item: $e');
-      return UpdateMenuItemResponse(
-        status: 'ERROR',
-        message: 'Error: ${e.toString()}',
+      
+      // Add restaurant_food_type_id if available
+      // if (restaurantFoodTypeId != null && restaurantFoodTypeId.isNotEmpty) {
+      //   body['restaurant_food_type_id'] = restaurantFoodTypeId;
+      // }
+      
+      debugPrint('🔄 Updating menu item: $url');
+      debugPrint('🔄 Request body: ${json.encode(body)}');
+      debugPrint('🔄 Retry attempt: $retryCount');
+      
+      final response = await http.put(
+        url,
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+        body: json.encode(body),
+      ).timeout(
+        const Duration(seconds: 30), // Add timeout to prevent hanging
+        onTimeout: () {
+          throw Exception('Request timeout. Please try again.');
+        },
       );
+      
+      debugPrint('Response status: ${response.statusCode}');
+      debugPrint('Response body: ${response.body}');
+      
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        return UpdateMenuItemResponse.fromJson(data);
+      } else if (response.statusCode == 504) {
+        return UpdateMenuItemResponse(
+          status: 'ERROR',
+          message: 'Gateway timeout. Please check your connection and try again.',
+        );
+      } else if (response.statusCode == 401) {
+        return UpdateMenuItemResponse(
+          status: 'ERROR',
+          message: 'Authentication failed. Please login again.',
+        );
+      } else if (response.statusCode == 403) {
+        return UpdateMenuItemResponse(
+          status: 'ERROR',
+          message: 'Access denied. You do not have permission to update this item.',
+        );
+      } else if (response.statusCode == 404) {
+        return UpdateMenuItemResponse(
+          status: 'ERROR',
+          message: 'Menu item not found. It may have been deleted.',
+        );
+      } else if (response.statusCode >= 500) {
+        return UpdateMenuItemResponse(
+          status: 'ERROR',
+          message: 'Server error. Please try again later.',
+        );
+      } else {
+        try {
+          final errorData = json.decode(response.body);
+          return UpdateMenuItemResponse(
+            status: 'ERROR',
+            message: errorData['message'] ?? 'Failed to update menu item. Status: ${response.statusCode}',
+          );
+        } catch (e) {
+          return UpdateMenuItemResponse(
+            status: 'ERROR',
+            message: 'Failed to update menu item. Status: ${response.statusCode}',
+          );
+        }
+      }
+          } catch (e) {
+        debugPrint('Error updating menu item: $e');
+        
+        // Retry logic for network errors
+        if (retryCount < 2 && (
+          e.toString().contains('timeout') ||
+          e.toString().contains('504') ||
+          e.toString().contains('502') ||
+          e.toString().contains('503') ||
+          e.toString().contains('Connection') ||
+          e.toString().contains('Socket')
+        )) {
+          debugPrint('Retrying update menu item. Attempt ${retryCount + 1}');
+          await Future.delayed(Duration(seconds: (retryCount + 1) * 2)); // Exponential backoff
+          return _updateMenuItemWithRetry(
+            menuId: menuId,
+            name: name,
+            description: description,
+            categoryId: categoryId,
+            price: price,
+            isVeg: isVeg,
+            image: image,
+            timingEnabled: timingEnabled,
+            timingSchedule: timingSchedule,
+            timezone: timezone,
+            retryCount: retryCount + 1,
+          );
+        }
+        
+        if (e.toString().contains('timeout')) {
+          return UpdateMenuItemResponse(
+            status: 'ERROR',
+            message: 'Request timeout. Please check your connection and try again.',
+          );
+        }
+        return UpdateMenuItemResponse(
+          status: 'ERROR',
+          message: 'Error: ${e.toString()}',
+        );
+      }
+  }
+
+  // Timing schedule event handlers
+  void _onToggleTimingEnabled(ToggleTimingEnabledEvent event, Emitter<EditProductState> emit) {
+    if (state is EditProductFormState) {
+      final currentState = state as EditProductFormState;
+      emit(currentState.copyWith(timingEnabled: event.enabled));
+    }
+  }
+
+  void _onUpdateDaySchedule(UpdateDayScheduleEvent event, Emitter<EditProductState> emit) {
+    if (state is EditProductFormState) {
+      final currentState = state as EditProductFormState;
+      final updatedSchedule = currentState.timingSchedule.copyWith(
+        monday: event.day == 'monday' ? DaySchedule(enabled: event.enabled, start: event.start, end: event.end) : currentState.timingSchedule.monday,
+        tuesday: event.day == 'tuesday' ? DaySchedule(enabled: event.enabled, start: event.start, end: event.end) : currentState.timingSchedule.tuesday,
+        wednesday: event.day == 'wednesday' ? DaySchedule(enabled: event.enabled, start: event.start, end: event.end) : currentState.timingSchedule.wednesday,
+        thursday: event.day == 'thursday' ? DaySchedule(enabled: event.enabled, start: event.start, end: event.end) : currentState.timingSchedule.thursday,
+        friday: event.day == 'friday' ? DaySchedule(enabled: event.enabled, start: event.start, end: event.end) : currentState.timingSchedule.friday,
+        saturday: event.day == 'saturday' ? DaySchedule(enabled: event.enabled, start: event.start, end: event.end) : currentState.timingSchedule.saturday,
+        sunday: event.day == 'sunday' ? DaySchedule(enabled: event.enabled, start: event.start, end: event.end) : currentState.timingSchedule.sunday,
+      );
+      emit(currentState.copyWith(timingSchedule: updatedSchedule));
+    }
+  }
+
+  void _onUpdateTimezone(UpdateTimezoneEvent event, Emitter<EditProductState> emit) {
+    if (state is EditProductFormState) {
+      final currentState = state as EditProductFormState;
+      emit(currentState.copyWith(timezone: event.timezone));
     }
   }
 }

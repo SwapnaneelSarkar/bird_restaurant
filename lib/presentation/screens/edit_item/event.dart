@@ -2,6 +2,7 @@
 import 'dart:io';
 import 'package:equatable/equatable.dart';
 import '../../../models/restaurant_menu_model.dart';
+import '../../../models/food_type_model.dart';
 
 abstract class EditProductEvent extends Equatable {
   const EditProductEvent();
@@ -66,6 +67,56 @@ class ProductImageSelectedEvent extends EditProductEvent {
   
   @override
   List<Object?> get props => [image];
+}
+
+class FetchFoodTypesEvent extends EditProductEvent {
+  final MenuItem? menuItem;
+  const FetchFoodTypesEvent({this.menuItem});
+  
+  @override
+  List<Object?> get props => [menuItem];
+}
+
+class FoodTypeChangedEvent extends EditProductEvent {
+  final FoodTypeModel foodType;
+  const FoodTypeChangedEvent(this.foodType);
+  
+  @override
+  List<Object?> get props => [foodType];
+}
+
+// New timing schedule events
+class ToggleTimingEnabledEvent extends EditProductEvent {
+  final bool enabled;
+  const ToggleTimingEnabledEvent(this.enabled);
+  
+  @override
+  List<Object?> get props => [enabled];
+}
+
+class UpdateDayScheduleEvent extends EditProductEvent {
+  final String day;
+  final bool enabled;
+  final String start;
+  final String end;
+  
+  const UpdateDayScheduleEvent({
+    required this.day,
+    required this.enabled,
+    required this.start,
+    required this.end,
+  });
+  
+  @override
+  List<Object?> get props => [day, enabled, start, end];
+}
+
+class UpdateTimezoneEvent extends EditProductEvent {
+  final String timezone;
+  const UpdateTimezoneEvent(this.timezone);
+  
+  @override
+  List<Object?> get props => [timezone];
 }
 
 class SubmitEditProductEvent extends EditProductEvent {

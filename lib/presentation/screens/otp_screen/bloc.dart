@@ -416,6 +416,20 @@ class OtpBloc extends Bloc<OtpEvent, OtpState> {
                 userId = responseBody['id'];
                 debugPrint('Found id in response: $userId');
               }
+              
+              // NEW: Extract supercategory ID if present
+              if (responseBody.containsKey('supercategory')) {
+                final supercategory = responseBody['supercategory'] as Map<String, dynamic>?;
+                if (supercategory != null && supercategory.containsKey('id')) {
+                  final supercategoryId = supercategory['id'] as String;
+                  await TokenService.saveSupercategoryId(supercategoryId);
+                  
+                  final prefs = await SharedPreferences.getInstance();
+                  await prefs.setString('supercategory_id', supercategoryId);
+                  
+                  debugPrint('Supercategory ID saved for new user: $supercategoryId');
+                }
+              }
             }
             
             // Save token if available
@@ -565,6 +579,21 @@ class OtpBloc extends Bloc<OtpEvent, OtpState> {
                     
                     debugPrint('User ID extracted and saved using regex: $extractedId');
                   }
+                }
+              }
+              
+              // NEW: Extract supercategory ID using regex
+              final supercategoryIdPattern = RegExp(r'"supercategory":\s*\{[^}]*"id":\s*"([^"]+)"');
+              final supercategoryIdMatch = supercategoryIdPattern.firstMatch(responseStr);
+              if (supercategoryIdMatch != null && supercategoryIdMatch.groupCount >= 1) {
+                final extractedSupercategoryId = supercategoryIdMatch.group(1);
+                if (extractedSupercategoryId != null && extractedSupercategoryId.isNotEmpty) {
+                  await TokenService.saveSupercategoryId(extractedSupercategoryId);
+                  
+                  final prefs = await SharedPreferences.getInstance();
+                  await prefs.setString('supercategory_id', extractedSupercategoryId);
+                  
+                  debugPrint('Supercategory ID extracted and saved using regex: $extractedSupercategoryId');
                 }
               }
             } catch (e) {

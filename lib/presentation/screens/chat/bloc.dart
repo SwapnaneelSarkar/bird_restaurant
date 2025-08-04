@@ -55,50 +55,34 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
   }
 
   void _setupSocketCallbacks() {
-    debugPrint('ChatBloc: 🔧 Setting up socket callbacks...');
-    
     // Listen to chat service changes for general updates
     _chatService.addListener(_onChatServiceUpdate);
     
     // Listen to real-time message stream for immediate updates (ONLY for other users' messages)
     _messageStreamSubscription = _chatService.messageStream.listen(
       (message) {
-        debugPrint('ChatBloc: 🔥 Received real-time message from socket: ${message.content}');
-        debugPrint('ChatBloc: 🔍 Message from: ${message.senderId}');
-        debugPrint('ChatBloc: 🔍 Current user: $_currentUserId');
-        debugPrint('ChatBloc: 🔍 Is from current user: ${message.isFromCurrentUser(_currentUserId)}');
-        
         // Only add if it's NOT from current user (avoid duplicates)
         if (!message.isFromCurrentUser(_currentUserId) && !isClosed) {
-          debugPrint('ChatBloc: ✅ Adding incoming message from other user');
-          
           // Check if we're in a loaded state before adding
           if (state is ChatLoaded) {
             add(_AddIncomingMessage(message));
-          } else {
-            debugPrint('ChatBloc: ⚠️ Not in ChatLoaded state, skipping message');
           }
-        } else {
-          debugPrint('ChatBloc: 🔄 Skipping own message to avoid duplicate');
         }
       },
       onError: (error) {
-        debugPrint('ChatBloc: ❌ Error in message stream: $error');
+        // Handle error silently
       },
     );
 
     // NEW: Listen to real-time read status stream for blue tick updates
     _readStatusStreamSubscription = _chatService.readStatusStream.listen(
       (readStatusData) {
-        debugPrint('ChatBloc: 🔵 Received read status update: ${readStatusData['type']}');
-        
         if (!isClosed && state is ChatLoaded) {
           final currentState = state as ChatLoaded;
           
           // Handle different types of read status updates
           if (readStatusData['type'] == 'typing_blue_tick_update') {
             // NEW: Handle typing-based blue tick updates
-            debugPrint('ChatBloc: 🔵 Processing typing blue tick update');
             
             // Update messages with new read status
             final updatedMessages = currentState.messages.map((chatMsg) {
@@ -131,8 +115,6 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
             
             // Emit updated state with new read status
             emit(currentState.copyWith(messages: updatedMessages));
-            
-            debugPrint('ChatBloc: 🔵 Updated ${updatedMessages.length} messages with typing blue tick update');
           } else {
             // Handle regular message seen updates
             // Update messages with new read status
@@ -166,17 +148,13 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
             
             // Emit updated state with new read status
             emit(currentState.copyWith(messages: updatedMessages));
-            
-            debugPrint('ChatBloc: 🔵 Updated ${updatedMessages.length} messages with new read status');
           }
         }
       },
       onError: (error) {
-        debugPrint('ChatBloc: ❌ Error in read status stream: $error');
+        // Handle error silently
       },
     );
-
-    debugPrint('ChatBloc: ✅ Socket callbacks set up successfully');
   }
 
   // Getters for external access
@@ -296,34 +274,17 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
           !_areMessageListsEqual(newMessages, _lastEmittedMessages);
       
       if (hasChanges) {
-        debugPrint('ChatBloc: 📊 Messages changed, updating UI:');
-        debugPrint('  - Old count: ${_lastEmittedMessages.length}');
-        debugPrint('  - New count: ${newMessages.length}');
-        
         // Update the last emitted messages
         _lastEmittedMessages = List.from(newMessages);
         
         // Add internal event to update messages
         add(_UpdateMessages(newMessages));
-      } else {
-        debugPrint('ChatBloc: 🔄 No message changes detected, skipping update');
       }
       
       // Update connection status (socket status) - only if changed
       if (currentState.isConnected != _chatService.isConnected) {
-        debugPrint('ChatBloc: 🔌 Connection status changed: ${currentState.isConnected} -> ${_chatService.isConnected}');
         add(_UpdateConnectionStatus(_chatService.isConnected));
       }
-    }
-  }
-
-  // Debug method to track message state
-  void _debugMessageState(String context, List<ChatMessage> messages) {
-    debugPrint('ChatBloc: 🔍 $context - Message State:');
-    debugPrint('  - Total messages: ${messages.length}');
-    for (int i = 0; i < messages.length; i++) {
-      final msg = messages[i];
-      debugPrint('  - [$i] "${msg.message}" (${msg.isUserMessage ? 'RIGHT' : 'LEFT'}) [${msg.isRead ? 'READ' : 'UNREAD'}]');
     }
   }
 
@@ -350,11 +311,8 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     emit(ChatLoading());
     
     try {
-      debugPrint('ChatBloc: 📱 Loading chat data for order: ${event.orderId}');
-      
       // Store the FULL order ID without any formatting
       _fullOrderId = event.orderId;
-      debugPrint('ChatBloc: 💾 Stored FULL order ID: $_fullOrderId');
       
       // Get current user ID and partner ID
       _currentUserId = await TokenService.getUserId();
@@ -364,9 +322,6 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
         emit(const ChatError('User not authenticated'));
         return;
       }
-
-      debugPrint('ChatBloc: 🆔 Current User ID: $_currentUserId');
-      debugPrint('ChatBloc: 🆔 Current Partner ID: $_currentPartnerId');
 
       // Set the room ID (use full order ID for chat room)
       _currentRoomId = event.orderId.isNotEmpty ? event.orderId : 'default_room';
@@ -385,11 +340,10 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
           );
           if (orderDetails != null) {
             actualOrderStatus = OrderService.formatOrderStatus(orderDetails.orderStatus);
-            debugPrint('ChatBloc: 📋 Retrieved actual order status: ${orderDetails.orderStatus} -> $actualOrderStatus');
           }
         }
       } catch (e) {
-        debugPrint('ChatBloc: ⚠️ Could not fetch order details, using default status: $e');
+        // Use default status if order details fetch fails
       }
       
       // Create order info with REAL status and FORMATTED display ID (for UI only)
@@ -414,16 +368,6 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
         );
       }).toList();
 
-      // Debug: Count and show message directions with read status
-      final rightMessages = messages.where((m) => m.isUserMessage).length;
-      final leftMessages = messages.where((m) => !m.isUserMessage).length;
-      final readMessages = messages.where((m) => m.isRead).length;
-      debugPrint('ChatBloc: 📊 Initial message summary:');
-      debugPrint('  - RIGHT side (current user): $rightMessages messages');
-      debugPrint('  - LEFT side (other users): $leftMessages messages');
-      debugPrint('  - Read messages (blue tick): $readMessages messages');
-      debugPrint('  - Total messages: ${messages.length}');
-
       // Create the initial state
       final initialState = ChatLoaded(
         orderInfo: orderInfo,
@@ -441,15 +385,8 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       
       emit(initialState);
       
-      debugPrint('ChatBloc: ✅ Chat data loaded successfully with status: $actualOrderStatus');
-      debugPrint('ChatBloc: 📊 Initial state emitted with ${messages.length} messages');
-      
-      // Debug the initial message state
-      _debugMessageState('Initial Load', messages);
-      
       // OPTIMIZATION: Load order details immediately after initial state
       if (_currentPartnerId != null) {
-        debugPrint('ChatBloc: 🚀 Loading order details immediately for optimization');
         try {
           final orderDetails = await OrderService.getOrderDetails(
             partnerId: _currentPartnerId!,
@@ -467,7 +404,6 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
             _loadMenuItemsForOrder(orderDetails, emit);
           }
         } catch (e) {
-          debugPrint('ChatBloc: ⚠️ Failed to load order details immediately: $e');
           // Don't fail the entire chat load if order details fail
         }
       }
@@ -475,7 +411,6 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       // Small delay to prevent immediate update cycle
       await Future.delayed(const Duration(milliseconds: 100));
     } catch (e) {
-      debugPrint('ChatBloc: ❌ Error loading chat data: $e');
       emit(const ChatError('Failed to load chat. Please try again.'));
     }
   }
@@ -615,20 +550,9 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     if (state is ChatLoaded) {
       final currentState = state as ChatLoaded;
       
-      // Debug: Count and show message directions with read status
-      final rightMessages = event.messages.where((m) => m.isUserMessage).length;
-      final leftMessages = event.messages.where((m) => !m.isUserMessage).length;
-      final readMessages = event.messages.where((m) => m.isRead).length;
-      debugPrint('ChatBloc: 📊 Updating messages:');
-      debugPrint('  - RIGHT side (current user): $rightMessages messages');
-      debugPrint('  - LEFT side (other users): $leftMessages messages');
-      debugPrint('  - Read messages (blue tick): $readMessages messages');
-      debugPrint('  - Total messages: ${event.messages.length}');
-      
       // Update the last emitted messages
       _lastEmittedMessages = List.from(event.messages);
       
-      debugPrint('ChatBloc: ✅ Messages updated, emitting new state');
       emit(currentState.copyWith(
         messages: event.messages,
         isSendingMessage: false,
@@ -652,14 +576,6 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
         isRead: isRead, // Include read status
       );
       
-      debugPrint('ChatBloc: 🔥 Adding incoming message:');
-      debugPrint('  - Content: "${event.message.content}"');
-      debugPrint('  - API Sender ID: "${event.message.senderId}"');
-      debugPrint('  - Current User ID: "${_currentUserId ?? 'null'}"');
-      debugPrint('  - From current user: $isFromCurrentUser');
-      debugPrint('  - Read status: $isRead');
-      debugPrint('  - Will appear on: ${isFromCurrentUser ? 'RIGHT' : 'LEFT'} side');
-      
       // Check if message already exists to avoid duplicates (only by ID)
       final messageExists = currentState.messages.any((m) => m.id == newChatMessage.id);
       
@@ -676,12 +592,10 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
               return aTime.compareTo(bTime);
             }
           } catch (e) {
-            debugPrint('ChatBloc: Error parsing message IDs for sorting: $e');
+            // Handle sorting error silently
           }
           return a.id.compareTo(b.id);
         });
-        
-        debugPrint('ChatBloc: ✅ Added incoming message');
         
         emit(currentState.copyWith(
           messages: updatedMessages,
@@ -689,7 +603,6 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
         
         // NEW: Emit typing when new message is received (partner is reading)
         if (!isFromCurrentUser) {
-          debugPrint('ChatBloc: ⌨️ Emitting typing for new incoming message');
           add(const StartTyping());
           
           // Stop typing after 3 seconds
@@ -699,8 +612,6 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
             }
           });
         }
-      } else {
-        debugPrint('ChatBloc: 🔄 Message already exists, skipping duplicate');
       }
     }
   }
@@ -751,12 +662,8 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
   }
 
   Future<void> _onStartTyping(StartTyping event, Emitter<ChatState> emit) async {
-    debugPrint('ChatBloc: 🔍 StartTyping event received');
-    debugPrint('ChatBloc: 🔍 Current room ID: $_currentRoomId');
-    
     if (_currentRoomId != null) {
       try {
-        debugPrint('ChatBloc: 📡 Calling sendTyping for room: $_currentRoomId');
         _chatService.sendTyping(_currentRoomId!);
         
         // Cancel any existing timer
@@ -764,38 +671,26 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
         
         // Note: Timer is now controlled by the view layer for page lifecycle management
         // The view handles when to stop typing based on page open/close and new message events
-        debugPrint('ChatBloc: ✅ StartTyping completed successfully');
       } catch (e) {
-        debugPrint('ChatBloc: ❌ Error starting typing: $e');
+        // Handle error silently
       }
-    } else {
-      debugPrint('ChatBloc: ❌ Cannot start typing - no current room ID');
     }
   }
 
   Future<void> _onStopTyping(StopTyping event, Emitter<ChatState> emit) async {
-    debugPrint('ChatBloc: 🔍 StopTyping event received');
-    debugPrint('ChatBloc: 🔍 Current room ID: $_currentRoomId');
-    
     if (_currentRoomId != null) {
       try {
-        debugPrint('ChatBloc: 📡 Calling sendStopTyping for room: $_currentRoomId');
         _chatService.sendStopTyping(_currentRoomId!);
         _typingTimer?.cancel();
-        debugPrint('ChatBloc: ✅ StopTyping completed successfully');
       } catch (e) {
-        debugPrint('ChatBloc: ❌ Error stopping typing: $e');
+        // Handle error silently
       }
-    } else {
-      debugPrint('ChatBloc: ❌ Cannot stop typing - no current room ID');
     }
   }
 
   Future<void> _onRefreshChat(RefreshChat event, Emitter<ChatState> emit) async {
     if (_currentRoomId != null) {
       try {
-        debugPrint('ChatBloc: 🔄 Refreshing chat history');
-        
         // Show refreshing state briefly
         if (state is ChatLoaded) {
           final currentState = state as ChatLoaded;
@@ -804,8 +699,6 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
         
         // Manually refresh messages from server
         await _chatService.refreshMessages();
-        
-        debugPrint('ChatBloc: ✅ Chat refreshed successfully');
         
         // The updated messages will be handled by the chat service listener
         if (state is ChatLoaded) {
@@ -834,7 +727,6 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
           add(MarkAsRead(_currentRoomId!));
         }
       } catch (e) {
-        debugPrint('ChatBloc: ❌ Error refreshing chat: $e');
         if (state is ChatLoaded) {
           final currentState = state as ChatLoaded;
           emit(currentState.copyWith(isRefreshing: false));
@@ -847,39 +739,28 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
 
   Future<void> _onMarkAsRead(MarkAsRead event, Emitter<ChatState> emit) async {
     if (_currentRoomId == null) {
-      debugPrint('ChatBloc: ❌ Cannot mark as read - no current room ID');
       return;
     }
 
     try {
-      debugPrint('ChatBloc: 📖 Marking messages as read for room: $_currentRoomId');
-      debugPrint('ChatBloc: 📖 Using hybrid approach (Socket + API fallback)');
-      
       // Use the chat service to mark messages as read
       final success = await _chatService.markAsRead(_currentRoomId!);
       
-      if (success) {
-        debugPrint('ChatBloc: ✅ Messages marked as read successfully via socket/API');
-        debugPrint('ChatBloc: 📖 Read status will update automatically via socket events');
-      } else {
-        debugPrint('ChatBloc: ❌ Failed to mark messages as read');
+      if (!success) {
+        // Handle failure silently
       }
     } catch (e) {
-      debugPrint('ChatBloc: ❌ Error marking messages as read: $e');
+      // Handle error silently
     }
   }
 
   Future<void> _onAppResume(AppResume event, Emitter<ChatState> emit) async {
-    debugPrint('ChatBloc: 📱 App resume event received');
-    
     try {
       // Handle app resume in the chat service
       await _chatService.handleAppResume();
       
       // If we're in a loaded state, refresh the messages
       if (state is ChatLoaded && _currentRoomId != null) {
-        debugPrint('ChatBloc: 🔄 Refreshing messages after app resume');
-        
         // Force refresh messages from the service
         await _chatService.refreshMessages();
         
@@ -902,11 +783,9 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
           messages: updatedMessages,
           lastUpdateTimestamp: DateTime.now(),
         ));
-        
-        debugPrint('ChatBloc: ✅ Messages refreshed after app resume');
       }
     } catch (e) {
-      debugPrint('ChatBloc: ❌ Error handling app resume: $e');
+      // Handle error silently
     }
   }
 
@@ -955,7 +834,6 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
 
   // NEW: Force reconnect socket
   Future<void> forceReconnect() async {
-    debugPrint('ChatBloc: 🔄 Force reconnecting socket...');
     _chatService.disconnect();
     await Future.delayed(const Duration(seconds: 1));
     await _chatService.connect();
@@ -966,8 +844,6 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
 
   @override
   Future<void> close() {
-    debugPrint('ChatBloc: 🗑️ Closing and cleaning up resources');
-    
     // Cancel timers
     _typingTimer?.cancel();
     _updateDebounceTimer?.cancel();

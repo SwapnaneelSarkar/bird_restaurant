@@ -910,8 +910,10 @@ class _StatusChangeBottomSheetState extends State<StatusChangeBottomSheet> {
 
   @override
   Widget build(BuildContext context) {
-    // Get available status options
-    final allStatuses = OrderService.getAllValidStatuses();
+    // Get partner-specific status options (excluding PENDING and delivery-related statuses)
+    final partnerStatuses = OrderService.getPartnerValidStatuses()
+        .where((status) => status != 'PENDING') // Remove PENDING since it's default
+        .toList();
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -959,8 +961,8 @@ class _StatusChangeBottomSheetState extends State<StatusChangeBottomSheet> {
           
           const SizedBox(height: 12),
           
-          // Show all status options
-          ...allStatuses.map((status) => _buildStatusOption(
+          // Show partner-specific status options
+          ...partnerStatuses.map((status) => _buildStatusOption(
             status: status,
             onTap: () => _updateOrderStatus(status),
           )),

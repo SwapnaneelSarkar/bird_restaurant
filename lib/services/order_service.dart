@@ -44,9 +44,6 @@ class OrderService {
           'Authorization': 'Bearer $token',
         },
       );
-      print('OrderService: GET $partnerUrl');
-      print('OrderService: Response status:  [33m${response.statusCode} [0m');
-      print('OrderService: RAW response body: ${response.body}'); // <-- Added raw response print
       if (response.statusCode == 200) {
         final Map<String, dynamic> responseBody = json.decode(response.body);
         if (responseBody['status'] == 'SUCCESS' && responseBody['data'] != null) {
@@ -63,9 +60,6 @@ class OrderService {
             'Authorization': 'Bearer $token',
           },
         );
-        print('OrderService: Fallback GET $userUrl');
-        print('OrderService: Response status: ${response.statusCode}');
-        print('OrderService: Response body: ${response.body}');
         if (response.statusCode == 200) {
           final Map<String, dynamic> responseBody = json.decode(response.body);
           if (responseBody['status'] == 'SUCCESS' && responseBody['data'] != null) {
@@ -80,7 +74,6 @@ class OrderService {
         throw Exception('HTTP ${response.statusCode}: Failed to fetch order details');
       }
     } catch (e) {
-      print('OrderService: Error fetching order details: $e');
       rethrow;
     }
   }
@@ -98,7 +91,6 @@ class OrderService {
 
     // Validate status before API call
     if (!isValidStatus(newStatus)) {
-      print('OrderService: Invalid status: $newStatus. Valid statuses: $validStatuses');
       throw Exception('Invalid status: $newStatus');
     }
 
@@ -120,27 +112,19 @@ class OrderService {
       body: json.encode(requestBody),
     );
 
-    print('OrderService: PUT $url');
-    print('OrderService: Request body: ${json.encode(requestBody)}');
-    print('OrderService: Response status: ${response.statusCode}');
-    print('OrderService: Response body: ${response.body}');
-
     if (response.statusCode == 200) {
       final Map<String, dynamic> responseBody = json.decode(response.body);
       final success = responseBody['status'] == 'SUCCESS';
       
       if (success) {
-        print('OrderService: ✅ Successfully updated order status to $newStatus');
         return true;
       } else {
         // API returned ERROR status - throw with the full response for detailed error handling
-        print('OrderService: ❌ API returned error: ${responseBody['message']}');
         final errorMessage = responseBody['message'] ?? 'Unknown error occurred';
         
         // Include allowed next statuses if provided
         if (responseBody['allowedNextStatuses'] != null) {
           final allowedStatuses = List<String>.from(responseBody['allowedNextStatuses']);
-          print('OrderService: 📝 Allowed next statuses: $allowedStatuses');
           
           // Throw with structured error info
           throw Exception(json.encode({
@@ -159,7 +143,6 @@ class OrderService {
       // Bad request - likely validation error
       try {
         final Map<String, dynamic> errorBody = json.decode(response.body);
-        print('OrderService: ❌ Validation error: ${errorBody['message']}');
         
         throw Exception(json.encode({
           'message': errorBody['message'] ?? 'Invalid request',
@@ -173,15 +156,12 @@ class OrderService {
         }));
       }
     } else {
-      print('OrderService: ❌ HTTP Error ${response.statusCode}');
       throw Exception(json.encode({
         'message': 'Server error (${response.statusCode}). Please try again.',
         'status': 'ERROR'
       }));
     }
   } catch (e) {
-    print('OrderService: ❌ Error updating order status: $e');
-    
     // Re-throw if it's already a structured error
     if (e.toString().contains('"status":"ERROR"')) {
       rethrow;
@@ -211,6 +191,22 @@ static Map<String, dynamic> getStatusValidationInfo(String currentStatus, String
   };
 }
 
+// NEW: Get partner-specific status validation info
+static Map<String, dynamic> getPartnerStatusValidationInfo(String currentStatus, String newStatus) {
+  final isValid = isValidPartnerStatusTransition(currentStatus, newStatus);
+  final allowedStatuses = getPartnerAvailableStatusOptions(currentStatus);
+  
+  return {
+    'isValid': isValid,
+    'currentStatus': currentStatus,
+    'requestedStatus': newStatus,
+    'allowedStatuses': allowedStatuses,
+    'message': isValid 
+        ? 'Status transition is valid'
+        : 'Cannot change status from ${formatOrderStatus(currentStatus)} to ${formatOrderStatus(newStatus)}',
+  };
+}
+
   // Helper method to get partner ID from token or user preferences
   static Future<String?> getPartnerId() async {
     try {
@@ -220,11 +216,9 @@ static Map<String, dynamic> getStatusValidationInfo(String currentStatus, String
       } catch (e) {
         // Fall back to user ID if no specific partner ID method
         final userId = await TokenService.getUserId();
-        print('OrderService: Using user ID as partner ID: $userId');
         return userId;
       }
     } catch (e) {
-      print('OrderService: Error getting partner ID: $e');
       return null;
     }
   }
@@ -274,9 +268,9 @@ static Map<String, dynamic> getStatusValidationInfo(String currentStatus, String
       case 'PREPARING':
         return ['READY_FOR_DELIVERY', 'CANCELLED'];
       case 'READY_FOR_DELIVERY':
-        return ['OUT_FOR_DELIVERY', 'CANCELLED'];
+        return ['CANCELLED']; // Removed OUT_FOR_DELIVERY - handled by delivery partner
       case 'OUT_FOR_DELIVERY':
-        return ['DELIVERED'];
+        return ['DELIVERED']; // This should only be available to delivery partners
       case 'DELIVERED':
         return []; // No further status changes allowed
       case 'CANCELLED':
@@ -284,6 +278,39 @@ static Map<String, dynamic> getStatusValidationInfo(String currentStatus, String
       default:
         return ['CONFIRMED', 'CANCELLED']; // Default to pending options
     }
+  }
+
+  // NEW: Get partner-specific available status options (restricted for restaurant partners)
+  static List<String> getPartnerAvailableStatusOptions(String currentStatus) {
+    switch (currentStatus.toUpperCase()) {
+      case 'PENDING':
+        return ['CONFIRMED', 'CANCELLED'];
+      case 'CONFIRMED':
+        return ['PREPARING', 'CANCELLED'];
+      case 'PREPARING':
+        return ['READY_FOR_DELIVERY', 'CANCELLED'];
+      case 'READY_FOR_DELIVERY':
+        return ['CANCELLED']; // Partners can only cancel after ready for delivery
+      case 'OUT_FOR_DELIVERY':
+        return []; // Partners cannot change this status
+      case 'DELIVERED':
+        return []; // Partners cannot change this status
+      case 'CANCELLED':
+        return []; // No further status changes allowed
+      default:
+        return ['CONFIRMED', 'CANCELLED']; // Default to pending options
+    }
+  }
+
+  // NEW: Get partner-specific valid statuses (excluding delivery-related statuses)
+  static List<String> getPartnerValidStatuses() {
+    return [
+      'PENDING',
+      'CONFIRMED', 
+      'PREPARING',
+      'READY_FOR_DELIVERY',
+      'CANCELLED'
+    ];
   }
 
   // Validate if the status is one of the allowed statuses
@@ -299,6 +326,12 @@ static Map<String, dynamic> getStatusValidationInfo(String currentStatus, String
   // ENHANCED: Check if status transition is valid
   static bool isValidStatusTransition(String fromStatus, String toStatus) {
     final availableStatuses = getAvailableStatusOptions(fromStatus);
+    return availableStatuses.contains(toStatus.toUpperCase());
+  }
+
+  // NEW: Check if status transition is valid for partners (restricted)
+  static bool isValidPartnerStatusTransition(String fromStatus, String toStatus) {
+    final availableStatuses = getPartnerAvailableStatusOptions(fromStatus);
     return availableStatuses.contains(toStatus.toUpperCase());
   }
 
@@ -409,19 +442,16 @@ static Map<String, dynamic> getStatusValidationInfo(String currentStatus, String
         );
         
         results[orderId] = success;
-        print('OrderService: Batch update - Order $orderId: ${success ? "SUCCESS" : "FAILED"}');
         
         // Add a small delay between requests to avoid overwhelming the server
         await Future.delayed(const Duration(milliseconds: 200));
       } catch (e) {
-        print('OrderService: Batch update error for order $orderId: $e');
         results[orderId] = false;
       }
     }
     
     final successful = results.values.where((v) => v).length;
     final total = results.length;
-    print('OrderService: Batch update completed - $successful/$total successful');
     
     return results;
   }
@@ -499,8 +529,6 @@ static Map<String, dynamic> getStatusValidationInfo(String currentStatus, String
       
       final url = Uri.parse('$baseUrl/get-partner/reviews/order/$orderId?partner_id=$partnerId');
       
-      print('OrderService: GET $url');
-      
       final response = await http.get(
         url,
         headers: {
@@ -509,26 +537,19 @@ static Map<String, dynamic> getStatusValidationInfo(String currentStatus, String
         },
       );
       
-      print('OrderService: Review response status: ${response.statusCode}');
-      print('OrderService: Review response body: ${response.body}');
-      
       if (response.statusCode == 200) {
         final Map<String, dynamic> responseBody = json.decode(response.body);
         if (responseBody['status'] == 'SUCCESS' && responseBody['data'] != null) {
           return responseBody['data'];
         } else {
-          print('OrderService: Review API returned error: ${responseBody['message']}');
           return null;
         }
       } else if (response.statusCode == 404) {
-        print('OrderService: No review found for order $orderId');
         return null;
       } else {
-        print('OrderService: Failed to fetch review. Status: ${response.statusCode}');
         return null;
       }
     } catch (e) {
-      print('OrderService: Error fetching order review: $e');
       return null;
     }
   }

@@ -1,17 +1,17 @@
 // lib/presentation/screens/add_product/bloc.dart
 import 'dart:convert';
-import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:http/http.dart' as http;
-import 'package:http_parser/http_parser.dart';
-import 'package:path/path.dart' as path;
+
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../constants/api_constants.dart';
 import '../../../models/catagory_model.dart';
 import '../../../models/menu_item_model.dart';
 import '../../../models/food_type_model.dart';
 import '../../../services/api_service.dart';
+import '../../../services/token_service.dart';
 import 'event.dart';
 import 'state.dart';
 
@@ -32,6 +32,10 @@ class AddProductBloc extends Bloc<AddProductEvent, AddProductState> {
     on<ToggleAvailableAllDayEvent>(_onToggleAvailableAllDay);
     on<AvailableFromTimeChangedEvent>(_onAvailableFromTimeChanged);
     on<AvailableToTimeChangedEvent>(_onAvailableToTimeChanged);
+    // New timing schedule events
+    on<ToggleTimingEnabledEvent>(_onToggleTimingEnabled);
+    on<UpdateDayScheduleEvent>(_onUpdateDaySchedule);
+    on<UpdateTimezoneEvent>(_onUpdateTimezone);
     on<SubmitProductEvent>(_onSubmitProduct);
     on<ResetFormEvent>(_onResetForm);
   }
@@ -56,14 +60,16 @@ class AddProductBloc extends Bloc<AddProductEvent, AddProductState> {
     }
     
     // Prepare API endpoint
-    final sharedPrefs = await SharedPreferences.getInstance();
-    final selectedSupercategoryId = sharedPrefs.getString('selected_supercategory_id');
+    final selectedSupercategoryId = await TokenService.getSupercategoryId();
+    debugPrint('🔍 Add Product - Supercategory ID: $selectedSupercategoryId');
     
     String urlString = '${ApiConstants.baseUrl}/partner/categories';
     if (selectedSupercategoryId != null && selectedSupercategoryId.isNotEmpty) {
       urlString += '?supercategory=$selectedSupercategoryId';
     }
     final url = Uri.parse(urlString);
+    
+    debugPrint('🔍 Add Product - Categories API URL: $urlString');
     
     try {
       // Make GET request
@@ -82,11 +88,14 @@ class AddProductBloc extends Bloc<AddProductEvent, AddProductState> {
         
         if (responseData['status'] == 'SUCCESS') {
           final List<dynamic> categoriesJson = responseData['data'];
+          final categories = categoriesJson.map((json) => CategoryModel.fromJson(json)).toList();
+          debugPrint('🔍 Add Product - Fetched ${categories.length} categories');
+          
           emit(AddProductFormState(
             product: ProductModel(),
-            categories: categoriesJson.map((json) => CategoryModel.fromJson(json)).toList(),
+            categories: categories,
           ));
-          return categoriesJson.map((json) => CategoryModel.fromJson(json)).toList();
+          return categories;
         } else {
           throw Exception(responseData['message'] ?? 'Failed to fetch categories');
         }
@@ -274,6 +283,72 @@ class AddProductBloc extends Bloc<AddProductEvent, AddProductState> {
     }
   }
 
+  void _onToggleTimingEnabled(ToggleTimingEnabledEvent event, Emitter<AddProductState> emit) {
+    if (state is AddProductFormState) {
+      final currentState = state as AddProductFormState;
+      emit(currentState.copyWith(
+        product: currentState.product.copyWith(
+          timingEnabled: event.enabled,
+        ),
+      ));
+    }
+  }
+
+  void _onUpdateDaySchedule(UpdateDayScheduleEvent event, Emitter<AddProductState> emit) {
+    if (state is AddProductFormState) {
+      final currentState = state as AddProductFormState;
+      final newDaySchedule = DaySchedule(
+        enabled: event.enabled,
+        start: event.start,
+        end: event.end,
+      );
+      
+      TimingSchedule newTimingSchedule;
+      switch (event.day.toLowerCase()) {
+        case 'monday':
+          newTimingSchedule = currentState.product.timingSchedule.copyWith(monday: newDaySchedule);
+          break;
+        case 'tuesday':
+          newTimingSchedule = currentState.product.timingSchedule.copyWith(tuesday: newDaySchedule);
+          break;
+        case 'wednesday':
+          newTimingSchedule = currentState.product.timingSchedule.copyWith(wednesday: newDaySchedule);
+          break;
+        case 'thursday':
+          newTimingSchedule = currentState.product.timingSchedule.copyWith(thursday: newDaySchedule);
+          break;
+        case 'friday':
+          newTimingSchedule = currentState.product.timingSchedule.copyWith(friday: newDaySchedule);
+          break;
+        case 'saturday':
+          newTimingSchedule = currentState.product.timingSchedule.copyWith(saturday: newDaySchedule);
+          break;
+        case 'sunday':
+          newTimingSchedule = currentState.product.timingSchedule.copyWith(sunday: newDaySchedule);
+          break;
+        default:
+          return; // Invalid day
+      }
+      
+      emit(currentState.copyWith(
+        product: currentState.product.copyWith(
+          timingSchedule: newTimingSchedule,
+        ),
+      ));
+    }
+  }
+
+  void _onUpdateTimezone(UpdateTimezoneEvent event, Emitter<AddProductState> emit) {
+    if (state is AddProductFormState) {
+      final currentState = state as AddProductFormState;
+      emit(currentState.copyWith(
+        product: currentState.product.copyWith(
+          timezone: event.timezone,
+        ),
+      ));
+    }
+  }
+
   void _onSubmitProduct(SubmitProductEvent event, Emitter<AddProductState> emit) async {
     if (state is AddProductFormState) {
       final currentState = state as AddProductFormState;
@@ -294,10 +369,7 @@ class AddProductBloc extends Bloc<AddProductEvent, AddProductState> {
         return;
       }
       
-      if (currentState.product.image == null) {
-        emit(currentState.copyWith(errorMessage: 'Please select a product image'));
-        return;
-      }
+      // Image is optional - if no image, we'll use JSON POST, if image exists, we'll use MultipartRequest
       
       // Start submission
       emit(currentState.copyWith(isSubmitting: true, errorMessage: null));
@@ -338,118 +410,47 @@ class AddProductBloc extends Bloc<AddProductEvent, AddProductState> {
   
   Future<MenuItemResponse> _submitMenuItemToApi(ProductModel product) async {
     try {
-      // Get token from SharedPreferences
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('token');
       final partnerId = prefs.getString('user_id');
-      
       if (token == null || partnerId == null) {
         throw Exception('Authentication information not found. Please login again.');
       }
-      
-      // Prepare API endpoint
-      final url = Uri.parse('${ApiConstants.baseUrl}/partner/menu_item');
-      
-      // Create multipart request
-      var request = http.MultipartRequest('POST', url);
-      
-      // Add authorization header
-      request.headers['Authorization'] = 'Bearer $token';
-      
-      // Add text fields - include all required fields from the image
-      request.fields['partner_id'] = partnerId;
-      request.fields['name'] = product.name;
-      request.fields['price'] = product.price.toString();
-      request.fields['available'] = 'true'; // Default to true as requested
-      request.fields['description'] = product.description;
-      request.fields['category'] = product.categoryId ?? '';
-      request.fields['isVeg'] = product.codAllowed.toString(); // Using codAllowed as isVeg for demo
-      
-      // Add new fields from the image
-      request.fields['isTaxIncluded'] = product.taxIncluded.toString();
-      request.fields['isCancellable'] = product.isCancellable.toString();
-      
-      // Add restaurant food type ID if available
-      if (product.restaurantFoodTypeId != null && product.restaurantFoodTypeId!.isNotEmpty) {
-        request.fields['restaurant_food_type_id'] = product.restaurantFoodTypeId!;
-      }
-      
-      // Add timing fields (for UI demonstration)
-      if (!product.isAvailableAllDay) {
-        if (product.availableFromTime != null && product.availableFromTime!.isNotEmpty) {
-          request.fields['available_from_time'] = product.availableFromTime!;
-        }
-        if (product.availableToTime != null && product.availableToTime!.isNotEmpty) {
-          request.fields['available_to_time'] = product.availableToTime!;
-        }
-      }
-      request.fields['is_available_all_day'] = product.isAvailableAllDay.toString();
-      
-      // Add tags if available
-      if (product.tags.isNotEmpty) {
-        try {
-          // Check if tags are in JSON format (like {"shahi", "paneer"})
-          if (product.tags.startsWith('{') && product.tags.endsWith('}')) {
-            request.fields['tags'] = product.tags;
-          } else {
-            // Convert comma-separated tags to JSON format
-            final tagsList = product.tags.split(',')
-                .map((tag) => tag.trim())
-                .where((tag) => tag.isNotEmpty)
-                .toList();
-                
-            // Format as {"tag1", "tag2"}
-            request.fields['tags'] = '{${tagsList.map((tag) => '"$tag"').join(', ')}}';
-          }
-        } catch (e) {
-          debugPrint('Error formatting tags: $e');
-          // In case of error, send tags as is
-          request.fields['tags'] = product.tags;
-        }
-      }
-      
-      // Add image file
-      if (product.image != null && await product.image!.exists()) {
-        final fileName = path.basename(product.image!.path);
-        final extension = path.extension(fileName).toLowerCase();
-        
-        // Determine content type based on file extension
-        String contentType;
-        if (extension == '.jpg' || extension == '.jpeg') {
-          contentType = 'image/jpeg';
-        } else if (extension == '.png') {
-          contentType = 'image/png';
-        } else {
-          contentType = 'application/octet-stream';
-        }
-        
-        request.files.add(
-          http.MultipartFile(
-            'image',
-            product.image!.readAsBytes().asStream(),
-            await product.image!.length(),
-            filename: fileName,
-            contentType: MediaType.parse(contentType),
-          ),
-        );
-      }
-      
-      // Send request
+            final url = Uri.parse('${ApiConstants.baseUrl}/partner/menu_item');
+      debugPrint('Product image is null: ${product.image == null}');
+      // Always use JSON POST for now to fix timing_schedule issue
+      // TODO: Handle image upload separately if needed
+      final body = {
+        'partner_id': partnerId,
+        'name': product.name,
+        'price': product.price,
+        'category': product.categoryId ?? '',
+        'description': product.description,
+        'isVeg': product.codAllowed,
+        'isTaxIncluded': product.taxIncluded,
+        'isCancellable': product.isCancellable,
+        'available': true,
+        'timing_enabled': product.timingEnabled,
+        'timing_schedule': product.timingSchedule.toJson(),
+        'restaurant_food_type_id': product.restaurantFoodTypeId,
+        'timezone': product.timezone,
+      };
+      final response = await http.post(
+        url,
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+        body: json.encode(body),
+      );
       debugPrint('Sending menu item request to: $url');
-      debugPrint('Request fields: ${request.fields}');
-      
-      final streamedResponse = await request.send();
-      final response = await http.Response.fromStream(streamedResponse);
-      
+      debugPrint('Request body: ${json.encode(body)}');
       debugPrint('Response status: ${response.statusCode}');
       debugPrint('Response body: ${response.body}');
-      
-      // Parse response
       if (response.statusCode == 200 || response.statusCode == 201) {
         final responseData = json.decode(response.body);
         return MenuItemResponse.fromJson(responseData);
       } else {
-        // Handle error responses
         try {
           final errorData = json.decode(response.body);
           return MenuItemResponse(

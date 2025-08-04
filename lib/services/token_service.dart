@@ -9,6 +9,7 @@ class TokenService {
   static const String _tokenKey = 'token';
   static const String _userIdKey = 'user_id';
   static const String _mobileKey = 'mobile';
+  static const String _supercategoryIdKey = 'supercategory_id';
 
   // Save token with forced persistence check
   static Future<bool> saveToken(String token) async {
@@ -201,11 +202,57 @@ class TokenService {
     }
   }
 
+  // Save supercategory ID with verification
+  static Future<bool> saveSupercategoryId(String supercategoryId) async {
+    try {
+      if (supercategoryId.isEmpty) {
+        debugPrint('WARNING: Attempted to save empty supercategory ID');
+        return false;
+      }
+      
+      final prefs = await SharedPreferences.getInstance();
+      final result = await prefs.setString(_supercategoryIdKey, supercategoryId);
+      
+      // Verify the supercategory ID was saved correctly
+      final savedSupercategoryId = prefs.getString(_supercategoryIdKey);
+      if (savedSupercategoryId != supercategoryId) {
+        debugPrint('ERROR: Supercategory ID verification failed after save');
+        return false;
+      }
+      
+      debugPrint('Supercategory ID saved successfully: $supercategoryId');
+      return result;
+    } catch (e) {
+      debugPrint('ERROR saving supercategory ID: $e');
+      return false;
+    }
+  }
+
+  // Get supercategory ID with additional logging
+  static Future<String?> getSupercategoryId() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final supercategoryId = prefs.getString(_supercategoryIdKey);
+      
+      if (supercategoryId == null || supercategoryId.isEmpty) {
+        debugPrint('No supercategory ID found in shared preferences');
+        return null;
+      }
+      
+      debugPrint('Supercategory ID retrieved successfully: $supercategoryId');
+      return supercategoryId;
+    } catch (e) {
+      debugPrint('ERROR retrieving supercategory ID: $e');
+      return null;
+    }
+  }
+
   // Save all authentication data in one transaction
   static Future<bool> saveAuthData({
     required String token,
     required dynamic userId,
     required String mobile,
+    String? supercategoryId,
   }) async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -214,6 +261,11 @@ class TokenService {
       await prefs.setString(_tokenKey, token);
       await prefs.setString(_userIdKey, userId.toString());
       await prefs.setString(_mobileKey, mobile);
+      
+      // Save supercategory ID if provided
+      if (supercategoryId != null && supercategoryId.isNotEmpty) {
+        await prefs.setString(_supercategoryIdKey, supercategoryId);
+      }
       
       // Also save userId as int if possible
       if (int.tryParse(userId.toString()) != null) {
@@ -224,10 +276,12 @@ class TokenService {
       final savedToken = prefs.getString(_tokenKey);
       final savedUserId = prefs.getString(_userIdKey);
       final savedMobile = prefs.getString(_mobileKey);
+      final savedSupercategoryId = prefs.getString(_supercategoryIdKey);
       
       final allSaved = savedToken == token && 
                         savedUserId == userId.toString() && 
-                        savedMobile == mobile;
+                        savedMobile == mobile &&
+                        (supercategoryId == null || savedSupercategoryId == supercategoryId);
       
       if (allSaved) {
         debugPrint('All auth data saved successfully');
@@ -236,6 +290,7 @@ class TokenService {
         debugPrint('Token match: ${savedToken == token}');
         debugPrint('User ID match: ${savedUserId == userId.toString()}');
         debugPrint('Mobile match: ${savedMobile == mobile}');
+        debugPrint('Supercategory ID match: ${savedSupercategoryId == supercategoryId}');
       }
       
       return allSaved;
@@ -255,6 +310,7 @@ class TokenService {
       final token = prefs.getString(_tokenKey);
       final userId = prefs.getString(_userIdKey);
       final userIdInt = prefs.getInt('${_userIdKey}_int');
+      final supercategoryId = prefs.getString(_supercategoryIdKey);
       
       debugPrint('Before clearing - mobile: $mobile');
       if (token != null && token.isNotEmpty) {
@@ -264,6 +320,7 @@ class TokenService {
       }
       debugPrint('Before clearing - user_id: $userId');
       debugPrint('Before clearing - user_id_int: $userIdInt');
+      debugPrint('Before clearing - supercategory_id: $supercategoryId');
       
       // Clear everything
       await prefs.clear();
@@ -289,16 +346,23 @@ class TokenService {
         debugPrint('Restored user_id_int: $userIdInt');
       }
       
+      if (supercategoryId != null && supercategoryId.isNotEmpty) {
+        await prefs.setString(_supercategoryIdKey, supercategoryId);
+        debugPrint('Restored supercategory_id: $supercategoryId');
+      }
+      
       // Verify restoration
       final restoredMobile = prefs.getString(_mobileKey);
       final restoredToken = prefs.getString(_tokenKey);
       final restoredUserId = prefs.getString(_userIdKey);
+      final restoredSupercategoryId = prefs.getString(_supercategoryIdKey);
       
       debugPrint('Verification - Mobile restored: ${restoredMobile == mobile}');
       debugPrint('Verification - Token restored: ${restoredToken == token}');
       debugPrint('Verification - User ID restored: ${restoredUserId == userId}');
+      debugPrint('Verification - Supercategory ID restored: ${restoredSupercategoryId == supercategoryId}');
       
-      debugPrint('Cleared all saved data except token, user ID, and mobile');
+      debugPrint('Cleared all saved data except token, user ID, mobile, and supercategory ID');
     } catch (e) {
       debugPrint('ERROR during clearDataExceptEssentials: $e');
     }
@@ -312,6 +376,7 @@ class TokenService {
       final token = prefs.getString(_tokenKey);
       final userId = prefs.getString(_userIdKey);
       final mobile = prefs.getString(_mobileKey);
+      final supercategoryId = prefs.getString(_supercategoryIdKey);
       
       final isComplete = token != null && token.isNotEmpty &&
                          userId != null && userId.isNotEmpty &&
@@ -320,6 +385,7 @@ class TokenService {
       debugPrint('Auth data check - Token: ${token != null && token.isNotEmpty}');
       debugPrint('Auth data check - User ID: ${userId != null && userId.isNotEmpty}');
       debugPrint('Auth data check - Mobile: ${mobile != null && mobile.isNotEmpty}');
+      debugPrint('Auth data check - Supercategory ID: ${supercategoryId != null && supercategoryId.isNotEmpty}');
       debugPrint('Auth data is complete: $isComplete');
       
       return isComplete;
