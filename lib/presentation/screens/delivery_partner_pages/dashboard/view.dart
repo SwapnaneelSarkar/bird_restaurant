@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../resources/colors.dart';
 import '../../../resources/font.dart';
-import 'package:url_launcher/url_launcher.dart';
+
 import '../../../../services/delivery_partner_services/delivery_partner_orders_service.dart';
 import '../../../../models/order_model.dart';
 import 'package:lottie/lottie.dart';
@@ -156,7 +156,7 @@ class _DeliveryPartnerDashboardViewState extends State<DeliveryPartnerDashboardV
                     return _EmptySection(text: 'Failed to load orders: ${snapshot.error}');
                   } else if (snapshot.hasData && snapshot.data!.isNotEmpty) {
                     return Column(
-                      children: snapshot.data!.where((order) => order != null).map((order) => GestureDetector(
+                      children: snapshot.data!.map((order) => GestureDetector(
                         onTap: () {
                           Navigator.pushNamed(context, '/deliveryPartnerOrderDetails', arguments: order.orderId);
                         },
@@ -174,6 +174,7 @@ class _DeliveryPartnerDashboardViewState extends State<DeliveryPartnerDashboardV
                           showAccept: true,
                           showApiFields: true,
                           onAcceptOrder: _refreshOrders,
+                          onRefreshOrders: _refreshOrders,
                         ),
                       )).toList(),
                     );
@@ -197,7 +198,7 @@ class _DeliveryPartnerDashboardViewState extends State<DeliveryPartnerDashboardV
                     return _EmptySection(text: 'Failed to load assigned orders: ${snapshot.error}');
                   } else if (snapshot.hasData && snapshot.data!.isNotEmpty) {
                     return Column(
-                      children: snapshot.data!.where((order) => order != null).map((order) => GestureDetector(
+                      children: snapshot.data!.map((order) => GestureDetector(
                         onTap: () {
                           Navigator.pushNamed(context, '/deliveryPartnerOrderDetails', arguments: order.orderId);
                         },
@@ -215,7 +216,7 @@ class _DeliveryPartnerDashboardViewState extends State<DeliveryPartnerDashboardV
                           showAccept: false,
                           showApiFields: true,
                           onAcceptOrder: () {},
-                          onMarkAsDelivered: _refreshOrders,
+                          onRefreshOrders: _refreshOrders,
                         ),
                       )).toList(),
                     );
@@ -286,14 +287,14 @@ class _OrderCard extends StatelessWidget {
   final bool showAccept;
   final bool showApiFields;
   final VoidCallback? onAcceptOrder;
-  final VoidCallback? onMarkAsDelivered;
+  final VoidCallback? onRefreshOrders;
   const _OrderCard({
     required this.order, 
     required this.primary, 
     required this.showAccept, 
     this.showApiFields = false, 
     this.onAcceptOrder,
-    this.onMarkAsDelivered,
+    this.onRefreshOrders,
   });
 
   Color _statusColor(String status) {
@@ -314,207 +315,18 @@ class _OrderCard extends StatelessWidget {
     return Colors.orange[700]!;
   }
 
-  void _showMarkAsDeliveredDialog(BuildContext context, String orderId) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: Row(
-            children: [
-              Icon(Icons.check_circle, color: Colors.green[600], size: 28),
-              SizedBox(width: 12),
-              Text(
-                'Mark as Delivered',
-                style: GoogleFonts.poppins(
-                  fontWeight: FontWeightManager.semiBold,
-                  fontSize: FontSize.s18,
-                ),
-              ),
-            ],
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Are you sure you want to mark this order as delivered?',
-                style: GoogleFonts.poppins(
-                  fontSize: FontSize.s14,
-                  color: Colors.grey[700],
-                ),
-              ),
-              SizedBox(height: 12),
-              Container(
-                padding: EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.green[50],
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.green[200]!),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.info_outline, color: Colors.green[600], size: 20),
-                    SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'This action cannot be undone. The order will be marked as completed.',
-                        style: GoogleFonts.poppins(
-                          fontSize: FontSize.s12,
-                          color: Colors.green[700],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: Text(
-                'Cancel',
-                style: GoogleFonts.poppins(
-                  color: Colors.grey[600],
-                  fontWeight: FontWeightManager.medium,
-                ),
-              ),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-                _markAsDelivered(context, orderId);
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green[600],
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-              child: Text(
-                'Yes, Mark as Delivered',
-                style: GoogleFonts.poppins(
-                  color: Colors.white,
-                  fontWeight: FontWeightManager.semiBold,
-                ),
-              ),
-            ),
-          ],
-        );
+  void _openChat(BuildContext context, String orderId) {
+    Navigator.pushNamed(
+      context,
+      '/deliveryPartnerChat',
+      arguments: {
+        'orderId': orderId,
+        'onOrderDelivered': onRefreshOrders,
       },
     );
   }
 
-  Future<void> _markAsDelivered(BuildContext context, String orderId) async {
-    // Show loading dialog
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          content: Row(
-            children: [
-              SizedBox(
-                width: 24,
-                height: 24,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation<Color>(Colors.green[600]!),
-                ),
-              ),
-              SizedBox(width: 16),
-              Text(
-                'Updating order status...',
-                style: GoogleFonts.poppins(
-                  fontSize: FontSize.s14,
-                  fontWeight: FontWeightManager.medium,
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
 
-    try {
-      final result = await DeliveryPartnerOrdersService.updateOrderStatus(orderId, 'DELIVERED');
-      
-      // Close loading dialog
-      if (context.mounted) {
-        Navigator.of(context).pop();
-      }
-
-      if (result['success'] == true) {
-        // Show success message
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Row(
-                children: [
-                  Icon(Icons.check_circle, color: Colors.white),
-                  SizedBox(width: 8),
-                  Text(
-                    'Order marked as delivered successfully!',
-                    style: GoogleFonts.poppins(fontWeight: FontWeightManager.medium),
-                  ),
-                ],
-              ),
-              backgroundColor: Colors.green[600],
-              duration: Duration(seconds: 3),
-            ),
-          );
-          
-          // Call the callback to refresh orders
-          onMarkAsDelivered?.call();
-        }
-      } else {
-        // Show error message
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Row(
-                children: [
-                  Icon(Icons.error, color: Colors.white),
-                  SizedBox(width: 8),
-                  Text(
-                    result['message'] ?? 'Failed to update order status',
-                    style: GoogleFonts.poppins(fontWeight: FontWeightManager.medium),
-                  ),
-                ],
-              ),
-              backgroundColor: Colors.red[600],
-              duration: Duration(seconds: 3),
-            ),
-          );
-        }
-      }
-    } catch (e) {
-      // Close loading dialog
-      if (context.mounted) {
-        Navigator.of(context).pop();
-      }
-      
-      // Show error message
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                Icon(Icons.error, color: Colors.white),
-                SizedBox(width: 8),
-                Text(
-                  'Error: $e',
-                  style: GoogleFonts.poppins(fontWeight: FontWeightManager.medium),
-                ),
-              ],
-            ),
-            backgroundColor: Colors.red[600],
-            duration: Duration(seconds: 3),
-          ),
-        );
-      }
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -789,21 +601,21 @@ class _OrderCard extends StatelessWidget {
                 width: double.infinity,
                 child: ElevatedButton.icon(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.green[700],
+                    backgroundColor: primary,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(10),
                     ),
                     elevation: 0,
                   ),
-                  icon: const Icon(Icons.done_all, color: Colors.white),
+                  icon: const Icon(Icons.chat, color: Colors.white),
                   label: Text(
-                    'Mark as Delivered',
+                    'Open Chat',
                     style: GoogleFonts.poppins(
                       color: Colors.white,
                       fontWeight: FontWeightManager.semiBold,
                     ),
                   ),
-                  onPressed: () => _showMarkAsDeliveredDialog(context, order['id'] ?? ''),
+                  onPressed: () => _openChat(context, order['id'] ?? ''),
                 ),
               ),
           ],

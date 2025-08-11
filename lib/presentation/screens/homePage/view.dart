@@ -265,11 +265,17 @@ class _HomeViewState extends State<HomeView> with TickerProviderStateMixin {
         child: Scaffold(
           key: _scaffoldKey,
           backgroundColor: Colors.grey[50],
-          drawer: SidebarDrawer(
-            activePage: 'home',
-            restaurantName: _restaurantInfo?['name'] ?? 'Restaurant',
-            restaurantSlogan: _restaurantInfo?['slogan'] ?? 'Fine Dining',
-            restaurantImageUrl: _restaurantInfo?['imageUrl'],
+          drawer: BlocBuilder<HomeBloc, HomeState>(
+            builder: (context, state) {
+              return SidebarDrawer(
+                activePage: 'home',
+                restaurantName: _restaurantInfo?['name'] ?? 'Restaurant',
+                restaurantSlogan: _restaurantInfo?['slogan'] ?? 'Fine Dining',
+                restaurantImageUrl: _restaurantInfo?['imageUrl'],
+                isAcceptingOrders: state is HomeLoaded ? state.isAcceptingOrders : null,
+                homeBloc: _homeBloc,
+              );
+            },
           ),
           appBar: _selectedIndex == 0 ? AppBar(
             backgroundColor: Colors.white,
@@ -400,57 +406,6 @@ class _HomeViewState extends State<HomeView> with TickerProviderStateMixin {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const SizedBox(height: 20),
-            
-            // Accepting Orders Toggle
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 10,
-                    spreadRadius: 0,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Accepting Orders',
-                        style: GoogleFonts.poppins(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.black87,
-                        ),
-                      ),
-                      Text(
-                        'Toggle to start accepting orders',
-                        style: GoogleFonts.poppins(
-                          fontSize: 14,
-                          color: Colors.black54,
-                        ),
-                      ),
-                    ],
-                  ),
-                  Switch(
-                    value: state.isAcceptingOrders,
-                    onChanged: (value) {
-                      _homeBloc.add(ToggleOrderAcceptance(value));
-                    },
-                    activeColor: ColorManager.primary,
-                  ),
-                ],
-              ),
-            ),
-            
             const SizedBox(height: 20),
             
             // Stats Row 1

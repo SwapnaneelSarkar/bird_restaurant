@@ -2,6 +2,7 @@
 
 import 'package:equatable/equatable.dart';
 import '../../../services/menu_item_service.dart';
+import '../../../utils/time_utils.dart';
 
 abstract class ChatState extends Equatable {
   const ChatState();
@@ -27,6 +28,8 @@ class ChatLoaded extends ChatState {
   final bool? lastUpdateSuccess;
   final String? lastUpdateMessage;
   final DateTime? lastUpdateTimestamp;
+  final UserDetails? userDetails;
+  final bool isLoadingUserDetails;
 
   const ChatLoaded({
     required this.orderInfo,
@@ -41,6 +44,8 @@ class ChatLoaded extends ChatState {
     this.lastUpdateSuccess,
     this.lastUpdateMessage,
     this.lastUpdateTimestamp,
+    this.userDetails,
+    this.isLoadingUserDetails = false,
   });
 
   ChatLoaded copyWith({
@@ -56,6 +61,8 @@ class ChatLoaded extends ChatState {
     bool? lastUpdateSuccess,
     String? lastUpdateMessage,
     DateTime? lastUpdateTimestamp,
+    UserDetails? userDetails,
+    bool? isLoadingUserDetails,
   }) {
     return ChatLoaded(
       orderInfo: orderInfo ?? this.orderInfo,
@@ -70,6 +77,8 @@ class ChatLoaded extends ChatState {
       lastUpdateSuccess: lastUpdateSuccess ?? this.lastUpdateSuccess,
       lastUpdateMessage: lastUpdateMessage ?? this.lastUpdateMessage,
       lastUpdateTimestamp: lastUpdateTimestamp ?? this.lastUpdateTimestamp,
+      userDetails: userDetails ?? this.userDetails,
+      isLoadingUserDetails: isLoadingUserDetails ?? this.isLoadingUserDetails,
     );
   }
 
@@ -87,6 +96,8 @@ class ChatLoaded extends ChatState {
         lastUpdateSuccess,
         lastUpdateMessage,
         lastUpdateTimestamp,
+        userDetails,
+        isLoadingUserDetails,
       ];
 }
 
@@ -209,6 +220,7 @@ class OrderDetails {
   final String? deliveryDate;
   final String? deliveryTime;
   final double deliveryPrice;
+  final DateTime? datetime;
 
   const OrderDetails({
     required this.orderId,
@@ -224,6 +236,7 @@ class OrderDetails {
     this.deliveryDate,
     this.deliveryTime,
     this.deliveryPrice = 0.0,
+    this.datetime,
   });
 
   factory OrderDetails.fromJson(Map<String, dynamic> json) {
@@ -243,6 +256,7 @@ class OrderDetails {
       deliveryDate: json['delivery_date'],
       deliveryTime: json['delivery_time'],
       deliveryPrice: double.tryParse(json['delivery_price']?.toString() ?? '0') ?? 0.0,
+      datetime: json['datetime'] != null ? TimeUtils.parseToIST(json['datetime']) : null,
     );
   }
 
@@ -260,6 +274,7 @@ class OrderDetails {
     String? deliveryDate,
     String? deliveryTime,
     double? deliveryPrice,
+    DateTime? datetime,
   }) {
     return OrderDetails(
       orderId: orderId ?? this.orderId,
@@ -275,6 +290,7 @@ class OrderDetails {
       deliveryDate: deliveryDate ?? this.deliveryDate,
       deliveryTime: deliveryTime ?? this.deliveryTime,
       deliveryPrice: deliveryPrice ?? this.deliveryPrice,
+      datetime: datetime ?? this.datetime,
     );
   }
 
@@ -297,6 +313,83 @@ class OrderDetails {
   String formattedGrandTotal(String currencySymbol) => '$currencySymbol${grandTotal.toStringAsFixed(2)}';
 
   List<String> get allMenuIds => items.map((item) => item.menuId).toList();
+
+  // Format datetime for display in chat bubble
+  String get formattedOrderTime {
+    if (datetime == null) return 'Now';
+    
+    final istTime = datetime!;
+    if (TimeUtils.isToday(istTime)) {
+      // Today: show 12-hour IST time (e.g., "2:30 PM")
+      return TimeUtils.formatChatMessageTime(istTime);
+    } else if (TimeUtils.isYesterday(istTime)) {
+      // Yesterday: show "Yesterday 2:30 PM"
+      final timeStr = TimeUtils.formatChatMessageTime(istTime);
+      return 'Yesterday $timeStr';
+    } else {
+      // Older: show date with time (e.g., "12/25/2024 2:30 PM")
+      final dateStr = '${istTime.month.toString().padLeft(2, '0')}/${istTime.day.toString().padLeft(2, '0')}/${istTime.year}';
+      final timeStr = TimeUtils.formatChatMessageTime(istTime);
+      return '$dateStr $timeStr';
+    }
+  }
+}
+
+class UserDetails {
+  final String userId;
+  final String username;
+  final String email;
+  final String mobile;
+  final String? image;
+  final String? address;
+  final String? latitude;
+  final String? longitude;
+
+  const UserDetails({
+    required this.userId,
+    required this.username,
+    required this.email,
+    required this.mobile,
+    this.image,
+    this.address,
+    this.latitude,
+    this.longitude,
+  });
+
+  factory UserDetails.fromJson(Map<String, dynamic> json) {
+    return UserDetails(
+      userId: json['user_id'] ?? '',
+      username: json['username'] ?? '',
+      email: json['email'] ?? '',
+      mobile: json['mobile'] ?? '',
+      image: json['image'],
+      address: json['address'],
+      latitude: json['latitude'],
+      longitude: json['longitude'],
+    );
+  }
+
+  UserDetails copyWith({
+    String? userId,
+    String? username,
+    String? email,
+    String? mobile,
+    String? image,
+    String? address,
+    String? latitude,
+    String? longitude,
+  }) {
+    return UserDetails(
+      userId: userId ?? this.userId,
+      username: username ?? this.username,
+      email: email ?? this.email,
+      mobile: mobile ?? this.mobile,
+      image: image ?? this.image,
+      address: address ?? this.address,
+      latitude: latitude ?? this.latitude,
+      longitude: longitude ?? this.longitude,
+    );
+  }
 }
 
 class OrderItem {

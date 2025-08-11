@@ -96,3 +96,17 @@ class SearchMenuItemsEvent extends MenuItemsEvent {
   @override
   List<Object> get props => [query];
 }
+
+// Event to toggle veg/nonveg filters
+class ToggleVegFilterEvent extends MenuItemsEvent {
+  final bool showVegOnly;
+  final bool showNonVegOnly;
+
+  const ToggleVegFilterEvent({
+    required this.showVegOnly,
+    required this.showNonVegOnly,
+  });
+
+  @override
+  List<Object> get props => [showVegOnly, showNonVegOnly];
+}

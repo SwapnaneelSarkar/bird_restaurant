@@ -10,12 +10,15 @@ import '../../../../services/subscription_lock_service.dart';
 import '../../../../ui_components/subscription_lock_dialog.dart';
 import '../../../../services/subscription_plans_service.dart';
 import '../../../resources/router/router.dart';
+import '../event.dart';
 
 class SidebarDrawer extends StatefulWidget {
   final String? activePage;
   final String? restaurantName;
   final String? restaurantSlogan;
   final String? restaurantImageUrl;
+  final bool? isAcceptingOrders;
+  final dynamic homeBloc; // Add bloc instance
 
   const SidebarDrawer({
     Key? key,
@@ -23,18 +26,24 @@ class SidebarDrawer extends StatefulWidget {
     this.restaurantName,
     this.restaurantSlogan,
     this.restaurantImageUrl,
+    this.isAcceptingOrders,
+    this.homeBloc,
   }) : super(key: key);
 
   // Static method to create sidebar with cached restaurant info
   static Widget createWithCachedInfo({
     required String? activePage,
     Map<String, String>? cachedInfo,
+    bool? isAcceptingOrders,
+    dynamic homeBloc,
   }) {
     return SidebarDrawer(
       activePage: activePage,
       restaurantName: cachedInfo?['name'] ?? '',
       restaurantSlogan: cachedInfo?['slogan'] ?? '',
       restaurantImageUrl: cachedInfo?['imageUrl'] ?? '',
+      isAcceptingOrders: isAcceptingOrders,
+      homeBloc: homeBloc,
     );
   }
 
@@ -51,7 +60,7 @@ class _SidebarDrawerState extends State<SidebarDrawer> with SingleTickerProvider
   
   // For menu item staggered animation
   late List<Animation<double>> _menuItemAnimations;
-  final int _menuItemCount = 13; // Total number of menu items including logout
+  final int _menuItemCount = 14; // Total number of menu items including logout and accepting orders toggle
 
   // Minimal subscription check utility
   static const List<String> _protectedRoutes = [
@@ -336,6 +345,8 @@ class _SidebarDrawerState extends State<SidebarDrawer> with SingleTickerProvider
       restaurantName: widget.restaurantName ?? 'Spice Garden',
       restaurantSlogan: widget.restaurantSlogan ?? 'Fine Dining Restaurant',
       restaurantImageUrl: widget.restaurantImageUrl,
+      isAcceptingOrders: widget.isAcceptingOrders,
+      homeBloc: widget.homeBloc,
     );
   }
 }
@@ -349,6 +360,8 @@ class AnimatedSidebarContent extends StatelessWidget {
   final String restaurantName;
   final String restaurantSlogan;
   final String? restaurantImageUrl;
+  final bool? isAcceptingOrders;
+  final dynamic homeBloc;
 
   const AnimatedSidebarContent({
     Key? key,
@@ -359,6 +372,8 @@ class AnimatedSidebarContent extends StatelessWidget {
     required this.restaurantName,
     required this.restaurantSlogan,
     this.restaurantImageUrl,
+    this.isAcceptingOrders,
+    this.homeBloc,
   }) : super(key: key);
 
   @override
@@ -384,6 +399,12 @@ class AnimatedSidebarContent extends StatelessWidget {
             
             const Divider(height: 1, thickness: 1, color: Color(0xFFEEEEEE)),
             
+            // Accepting Orders Toggle
+            if (isAcceptingOrders != null)
+              _buildAnimatedOrderToggle(context, animations[1]),
+            
+            const Divider(height: 1, thickness: 1, color: Color(0xFFEEEEEE)),
+            
             // Animated menu items
             Expanded(
               child: SingleChildScrollView(
@@ -391,14 +412,14 @@ class AnimatedSidebarContent extends StatelessWidget {
                 child: Column(
                   children: [
                     _buildAnimatedMenuItem(
-                      animations[1],
+                      animations[2],
                       icon: Icons.home_outlined,
                       title: 'Home',
                       isActive: activePage == 'home',
                       onTap: () => onNavigate('/home'),
                     ),
                     _buildAnimatedMenuItem(
-                      animations[2],
+                      animations[3],
                       icon: Icons.shopping_bag_outlined,
                       title: 'Orders',
                       isActive: activePage == 'orders',
@@ -433,7 +454,7 @@ class AnimatedSidebarContent extends StatelessWidget {
                       onTap: () => onNavigate('/profile'),
                     ),
                     _buildAnimatedMenuItem(
-                      animations[12],
+                      animations[8],
                       icon: Icons.delivery_dining_outlined,
                       title: 'Delivery Partners',
                       isActive: activePage == 'deliveryPartners',
@@ -475,7 +496,7 @@ class AnimatedSidebarContent extends StatelessWidget {
             const Divider(height: 1, thickness: 1, color: Color(0xFFEEEEEE)),
             
             // Animated logout button
-            _buildAnimatedLogoutButton(context, animations[animations.length - 1]),
+            _buildAnimatedLogoutButton(context, animations[13]),
             
             const SizedBox(height: 20), // Bottom padding
           ],
@@ -589,6 +610,144 @@ class AnimatedSidebarContent extends StatelessWidget {
         width: 64,
       );
     }
+  }
+
+  Widget _buildAnimatedOrderToggle(BuildContext context, Animation<double> animation) {
+    return AnimatedBuilder(
+      animation: animation,
+      builder: (context, child) {
+        return Transform.translate(
+          offset: Offset(30 * (1 - animation.value), 0),
+          child: Opacity(
+            opacity: animation.value,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 2.0),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.grey[50],
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: Colors.grey[200]!),
+                ),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 14,
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.shopping_cart_outlined,
+                      size: 22,
+                      color: isAcceptingOrders == true ? Colors.green[600] : Colors.grey[600],
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Accepting Orders',
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w500,
+                              color: Colors.grey[800],
+                            ),
+                          ),
+                          Text(
+                            isAcceptingOrders == true ? 'Currently accepting orders' : 'Currently not accepting orders',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Switch(
+                      value: isAcceptingOrders ?? false,
+                      onChanged: (value) {
+                        _showOrderAcceptanceConfirmation(context, value);
+                      },
+                      activeColor: Colors.green[600],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _showOrderAcceptanceConfirmation(BuildContext context, bool newValue) {
+    final action = newValue ? 'start accepting' : 'stop accepting';
+    final icon = newValue ? Icons.play_circle_outline : Icons.pause_circle_outline;
+    final iconColor = newValue ? Colors.green[600] : Colors.orange[600];
+    
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: Row(
+            children: [
+              Icon(icon, color: iconColor, size: 28),
+              const SizedBox(width: 12),
+              Text(
+                newValue ? 'Start Accepting Orders' : 'Stop Accepting Orders',
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 18,
+                ),
+              ),
+            ],
+          ),
+          content: Text(
+            'Are you sure you want to $action orders?',
+            style: TextStyle(
+              fontSize: 16,
+              color: Colors.grey[700],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: Text(
+                'Cancel',
+                style: TextStyle(
+                  color: Colors.grey[600],
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: newValue ? Colors.green[600] : Colors.orange[600],
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              onPressed: () {
+                Navigator.of(context).pop();
+                // Directly call the bloc event
+                if (homeBloc != null) {
+                  homeBloc.add(ToggleOrderAcceptance(newValue));
+                }
+              },
+              child: Text(
+                'Yes',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   Widget _buildAnimatedMenuItem(

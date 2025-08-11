@@ -179,8 +179,22 @@ class ErrorApp extends StatelessWidget {
   }
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
   const MyApp({super.key});
+
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  @override
+  void initState() {
+    super.initState();
+    // Check for stored notification actions when app starts
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      NotificationService().checkForStoredNotificationAction();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {

@@ -84,6 +84,11 @@ class OrderService {
   required String newStatus,
 }) async {
   try {
+    debugPrint('OrderService: 🎯 updateOrderStatus called');
+    debugPrint('OrderService: 🎯 partnerId: $partnerId');
+    debugPrint('OrderService: 🎯 orderId: $orderId');
+    debugPrint('OrderService: 🎯 newStatus: $newStatus');
+    
     final token = await TokenService.getToken();
     if (token == null) {
       throw Exception('No authentication token found');
@@ -100,8 +105,11 @@ class OrderService {
     
     final requestBody = {
       'status': newStatus.toUpperCase(),
-      'updated_at': TimeUtils.toIsoStringForAPI(TimeUtils.getCurrentIST()),
+      'updated_at': DateTime.now().toIso8601String(),
     };
+    
+    debugPrint('OrderService: 🔄 Updating order status: $url');
+    debugPrint('OrderService: 📝 Request body: $requestBody');
     
     final response = await http.put(
       url,
@@ -112,66 +120,25 @@ class OrderService {
       body: json.encode(requestBody),
     );
 
+    debugPrint('OrderService: 🔄 Response status: ${response.statusCode}');
+    debugPrint('OrderService: 📋 Response body: ${response.body}');
+
     if (response.statusCode == 200) {
       final Map<String, dynamic> responseBody = json.decode(response.body);
       final success = responseBody['status'] == 'SUCCESS';
       
-      if (success) {
-        return true;
-      } else {
-        // API returned ERROR status - throw with the full response for detailed error handling
-        final errorMessage = responseBody['message'] ?? 'Unknown error occurred';
-        
-        // Include allowed next statuses if provided
-        if (responseBody['allowedNextStatuses'] != null) {
-          final allowedStatuses = List<String>.from(responseBody['allowedNextStatuses']);
-          
-          // Throw with structured error info
-          throw Exception(json.encode({
-            'message': errorMessage,
-            'allowedNextStatuses': allowedStatuses,
-            'status': 'ERROR'
-          }));
-        } else {
-          throw Exception(json.encode({
-            'message': errorMessage,
-            'status': 'ERROR'
-          }));
-        }
-      }
-    } else if (response.statusCode == 400) {
-      // Bad request - likely validation error
-      try {
-        final Map<String, dynamic> errorBody = json.decode(response.body);
-        
-        throw Exception(json.encode({
-          'message': errorBody['message'] ?? 'Invalid request',
-          'allowedNextStatuses': errorBody['allowedNextStatuses'],
-          'status': 'ERROR'
-        }));
-      } catch (e) {
-        throw Exception(json.encode({
-          'message': 'Invalid request - status transition not allowed',
-          'status': 'ERROR'
-        }));
-      }
+      debugPrint('OrderService: ✅ API call successful, success: $success');
+      return success;
+    } else if (response.statusCode == 401) {
+      debugPrint('OrderService: ❌ Unauthorized error');
+      throw Exception('Unauthorized. Please login again.');
     } else {
-      throw Exception(json.encode({
-        'message': 'Server error (${response.statusCode}). Please try again.',
-        'status': 'ERROR'
-      }));
+      debugPrint('OrderService: ❌ HTTP error: ${response.statusCode}');
+      throw Exception('Failed to update order status. Status: ${response.statusCode}');
     }
   } catch (e) {
-    // Re-throw if it's already a structured error
-    if (e.toString().contains('"status":"ERROR"')) {
-      rethrow;
-    }
-    
-    // Otherwise, wrap in a generic error
-    throw Exception(json.encode({
-      'message': 'Network error. Please check your connection and try again.',
-      'status': 'ERROR'
-    }));
+    debugPrint('OrderService: ❌ Error updating order status: $e');
+    rethrow;
   }
 }
 

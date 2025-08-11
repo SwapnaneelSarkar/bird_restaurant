@@ -6,6 +6,7 @@ import '../../../models/catagory_model.dart';
 import '../../../models/food_type_model.dart';
 import '../../../ui_components/custom_textField.dart';
 import '../../../ui_components/image_picker.dart';
+import '../../../ui_components/image_picker_with_crop.dart';
 import '../../../ui_components/timing_schedule_widget.dart';
 import '../../../presentation/resources/colors.dart';
 import '../../../presentation/resources/font.dart';
@@ -297,7 +298,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
           // Main Image
           _buildFormLabel('Main Image'),
           const SizedBox(height: 8),
-          ImagePickerWidget(
+          ImagePickerWithCropWidget(
             selectedImage: state.product.image,
             onImageSelected: (file) {
               context.read<AddProductBloc>().add(ProductImageSelectedEvent(file));
@@ -305,6 +306,8 @@ class _AddProductScreenState extends State<AddProductScreen> {
             title: 'Product Image',
             subtitle: 'Click to upload or drag and drop',
             maxSizeText: 'PNG, JPG up to 5MB',
+            aspectRatio: 1.0, // Square aspect ratio for product images
+            enableCrop: true,
           ),
           const SizedBox(height: 16),
           

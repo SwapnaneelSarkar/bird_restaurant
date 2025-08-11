@@ -91,6 +91,11 @@ class AddProductBloc extends Bloc<AddProductEvent, AddProductState> {
           final categories = categoriesJson.map((json) => CategoryModel.fromJson(json)).toList();
           debugPrint('🔍 Add Product - Fetched ${categories.length} categories');
           
+          // Log category names for debugging
+          for (int i = 0; i < categories.length; i++) {
+            debugPrint('🔍 Add Product - Category ${i + 1}: ${categories[i].name} (ID: ${categories[i].id})');
+          }
+          
           emit(AddProductFormState(
             product: ProductModel(),
             categories: categories,
@@ -416,52 +421,111 @@ class AddProductBloc extends Bloc<AddProductEvent, AddProductState> {
       if (token == null || partnerId == null) {
         throw Exception('Authentication information not found. Please login again.');
       }
-            final url = Uri.parse('${ApiConstants.baseUrl}/partner/menu_item');
+      
+      final url = Uri.parse('${ApiConstants.baseUrl}/partner/menu_item');
       debugPrint('Product image is null: ${product.image == null}');
-      // Always use JSON POST for now to fix timing_schedule issue
-      // TODO: Handle image upload separately if needed
-      final body = {
-        'partner_id': partnerId,
-        'name': product.name,
-        'price': product.price,
-        'category': product.categoryId ?? '',
-        'description': product.description,
-        'isVeg': product.codAllowed,
-        'isTaxIncluded': product.taxIncluded,
-        'isCancellable': product.isCancellable,
-        'available': true,
-        'timing_enabled': product.timingEnabled,
-        'timing_schedule': product.timingSchedule.toJson(),
-        'restaurant_food_type_id': product.restaurantFoodTypeId,
-        'timezone': product.timezone,
-      };
-      final response = await http.post(
-        url,
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-        },
-        body: json.encode(body),
-      );
-      debugPrint('Sending menu item request to: $url');
-      debugPrint('Request body: ${json.encode(body)}');
-      debugPrint('Response status: ${response.statusCode}');
-      debugPrint('Response body: ${response.body}');
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        final responseData = json.decode(response.body);
-        return MenuItemResponse.fromJson(responseData);
+      
+      if (product.image != null) {
+        // Use multipart request for image upload
+        final request = http.MultipartRequest('POST', url);
+        request.headers['Authorization'] = 'Bearer $token';
+        
+        // Add text fields
+        request.fields['partner_id'] = partnerId;
+        request.fields['name'] = product.name;
+        request.fields['price'] = product.price.toString();
+        request.fields['category'] = product.categoryId ?? '';
+        request.fields['description'] = product.description;
+        request.fields['isVeg'] = product.codAllowed.toString();
+        request.fields['isTaxIncluded'] = product.taxIncluded.toString();
+        request.fields['isCancellable'] = product.isCancellable.toString();
+        request.fields['available'] = 'true';
+        request.fields['timing_enabled'] = product.timingEnabled.toString();
+        request.fields['timing_schedule'] = json.encode(product.timingSchedule.toJson());
+        if (product.restaurantFoodTypeId != null) {
+          request.fields['restaurant_food_type_id'] = product.restaurantFoodTypeId!;
+        }
+        request.fields['timezone'] = product.timezone;
+        
+        // Add image field
+        request.files.add(await http.MultipartFile.fromPath(
+          'image',
+          product.image!.path,
+        ));
+        
+        debugPrint('Sending multipart menu item request to: $url');
+        debugPrint('Request fields: ${request.fields}');
+        debugPrint('Request files: ${request.files.map((f) => f.field).toList()}');
+        
+        final streamedResponse = await request.send();
+        final response = await http.Response.fromStream(streamedResponse);
+        
+        debugPrint('Response status: ${response.statusCode}');
+        debugPrint('Response body: ${response.body}');
+        
+        if (response.statusCode == 200 || response.statusCode == 201) {
+          final responseData = json.decode(response.body);
+          return MenuItemResponse.fromJson(responseData);
+        } else {
+          try {
+            final errorData = json.decode(response.body);
+            return MenuItemResponse(
+              status: 'ERROR',
+              message: errorData['message'] ?? 'Failed to add menu item',
+            );
+          } catch (e) {
+            return MenuItemResponse(
+              status: 'ERROR',
+              message: 'Failed to add menu item. Status: ${response.statusCode}',
+            );
+          }
+        }
       } else {
-        try {
-          final errorData = json.decode(response.body);
-          return MenuItemResponse(
-            status: 'ERROR',
-            message: errorData['message'] ?? 'Failed to add menu item',
-          );
-        } catch (e) {
-          return MenuItemResponse(
-            status: 'ERROR',
-            message: 'Failed to add menu item. Status: ${response.statusCode}',
-          );
+        // Use JSON POST when no image
+        final body = {
+          'partner_id': partnerId,
+          'name': product.name,
+          'price': product.price,
+          'category': product.categoryId ?? '',
+          'description': product.description,
+          'isVeg': product.codAllowed,
+          'isTaxIncluded': product.taxIncluded,
+          'isCancellable': product.isCancellable,
+          'available': true,
+          'timing_enabled': product.timingEnabled,
+          'timing_schedule': product.timingSchedule.toJson(),
+          'restaurant_food_type_id': product.restaurantFoodTypeId,
+          'timezone': product.timezone,
+        };
+        final response = await http.post(
+          url,
+          headers: {
+            'Authorization': 'Bearer $token',
+            'Content-Type': 'application/json',
+          },
+          body: json.encode(body),
+        );
+        debugPrint('Sending JSON menu item request to: $url');
+        debugPrint('Request body: ${json.encode(body)}');
+        debugPrint('Response status: ${response.statusCode}');
+        debugPrint('Response body: ${response.body}');
+        
+        if (response.statusCode == 200 || response.statusCode == 201) {
+          final responseData = json.decode(response.body);
+          return MenuItemResponse.fromJson(responseData);
+        } else {
+          try {
+            final errorData = json.decode(response.body);
+            return MenuItemResponse(
+              status: 'ERROR',
+              message: errorData['message'] ?? 'Failed to add menu item',
+            );
+          } catch (e) {
+            return MenuItemResponse(
+              status: 'ERROR',
+              message: 'Failed to add menu item. Status: ${response.statusCode}',
+            );
+          }
         }
       }
     } catch (e) {

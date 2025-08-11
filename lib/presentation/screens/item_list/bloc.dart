@@ -22,6 +22,7 @@ class MenuItemsBloc extends Bloc<MenuItemsEvent, MenuItemsState> {
     on<AddNewMenuItemEvent>(_onAddNewMenuItem);
     on<FilterMenuItemsEvent>(_onFilterMenuItems);
     on<SearchMenuItemsEvent>(_onSearchMenuItems);
+    on<ToggleVegFilterEvent>(_onToggleVegFilter);
   }
 
   Future<void> _onLoadMenuItems(
@@ -39,6 +40,8 @@ class MenuItemsBloc extends Bloc<MenuItemsEvent, MenuItemsState> {
         emit(MenuItemsLoaded(
           menuItems: _cachedRestaurantData!.menuItems,
           restaurantData: _cachedRestaurantData!,
+          showVegOnly: false,
+          showNonVegOnly: false,
         ));
         return;
       }
@@ -51,6 +54,8 @@ class MenuItemsBloc extends Bloc<MenuItemsEvent, MenuItemsState> {
         emit(MenuItemsLoaded(
           menuItems: response.data!.menuItems,
           restaurantData: response.data!,
+          showVegOnly: false,
+          showNonVegOnly: false,
         ));
       } else {
         // Only emit error if there is no cached data
@@ -91,6 +96,8 @@ class MenuItemsBloc extends Bloc<MenuItemsEvent, MenuItemsState> {
         emit(MenuItemsLoaded(
           menuItems: response.data!.menuItems,
           restaurantData: response.data!,
+          showVegOnly: false,
+          showNonVegOnly: false,
         ));
       } else {
         // Only emit error if there is no cached data
@@ -327,6 +334,8 @@ class MenuItemsBloc extends Bloc<MenuItemsEvent, MenuItemsState> {
             isFiltered: currentState.isFiltered,
             filterType: currentState.filterType,
             searchQuery: currentState.searchQuery,
+            showVegOnly: currentState.showVegOnly,
+            showNonVegOnly: currentState.showNonVegOnly,
           ));
         } else {
           // Show error message but maintain current state
@@ -466,6 +475,8 @@ class MenuItemsBloc extends Bloc<MenuItemsEvent, MenuItemsState> {
           menuItems: _cachedRestaurantData?.menuItems ?? currentState.restaurantData.menuItems,
           restaurantData: currentState.restaurantData,
           isFiltered: false,
+          showVegOnly: false,
+          showNonVegOnly: false,
         ));
       } else {
         // Filter items based on the search query
@@ -534,6 +545,67 @@ class MenuItemsBloc extends Bloc<MenuItemsEvent, MenuItemsState> {
         status: 'ERROR',
         message: 'Error: ${e.toString()}',
       );
+    }
+  }
+
+  Future<void> _onToggleVegFilter(
+    ToggleVegFilterEvent event,
+    Emitter<MenuItemsState> emit,
+  ) async {
+    if (state is MenuItemsLoaded) {
+      final currentState = state as MenuItemsLoaded;
+      
+      // Apply veg/nonveg filter to the original data
+      List<MenuItem> filteredItems = _cachedRestaurantData?.menuItems ?? currentState.restaurantData.menuItems;
+      
+      // Apply veg/nonveg filter
+      if (event.showVegOnly && !event.showNonVegOnly) {
+        // Show only veg items
+        filteredItems = filteredItems.where((item) => item.isVeg).toList();
+      } else if (!event.showVegOnly && event.showNonVegOnly) {
+        // Show only non-veg items
+        filteredItems = filteredItems.where((item) => !item.isVeg).toList();
+      }
+      // If both true or both false, show all items (no additional filtering needed)
+      
+      // Apply search filter if there's a search query
+      if (currentState.searchQuery != null && currentState.searchQuery!.isNotEmpty) {
+        final query = currentState.searchQuery!.toLowerCase();
+        filteredItems = filteredItems
+            .where((item) =>
+                item.name.toLowerCase().contains(query) ||
+                item.description.toLowerCase().contains(query) ||
+                item.category.toLowerCase().contains(query))
+            .toList();
+      }
+      
+      // Apply sorting filter if there's one
+      if (currentState.filterType != null) {
+        switch (currentState.filterType!) {
+          case FilterType.priceLowToHigh:
+            filteredItems.sort((a, b) => double.parse(a.price).compareTo(double.parse(b.price)));
+            break;
+          case FilterType.priceHighToLow:
+            filteredItems.sort((a, b) => double.parse(b.price).compareTo(double.parse(a.price)));
+            break;
+          case FilterType.nameAZ:
+            filteredItems.sort((a, b) => a.name.compareTo(b.name));
+            break;
+          case FilterType.nameZA:
+            filteredItems.sort((a, b) => b.name.compareTo(a.name));
+            break;
+        }
+      }
+
+      emit(MenuItemsLoaded(
+        menuItems: filteredItems,
+        restaurantData: currentState.restaurantData,
+        isFiltered: event.showVegOnly || event.showNonVegOnly || currentState.isFiltered,
+        filterType: currentState.filterType,
+        searchQuery: currentState.searchQuery,
+        showVegOnly: event.showVegOnly,
+        showNonVegOnly: event.showNonVegOnly,
+      ));
     }
   }
 }

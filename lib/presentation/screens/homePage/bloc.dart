@@ -72,7 +72,17 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
       final productsCount = partnerSummary?.productsCount ?? 0;
       final tagsCount = partnerSummary?.tagsCount ?? 0;
       final rating = partnerSummary?.rating ?? 0.0;
-      final isAcceptingOrders = partnerSummary?.acceptingOrders ?? false;
+      
+      // Use isAcceptingOrder from getDetailsByMobile API (1 = on, 0 = off)
+      bool isAcceptingOrders = false;
+      if (restaurantData != null && restaurantData['isAcceptingOrder'] != null) {
+        isAcceptingOrders = restaurantData['isAcceptingOrder'] == 1;
+        debugPrint('Order acceptance status from API: ${restaurantData['isAcceptingOrder']} (${isAcceptingOrders ? 'ON' : 'OFF'})');
+      } else {
+        // Fallback to partner summary if restaurant data doesn't have isAcceptingOrder
+        isAcceptingOrders = partnerSummary?.acceptingOrders ?? false;
+        debugPrint('Using fallback order acceptance status: $isAcceptingOrders');
+      }
       
       List<Map<String, dynamic>> salesData = [];
       if (partnerSummary?.salesData != null && partnerSummary?.salesData.isNotEmpty == true) {

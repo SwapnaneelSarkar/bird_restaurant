@@ -53,6 +53,8 @@ class _DeliveryPartnerOnboardingViewState extends State<DeliveryPartnerOnboardin
     }
   }
 
+
+
   Future<void> _getCurrentLocation() async {
     bool serviceEnabled;
     LocationPermission permission;

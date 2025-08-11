@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../constants/api_constants.dart';
 import '../../../models/catagory_model.dart';
 import '../../../models/update_menu_item_model.dart';
+import '../../../services/token_service.dart';
 import '../add_product/state.dart'; // Import timing schedule models
 import 'event.dart';
 import 'state.dart';
@@ -113,15 +114,17 @@ class EditProductBloc extends Bloc<EditProductEvent, EditProductState> {
       throw Exception('Authentication information not found. Please login again.');
     }
     
-    // Prepare API endpoint
-    final sharedPrefs = await SharedPreferences.getInstance();
-    final selectedSupercategoryId = sharedPrefs.getString('selected_supercategory_id');
+    // Prepare API endpoint - use TokenService for consistency
+    final selectedSupercategoryId = await TokenService.getSupercategoryId();
+    debugPrint('🔍 Edit Product - Supercategory ID: $selectedSupercategoryId');
     
     String urlString = '${ApiConstants.baseUrl}/partner/categories';
     if (selectedSupercategoryId != null && selectedSupercategoryId.isNotEmpty) {
       urlString += '?supercategory=$selectedSupercategoryId';
     }
     final url = Uri.parse(urlString);
+    
+    debugPrint('🔍 Edit Product - Categories API URL: $urlString');
     
     try {
       // Make GET request
@@ -140,7 +143,15 @@ class EditProductBloc extends Bloc<EditProductEvent, EditProductState> {
         
         if (responseData['status'] == 'SUCCESS') {
           final List<dynamic> categoriesJson = responseData['data'];
-          return categoriesJson.map((json) => CategoryModel.fromJson(json)).toList();
+          final categories = categoriesJson.map((json) => CategoryModel.fromJson(json)).toList();
+          debugPrint('🔍 Edit Product - Fetched ${categories.length} categories');
+          
+          // Log category names for debugging
+          for (int i = 0; i < categories.length; i++) {
+            debugPrint('🔍 Edit Product - Category ${i + 1}: ${categories[i].name} (ID: ${categories[i].id})');
+          }
+          
+          return categories;
         } else {
           throw Exception(responseData['message'] ?? 'Failed to fetch categories');
         }
@@ -324,54 +335,101 @@ class EditProductBloc extends Bloc<EditProductEvent, EditProductState> {
       // Convert price to double for API
       final double priceValue = double.tryParse(price) ?? 0.0;
       
-      // Build request body matching the API specification
-      final body = {
-        'name': name,
-        'price': priceValue,
-        'category': categoryId,
-        'description': description,
-        'isVeg': isVeg,
-        'isTaxIncluded': true,
-        'isCancellable': true,
-        'available': true,
-        'timing_enabled': timingEnabled,
-        'timezone': timezone ?? 'Asia/Kolkata',
-      };
+      http.Response response;
       
-      // Only add timing_schedule if timing is enabled
-      if (timingEnabled && timingSchedule != null) {
-        try {
-          final timingJson = timingSchedule.toJson();
-          debugPrint('🔄 Timing schedule JSON: ${json.encode(timingJson)}');
-          body['timing_schedule'] = timingJson;
-        } catch (e) {
-          debugPrint('🔄 Error serializing timing schedule: $e');
-          // Continue without timing schedule if there's an error
+      if (image != null) {
+        // Use multipart request for image upload
+        final request = http.MultipartRequest('PUT', url);
+        request.headers['Authorization'] = 'Bearer $token';
+        
+        // Add text fields
+        request.fields['name'] = name;
+        request.fields['price'] = priceValue.toString();
+        request.fields['category'] = categoryId;
+        request.fields['description'] = description;
+        request.fields['isVeg'] = isVeg.toString();
+        request.fields['isTaxIncluded'] = 'true';
+        request.fields['isCancellable'] = 'true';
+        request.fields['available'] = 'true';
+        request.fields['timing_enabled'] = timingEnabled.toString();
+        request.fields['timezone'] = timezone ?? 'Asia/Kolkata';
+        
+        // Only add timing_schedule if timing is enabled
+        if (timingEnabled && timingSchedule != null) {
+          try {
+            final timingJson = timingSchedule.toJson();
+            debugPrint('🔄 Timing schedule JSON: ${json.encode(timingJson)}');
+            request.fields['timing_schedule'] = json.encode(timingJson);
+          } catch (e) {
+            debugPrint('🔄 Error serializing timing schedule: $e');
+            // Continue without timing schedule if there's an error
+          }
         }
+        
+        // Add image field
+        request.files.add(await http.MultipartFile.fromPath(
+          'image',
+          image.path,
+        ));
+        
+        debugPrint('🔄 Updating menu item with image: $url');
+        debugPrint('🔄 Request fields: ${request.fields}');
+        debugPrint('🔄 Request files: ${request.files.map((f) => f.field).toList()}');
+        debugPrint('🔄 Retry attempt: $retryCount');
+        
+        final streamedResponse = await request.send().timeout(
+          const Duration(seconds: 30), // Add timeout to prevent hanging
+          onTimeout: () {
+            throw Exception('Request timeout. Please try again.');
+          },
+        );
+        response = await http.Response.fromStream(streamedResponse);
+        
+      } else {
+        // Use JSON PUT when no image
+        final body = {
+          'name': name,
+          'price': priceValue,
+          'category': categoryId,
+          'description': description,
+          'isVeg': isVeg,
+          'isTaxIncluded': true,
+          'isCancellable': true,
+          'available': true,
+          'timing_enabled': timingEnabled,
+          'timezone': timezone ?? 'Asia/Kolkata',
+        };
+        
+        // Only add timing_schedule if timing is enabled
+        if (timingEnabled && timingSchedule != null) {
+          try {
+            final timingJson = timingSchedule.toJson();
+            debugPrint('🔄 Timing schedule JSON: ${json.encode(timingJson)}');
+            body['timing_schedule'] = timingJson;
+          } catch (e) {
+            debugPrint('🔄 Error serializing timing schedule: $e');
+            // Continue without timing schedule if there's an error
+          }
+        }
+        
+        debugPrint('🔄 Updating menu item: $url');
+        debugPrint('🔄 Request body: ${json.encode(body)}');
+        debugPrint('🔄 Retry attempt: $retryCount');
+        
+        response = await http.put(
+          url,
+          headers: {
+            'Authorization': 'Bearer $token',
+            'Content-Type': 'application/json',
+          },
+          body: json.encode(body),
+        ).timeout(
+          const Duration(seconds: 30), // Add timeout to prevent hanging
+          onTimeout: () {
+            throw Exception('Request timeout. Please try again.');
+          },
+        );
       }
-      
-      // Add restaurant_food_type_id if available
-      // if (restaurantFoodTypeId != null && restaurantFoodTypeId.isNotEmpty) {
-      //   body['restaurant_food_type_id'] = restaurantFoodTypeId;
-      // }
-      
-      debugPrint('🔄 Updating menu item: $url');
-      debugPrint('🔄 Request body: ${json.encode(body)}');
-      debugPrint('🔄 Retry attempt: $retryCount');
-      
-      final response = await http.put(
-        url,
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-        },
-        body: json.encode(body),
-      ).timeout(
-        const Duration(seconds: 30), // Add timeout to prevent hanging
-        onTimeout: () {
-          throw Exception('Request timeout. Please try again.');
-        },
-      );
       
       debugPrint('Response status: ${response.statusCode}');
       debugPrint('Response body: ${response.body}');

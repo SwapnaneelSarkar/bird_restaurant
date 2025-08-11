@@ -8,6 +8,7 @@ import '../../../models/restaurant_menu_model.dart';
 import '../../../ui_components/custom_button_slim.dart';
 import '../../../ui_components/custom_textField.dart';
 import '../../../ui_components/image_picker.dart';
+import '../../../ui_components/image_picker_with_crop.dart';
 import '../../../ui_components/timing_schedule_widget.dart';
 import '../../../presentation/resources/colors.dart';
 import '../../../ui_components/universal_widget/topbar.dart';
@@ -165,7 +166,7 @@ class _EditProductViewState extends State<EditProductView> {
                 ),
               
               // Standard image picker for new uploads
-              ImagePickerWidget(
+              ImagePickerWithCropWidget(
                 selectedImage: state.image,
                 onImageSelected: (file) {
                   context.read<EditProductBloc>().add(ProductImageSelectedEvent(file));
@@ -173,6 +174,8 @@ class _EditProductViewState extends State<EditProductView> {
                 title: state.imageUrl != null && state.image == null ? '' : 'Product Image',
                 subtitle: state.imageUrl != null && state.image == null ? '' : 'Click to upload or drag and drop',
                 maxSizeText: state.imageUrl != null && state.image == null ? '' : 'PNG, JPG up to 5MB',
+                aspectRatio: 1.0, // Square aspect ratio for product images
+                enableCrop: true,
               ),
             ],
           ),

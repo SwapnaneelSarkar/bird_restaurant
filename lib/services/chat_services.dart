@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:socket_io_client/socket_io_client.dart' as IO;
 import '../constants/api_constants.dart';
+import '../models/chat_room_model.dart';
 import 'token_service.dart';
 
 class ReadByEntry {
@@ -20,9 +21,17 @@ class ReadByEntry {
   });
 
   factory ReadByEntry.fromJson(Map<String, dynamic> json) {
+    DateTime readAt;
+    try {
+      readAt = DateTime.parse(json['readAt']);
+    } catch (e) {
+      // Fallback to current time if parsing fails
+      readAt = DateTime.now();
+    }
+    
     return ReadByEntry(
       userId: json['userId'] ?? '',
-      readAt: DateTime.parse(json['readAt']),
+      readAt: readAt,
       id: json['_id'] ?? '',
     );
   }
@@ -50,6 +59,26 @@ class ApiChatMessage {
   });
 
   factory ApiChatMessage.fromJson(Map<String, dynamic> json) {
+    DateTime createdAt;
+    try {
+      createdAt = json['createdAt'] != null 
+          ? DateTime.parse(json['createdAt']) 
+          : DateTime.now();
+    } catch (e) {
+      // Fallback to current time if parsing fails
+      createdAt = DateTime.now();
+    }
+    
+    List<ReadByEntry> readBy = [];
+    try {
+      readBy = (json['readBy'] as List<dynamic>?)
+          ?.map((readEntry) => ReadByEntry.fromJson(readEntry))
+          .toList() ?? [];
+    } catch (e) {
+      // Fallback to empty list if parsing fails
+      readBy = [];
+    }
+    
     return ApiChatMessage(
       id: json['_id'] ?? json['id'] ?? DateTime.now().millisecondsSinceEpoch.toString(),
       roomId: json['roomId'] ?? '',
@@ -57,12 +86,8 @@ class ApiChatMessage {
       senderType: json['senderType'] ?? '',
       content: json['content'] ?? json['message'] ?? '',
       messageType: json['messageType'] ?? 'text',
-      readBy: (json['readBy'] as List<dynamic>?)
-          ?.map((readEntry) => ReadByEntry.fromJson(readEntry))
-          .toList() ?? [],
-      createdAt: json['createdAt'] != null 
-          ? DateTime.parse(json['createdAt']) 
-          : DateTime.now(),
+      readBy: readBy,
+      createdAt: createdAt,
     );
   }
 
@@ -104,7 +129,7 @@ class ApiChatMessage {
 }
 
 class SocketChatService extends ChangeNotifier {
-  static const String baseUrl = 'https://api.bird.delivery/api/';
+  static const String baseUrl = 'https://api.bird.delivery/api';
   static const String wsUrl = 'https://api.bird.delivery/';
   
   IO.Socket? _socket;
@@ -257,6 +282,10 @@ class SocketChatService extends ChangeNotifier {
 
     _socket!.on('messages_marked_read', (data) {
       _handleMessagesMarkedRead(data);
+    });
+
+    _socket!.on('message_seen', (data) {
+      _handleMessageSeen(data);
     });
 
     _socket!.on('user_joined', (data) {
@@ -432,91 +461,91 @@ class SocketChatService extends ChangeNotifier {
   }
 
   // NEW: Handle message seen event (for sender side)
-  // void _handleMessageSeen(dynamic data) {
-  //   try {
-  //     debugPrint('SocketChatService: 👁️ Processing message seen event...');
-  //     debugPrint('SocketChatService: Raw seen data: $data');
-  //     
-  //     Map<String, dynamic> seenData;
-  //     
-  //     if (data is String) {
-  //       seenData = jsonDecode(data);
-  //     } else if (data is Map<String, dynamic>) {
-  //       seenData = data;
-  //     } else {
-  //       debugPrint('SocketChatService: ❌ Invalid message seen data format');
-  //       return;
-  //     }
-  //     
-  //     final messageId = seenData['messageId'];
-  //     final readBy = seenData['seenBy'];
-  //     final readAt = seenData['seenAt'] != null 
-  //         ? DateTime.parse(seenData['seenAt']) 
-  //         : DateTime.now();
-  //     
-  //     debugPrint('SocketChatService: 👁️ Message $messageId seen by $readBy at $readAt');
-  //     debugPrint('SocketChatService: 🔍 Current messages count: ${_messages.length}');
-  //     
-  //     // Find and update the specific message
-  //     final messageIndex = _messages.indexWhere((msg) => msg.id == messageId);
-  //     debugPrint('SocketChatService: 🔍 Message found at index: $messageIndex');
-  //     
-  //     if (messageIndex != -1) {
-  //       final message = _messages[messageIndex];
-  //       debugPrint('SocketChatService: 🔍 Original message read status: ${message.isRead}');
-  //       debugPrint('SocketChatService: 🔍 Original readBy count: ${message.readBy.length}');
-  //       
-  //       final updatedReadBy = List<ReadByEntry>.from(message.readBy);
-  //       
-  //       // Add new read entry if not already present
-  //       if (!updatedReadBy.any((entry) => entry.userId == readBy)) {
-  //         updatedReadBy.add(ReadByEntry(
-  //           userId: readBy,
-  //           readAt: readAt,
-  //           id: DateTime.now().millisecondsSinceEpoch.toString(),
-  //         ));
-  //         
-  //         // Create updated message
-  //         final updatedMessage = ApiChatMessage(
-  //           id: message.id,
-  //           roomId: message.roomId,
-  //           senderId: message.senderId,
-  //           senderType: message.senderType,
-  //           content: message.content,
-  //           messageType: message.messageType,
-  //           readBy: updatedReadBy,
-  //           createdAt: message.createdAt,
-  //         );
-  //         
-  //         _messages[messageIndex] = updatedMessage;
-  //         
-  //         debugPrint('SocketChatService: 🔵 Updated message read status: ${updatedMessage.isRead}');
-  //         debugPrint('SocketChatService: 🔵 Updated readBy count: ${updatedMessage.readBy.length}');
-  //         
-  //         // NEW: Emit read status update through dedicated stream
-  //         if (!_readStatusStreamController.isClosed) {
-  //           final streamData = {
-  //             'type': 'message_seen',
-  //             'messageId': messageId,
-  //             'readBy': readBy,
-  //             'readAt': readAt.toIso8601String(),
-  //           };
-  //           _readStatusStreamController.add(streamData);
-  //           debugPrint('SocketChatService: 📡 Emitted message seen update to stream');
-  //         }
-  //         
-  //         notifyListeners();
-  //         debugPrint('SocketChatService: ✅ Message seen update completed');
-  //       } else {
-  //         debugPrint('SocketChatService: 🔄 User already in readBy list, skipping');
-  //       }
-  //     } else {
-  //       debugPrint('SocketChatService: ⚠️ Message not found for seen update: $messageId');
-  //     }
-  //   } catch (e) {
-  //     debugPrint('SocketChatService: ❌ Error handling message seen: $e');
-  //   }
-  // }
+  void _handleMessageSeen(dynamic data) {
+    try {
+      debugPrint('SocketChatService: 👁️ Processing message seen event...');
+      debugPrint('SocketChatService: Raw seen data: $data');
+      
+      Map<String, dynamic> seenData;
+      
+      if (data is String) {
+        seenData = jsonDecode(data);
+      } else if (data is Map<String, dynamic>) {
+        seenData = data;
+      } else {
+        debugPrint('SocketChatService: ❌ Invalid message seen data format');
+        return;
+      }
+      
+      final messageId = seenData['messageId'];
+      final readBy = seenData['seenBy'];
+      final readAt = seenData['seenAt'] != null 
+          ? DateTime.parse(seenData['seenAt']) 
+          : DateTime.now();
+      
+      debugPrint('SocketChatService: 👁️ Message $messageId seen by $readBy at $readAt');
+      debugPrint('SocketChatService: 🔍 Current messages count: ${_messages.length}');
+      
+      // Find and update the specific message
+      final messageIndex = _messages.indexWhere((msg) => msg.id == messageId);
+      debugPrint('SocketChatService: 🔍 Message found at index: $messageIndex');
+      
+      if (messageIndex != -1) {
+        final message = _messages[messageIndex];
+        debugPrint('SocketChatService: 🔍 Original message read status: ${message.isRead}');
+        debugPrint('SocketChatService: 🔍 Original readBy count: ${message.readBy.length}');
+        
+        final updatedReadBy = List<ReadByEntry>.from(message.readBy);
+        
+        // Add new read entry if not already present
+        if (!updatedReadBy.any((entry) => entry.userId == readBy)) {
+          updatedReadBy.add(ReadByEntry(
+            userId: readBy,
+            readAt: readAt,
+            id: DateTime.now().millisecondsSinceEpoch.toString(),
+          ));
+          
+          // Create updated message
+          final updatedMessage = ApiChatMessage(
+            id: message.id,
+            roomId: message.roomId,
+            senderId: message.senderId,
+            senderType: message.senderType,
+            content: message.content,
+            messageType: message.messageType,
+            readBy: updatedReadBy,
+            createdAt: message.createdAt,
+          );
+          
+          _messages[messageIndex] = updatedMessage;
+          
+          debugPrint('SocketChatService: 🔵 Updated message read status: ${updatedMessage.isRead}');
+          debugPrint('SocketChatService: 🔵 Updated readBy count: ${updatedMessage.readBy.length}');
+          
+          // NEW: Emit read status update through dedicated stream
+          if (!_readStatusStreamController.isClosed) {
+            final streamData = {
+              'type': 'message_seen',
+              'messageId': messageId,
+              'readBy': readBy,
+              'readAt': readAt.toIso8601String(),
+            };
+            _readStatusStreamController.add(streamData);
+            debugPrint('SocketChatService: 📡 Emitted message seen update to stream');
+          }
+          
+          notifyListeners();
+          debugPrint('SocketChatService: ✅ Message seen update completed');
+        } else {
+          debugPrint('SocketChatService: 🔄 User already in readBy list, skipping');
+        }
+      } else {
+        debugPrint('SocketChatService: ⚠️ Message not found for seen update: $messageId');
+      }
+    } catch (e) {
+      debugPrint('SocketChatService: ❌ Error handling message seen: $e');
+    }
+  }
 
   // NEW: Handle bulk messages marked read
   void _handleMessagesMarkedRead(dynamic data) {
@@ -663,6 +692,10 @@ class SocketChatService extends ChangeNotifier {
       
       _currentRoomId = roomId;
       
+      // Load initial chat history via REST API FIRST (immediately)
+      debugPrint('SocketChatService: 📚 Loading chat history immediately for room: $roomId');
+      await loadChatHistory(roomId);
+      
       // Connect socket if not connected
       if (!_isConnected) {
         await connect();
@@ -675,14 +708,11 @@ class SocketChatService extends ChangeNotifier {
         _socket!.emit('join_room', roomId);
       }
       
-      // Load initial chat history via REST API
-      await loadChatHistory(roomId);
-      
       // Mark messages as read when joining room via SOCKET
       markAsReadViaSocket(roomId);
       
     } catch (e) {
-      // Handle error silently to prevent continuous retry logs
+      debugPrint('SocketChatService: ❌ Error joining room: $e');
     }
   }
 
@@ -704,10 +734,11 @@ class SocketChatService extends ChangeNotifier {
       final userId = _currentUserId ?? await TokenService.getUserId();
       
       if (token == null || userId == null) {
+        debugPrint('SocketChatService: ❌ No token or user ID for sending message');
         return false;
       }
 
-      // PRIMARY: Send via REST API first for reliable message delivery
+      // PRIMARY: Send via REST API first for reliable message delivery and persistence
       final messageData = {
         'roomId': roomId,
         'senderId': userId,
@@ -716,7 +747,10 @@ class SocketChatService extends ChangeNotifier {
         'messageType': messageType,
       };
 
-      final url = Uri.parse('${baseUrl}chat/send-message');
+      debugPrint('SocketChatService: 📤 Sending message via API: "$content"');
+      debugPrint('SocketChatService: 📤 Request data: $messageData');
+
+      final url = Uri.parse('${baseUrl}/chat/message');
       final response = await http.post(
         url,
         headers: {
@@ -724,7 +758,10 @@ class SocketChatService extends ChangeNotifier {
           'Authorization': 'Bearer $token',
         },
         body: json.encode(messageData),
-      );
+      ).timeout(const Duration(seconds: 10));
+
+      debugPrint('SocketChatService: 📤 API response status: ${response.statusCode}');
+      debugPrint('SocketChatService: 📤 API response body: ${response.body}');
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         final responseBody = json.decode(response.body);
@@ -732,11 +769,20 @@ class SocketChatService extends ChangeNotifier {
         if (responseBody['status'] == 'SUCCESS' && responseBody['data'] != null) {
           final message = ApiChatMessage.fromJson(responseBody['data']);
           
-          // Add to local list
-          _messages.add(message);
+          // Add to local list if not already present
+          final existingIndex = _messages.indexWhere((msg) => msg.id == message.id);
+          if (existingIndex >= 0) {
+            _messages[existingIndex] = message;
+          } else {
+            _messages.add(message);
+          }
+          
           _messages.sort((a, b) => a.createdAt.compareTo(b.createdAt));
           
-          // SECONDARY: Send via socket for real-time notification
+          // Track sent message ID
+          _sentMessageIds.add(message.id);
+          
+          // SECONDARY: Send via socket for real-time notification (simultaneously)
           if (_socket != null && _isConnected) {
             final socketMessageData = {
               'roomId': roomId,
@@ -747,88 +793,72 @@ class SocketChatService extends ChangeNotifier {
             };
             
             _socket!.emit('send_message', socketMessageData);
+            debugPrint('SocketChatService: 📡 Message also sent via socket for real-time notification');
           }
           
           // Mark as read via socket
           markAsReadViaSocket(roomId);
           
           _debouncedNotify();
+          debugPrint('SocketChatService: ✅ Message sent successfully via API');
           return true;
+        } else {
+          debugPrint('SocketChatService: ❌ API response indicates failure: $responseBody');
         }
+      } else {
+        debugPrint('SocketChatService: ❌ API request failed: ${response.statusCode}');
+        debugPrint('SocketChatService: ❌ Response body: ${response.body}');
       }
       
       // Fallback to WebSocket if API fails
-      if (_socket != null && _isConnected && _currentUserId != null) {
-        try {
-          final socketMessageData = {
-            'roomId': roomId,
-            'senderId': _currentUserId!,
-            'senderType': 'partner',
-            'content': content,
-            'messageType': messageType,
-          };
-          
-          _socket!.emit('send_message', socketMessageData);
-          
-          // Add optimistic message
-          final optimisticMessage = ApiChatMessage(
-            id: DateTime.now().millisecondsSinceEpoch.toString(),
-            roomId: roomId,
-            senderId: _currentUserId!,
-            senderType: 'partner',
-            content: content,
-            messageType: messageType,
-            readBy: [],
-            createdAt: DateTime.now(),
-          );
-          
-          _messages.add(optimisticMessage);
-          _messages.sort((a, b) => a.createdAt.compareTo(b.createdAt));
-          
-          _debouncedNotify();
-          return true;
-        } catch (socketError) {
-          return false;
-        }
-      }
+      debugPrint('SocketChatService: 🔄 Falling back to WebSocket for message sending');
+      return await _sendMessageViaSocket(roomId, content, messageType);
       
-      return false;
     } catch (e) {
+      debugPrint('SocketChatService: ❌ Error sending message via API: $e');
       // Fallback to WebSocket if API exception occurs
-      if (_socket != null && _isConnected && _currentUserId != null) {
-        try {
-          final socketMessageData = {
-            'roomId': roomId,
-            'senderId': _currentUserId!,
-            'senderType': 'partner',
-            'content': content,
-            'messageType': messageType,
-          };
-          
-          _socket!.emit('send_message', socketMessageData);
-          
-          // Add optimistic message
-          final optimisticMessage = ApiChatMessage(
-            id: DateTime.now().millisecondsSinceEpoch.toString(),
-            roomId: roomId,
-            senderId: _currentUserId!,
-            senderType: 'partner',
-            content: content,
-            messageType: messageType,
-            readBy: [],
-            createdAt: DateTime.now(),
-          );
-          
-          _messages.add(optimisticMessage);
-          _messages.sort((a, b) => a.createdAt.compareTo(b.createdAt));
-          
-          _debouncedNotify();
-          return true;
-        } catch (socketError) {
-          return false;
-        }
+      return await _sendMessageViaSocket(roomId, content, messageType);
+    }
+  }
+
+  // Helper method for WebSocket fallback
+  Future<bool> _sendMessageViaSocket(String roomId, String content, String messageType) async {
+    if (_socket != null && _isConnected && _currentUserId != null) {
+      try {
+        final socketMessageData = {
+          'roomId': roomId,
+          'senderId': _currentUserId!,
+          'senderType': 'partner',
+          'content': content,
+          'messageType': messageType,
+        };
+        
+        _socket!.emit('send_message', socketMessageData);
+        
+        // Add optimistic message
+        final optimisticMessage = ApiChatMessage(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          roomId: roomId,
+          senderId: _currentUserId!,
+          senderType: 'partner',
+          content: content,
+          messageType: messageType,
+          readBy: [],
+          createdAt: DateTime.now(),
+        );
+        
+        _messages.add(optimisticMessage);
+        _messages.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+        
+        _debouncedNotify();
+        debugPrint('SocketChatService: ✅ Message sent via WebSocket fallback');
+        return true;
+      } catch (socketError) {
+        debugPrint('SocketChatService: ❌ WebSocket fallback also failed: $socketError');
+        return false;
       }
-      
+    } else {
+      debugPrint('SocketChatService: ❌ WebSocket not available for fallback');
       return false;
     }
   }
@@ -844,7 +874,8 @@ class SocketChatService extends ChangeNotifier {
         return;
       }
 
-      final url = Uri.parse('${baseUrl}chat/history/$roomId?limit=100');
+      // Use the correct API endpoint as per the user's specification
+      final url = Uri.parse('${baseUrl}/chat/history/$roomId');
       
       debugPrint('SocketChatService: 📚 Loading chat history from: $url');
 
@@ -867,7 +898,7 @@ class SocketChatService extends ChangeNotifier {
           
           List<dynamic> historyData;
           
-          // Handle different response formats
+          // Handle different response formats - the API returns a direct array
           if (responseData is List) {
             historyData = responseData;
           } else if (responseData is Map<String, dynamic>) {
@@ -1040,7 +1071,7 @@ class SocketChatService extends ChangeNotifier {
         return false;
       }
 
-      final url = Uri.parse('${baseUrl}chat/read');
+      final url = Uri.parse('${baseUrl}/chat/read');
       
       final requestBody = {
         'roomId': roomId,
@@ -1137,14 +1168,58 @@ class SocketChatService extends ChangeNotifier {
     return {
       'isConnected': _isConnected,
       'currentRoomId': _currentRoomId,
-      'currentUserId': _currentUserId,
-      'reconnectAttempts': _reconnectAttempts,
       'messageCount': _messages.length,
       'sentMessageIds': _sentMessageIds.length,
       'socketConnected': _socket?.connected ?? false,
       'socketId': _socket?.id,
       'socketExists': _socket != null,
     };
+  }
+
+  // Get chat room by orderId to extract user information
+  Future<ChatRoom?> getChatRoomByOrderId(String orderId) async {
+    try {
+      final token = await TokenService.getToken();
+      final userId = await TokenService.getUserId();
+      
+      if (token == null || userId == null) {
+        debugPrint('ChatService: ❌ No token or userId found');
+        return null;
+      }
+
+      final url = Uri.parse('${ApiConstants.baseUrl}/chat/rooms/?userId=$userId&userType=partner');
+      
+      final response = await http.get(
+        url,
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+        final chatRooms = data.map((json) => ChatRoom.fromJson(json)).toList();
+        
+        // Find the chat room with matching orderId
+        ChatRoom? matchingRoom;
+        try {
+          matchingRoom = chatRooms.firstWhere(
+            (room) => room.orderId == orderId,
+          );
+        } catch (e) {
+          matchingRoom = null;
+        }
+        
+        return matchingRoom;
+      } else {
+        debugPrint('ChatService: ❌ Failed to get chat rooms: ${response.statusCode}');
+        return null;
+      }
+    } catch (e) {
+      debugPrint('ChatService: ❌ Error getting chat room by orderId: $e');
+      return null;
+    }
   }
 
   // NEW: Connection health check

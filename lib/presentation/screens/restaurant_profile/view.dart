@@ -1,9 +1,30 @@
 import 'dart:io';
-import 'package:bird_restaurant/constants/api_constants.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:geocoding/geocoding.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:flutter_image_compress/flutter_image_compress.dart';
+import 'dart:typed_data';
+import 'dart:convert';
+import 'dart:math' as math;
 
+import '../../../services/api_service.dart';
 import '../../../services/token_service.dart';
+import '../../../constants/enums.dart';
+import '../../resources/colors.dart';
+import '../../resources/font.dart';
+import '../../resources/router/router.dart';
+import '../../../ui_components/image_cropper_widget.dart';
+import 'bloc.dart';
+import 'event.dart';
+import 'state.dart';
+import '../../../services/restaurant_info_service.dart';
+import '../../../constants/api_constants.dart';
 import '../../../ui_components/custom_button_locatin.dart';
 import '../../../ui_components/custom_textField.dart';
 import '../../../ui_components/operations_card.dart';
@@ -20,7 +41,6 @@ import 'state.dart';
 import '../../../services/restaurant_info_service.dart';
 import '../../../constants/enums.dart';
 import '../../../ui_components/cuisine_card.dart';
-import '../../../models/food_type_model.dart';
 
 class RestaurantProfileView extends StatelessWidget {
   const RestaurantProfileView({Key? key}) : super(key: key);
@@ -315,7 +335,7 @@ class _BodyState extends State<_Body> {
                               right: 12,
                               top: 12,
                               child: InkWell(
-                                onTap: () => bloc.add(SelectImagePressed()),
+                                onTap: () => _showImagePicker(context, bloc),
                                 child: Container(
                                   decoration: const BoxDecoration(
                                     shape: BoxShape.circle,
@@ -551,77 +571,7 @@ class _BodyState extends State<_Body> {
                         ),
                         SizedBox(height: vert * 1.2),
 
-                        // Food Type Dropdown - NEW SECTION
-                        SizedBox(height: vert * 1.2),
-                        _sectionHeader('Food Type', Icons.dining_outlined),
-                        SizedBox(height: vert * 0.5),
-                        BlocBuilder<RestaurantProfileBloc, RestaurantProfileState>(
-                          buildWhen: (previous, current) =>
-                            previous.foodTypes != current.foodTypes ||
-                            previous.selectedFoodType != current.selectedFoodType ||
-                            previous.isLoadingFoodTypes != current.isLoadingFoodTypes,
-                          builder: (context, state) {
-                            if (state.isLoadingFoodTypes) {
-                              return Container(
-                                height: 48,
-                                alignment: Alignment.center,
-                                child: SizedBox(
-                                  width: 24,
-                                  height: 24,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: ColorManager.primary,
-                                  ),
-                                ),
-                              );
-                            }
-                            return Container(
-                              padding: EdgeInsets.symmetric(horizontal: 16),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(
-                                  color: Colors.grey.shade300,
-                                ),
-                              ),
-                              child: DropdownButtonHideUnderline(
-                                child: DropdownButton<FoodTypeModel>(
-                                  isExpanded: true,
-                                  value: state.selectedFoodType,
-                                  hint: Text(
-                                    'Select food type',
-                                    style: TextStyle(
-                                      color: Colors.grey.shade600,
-                                      fontSize: FontSize.s14,
-                                    ),
-                                  ),
-                                  items: state.foodTypes.map<DropdownMenuItem<FoodTypeModel>>(
-                                    (FoodTypeModel type) {
-                                      return DropdownMenuItem<FoodTypeModel>(
-                                        value: type,
-                                        child: Text(
-                                          type.name,
-                                          style: TextStyle(
-                                            fontSize: FontSize.s14,
-                                            color: ColorManager.black,
-                                          ),
-                                        ),
-                                      );
-                                    }
-                                  ).toList(),
-                                  onChanged: (FoodTypeModel? selectedType) {
-                                    if (selectedType != null) {
-                                      context.read<RestaurantProfileBloc>().add(
-                                        FoodTypeChanged(selectedType),
-                                      );
-                                    }
-                                  },
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                        SizedBox(height: vert * 1.2),
+
 
                         _sectionHeader('Cuisine Types', Icons.fastfood),
                         SizedBox(height: vert * 0.5),
@@ -871,5 +821,31 @@ class _BodyState extends State<_Body> {
   void _openSidebar() {
     // Use the scaffold's built-in drawer instead of pushing a new route
     _scaffoldKey.currentState?.openDrawer();
+  }
+
+  void _showImagePicker(BuildContext context, RestaurantProfileBloc bloc) async {
+    final ImagePicker picker = ImagePicker();
+    final XFile? image = await picker.pickImage(source: ImageSource.gallery);
+    
+    if (image != null) {
+      // Navigate to crop screen
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => ImageCropperWidget(
+            imagePath: image.path,
+            aspectRatio: 16.0 / 9.0, // Restaurant images typically use 16:9 aspect ratio
+            onCropComplete: (File croppedFile) {
+              // Update the state with the cropped image path
+              bloc.add(ImageCropped(croppedFile.path));
+              Navigator.pop(context);
+            },
+            onCancel: () {
+              Navigator.pop(context);
+            },
+          ),
+        ),
+      );
+    }
   }
 }

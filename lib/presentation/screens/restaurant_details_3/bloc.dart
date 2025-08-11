@@ -100,26 +100,24 @@ class RestaurantDocumentsBloc
     Emitter<RestaurantDocumentsState> emit,
   ) async {
     try {
-      final List<XFile> images = await _imagePicker.pickMultiImage(
+      final XFile? image = await _imagePicker.pickImage(
+        source: ImageSource.gallery,
         imageQuality: 80,
       );
       
-      if (images.isNotEmpty) {
-        List<File> photoFiles = [];
-        for (var image in images) {
-          File file = File(image.path);
-          file = await _compressImageIfNeeded(file);
-          
-          final fileSize = await file.length();
-          if (fileSize <= maxFileSize) {
-            photoFiles.add(file);
-          } else {
-            debugPrint('Image too large after compression: ${image.path}');
-          }
-        }
+      if (image != null) {
+        // For restaurant photos, we'll use the original image
+        // The cropping will be handled by the UI if needed
+        File file = File(image.path);
+        file = await _compressImageIfNeeded(file);
         
-        final updatedPhotos = List<File>.from(state.restaurantPhotos)..addAll(photoFiles);
-        emit(state.copyWith(restaurantPhotos: updatedPhotos));
+        final fileSize = await file.length();
+        if (fileSize <= maxFileSize) {
+          final updatedPhotos = List<File>.from(state.restaurantPhotos)..add(file);
+          emit(state.copyWith(restaurantPhotos: updatedPhotos));
+        } else {
+          debugPrint('Image too large after compression: ${image.path}');
+        }
       }
     } catch (e) {
       debugPrint('Error picking photos: $e');
@@ -243,8 +241,7 @@ class RestaurantDocumentsBloc
     // Get restaurant type text (name) from SharedPreferences
     final restaurantType = prefs.getString('restaurant_type_name');
     
-    // Get food type ID from SharedPreferences
-    final restaurantFoodType = prefs.getString('restaurant_food_type_id');
+
     
     // Get supercategory ID from SharedPreferences
     final supercategoryId = prefs.getString('selected_supercategory_id');
@@ -258,7 +255,7 @@ class RestaurantDocumentsBloc
     debugPrint('Category: $category');
     debugPrint('Operational Hours: $operationalHours');
     debugPrint('Restaurant Type: $restaurantType');
-    debugPrint('Restaurant Food Type ID: $restaurantFoodType');
+
     debugPrint('Supercategory ID: $supercategoryId');
 
     await TokenService.saveUserId(userId);
@@ -295,7 +292,6 @@ class RestaurantDocumentsBloc
       vegNonveg: prefs.getString('veg-nonveg') ?? 'veg',
       cookingTime: prefs.getString('cooking_time') ?? '30',
       restaurantType: restaurantType, // Pass the restaurant type text (not ID)
-      restaurantFoodType: restaurantFoodType, // Pass the food type ID
       supercategory: supercategoryId, // Pass the supercategory ID
       fssaiLicense: fssaiLicense,
       gstCertificate: gstCertificate,

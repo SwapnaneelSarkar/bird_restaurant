@@ -3,9 +3,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'dart:io';
+import 'package:image_picker/image_picker.dart';
 
 import '../../../ui_components/custom_button_slim.dart';
 import '../../../ui_components/legal_card.dart';
+import '../../../ui_components/image_cropper_widget.dart';
 import '../../../../ui_components/proggress_bar.dart';
 import '../../resources/colors.dart';
 import '../../resources/font.dart';
@@ -391,7 +393,7 @@ class _Body extends StatelessWidget {
                     fileName: state.restaurantPhotos.isNotEmpty
                         ? '${state.restaurantPhotos.length} photos selected'
                         : null,
-                    onTap: () => bloc.add(const UploadPhotosEvent()),
+                    onTap: () => _showImagePicker(context, bloc),
                     onRemove: state.restaurantPhotos.isNotEmpty
                         ? () => bloc.add(RemovePhotoEvent(state.restaurantPhotos.length - 1))
                         : null,
@@ -484,5 +486,31 @@ class _Body extends StatelessWidget {
         },
       ),
     );
+  }
+
+  void _showImagePicker(BuildContext context, RestaurantDocumentsBloc bloc) async {
+    final ImagePicker picker = ImagePicker();
+    final XFile? image = await picker.pickImage(source: ImageSource.gallery);
+    
+    if (image != null) {
+      // Navigate to crop screen
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => ImageCropperWidget(
+            imagePath: image.path,
+            aspectRatio: 16.0 / 9.0, // Restaurant photos typically use 16:9 aspect ratio
+            onCropComplete: (File croppedFile) {
+              // Add the cropped image to the photos list
+              bloc.add(UploadPhotosEvent());
+              Navigator.pop(context);
+            },
+            onCancel: () {
+              Navigator.pop(context);
+            },
+          ),
+        ),
+      );
+    }
   }
 }

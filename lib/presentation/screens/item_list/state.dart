@@ -23,6 +23,8 @@ class MenuItemsLoaded extends MenuItemsState {
   final bool isFiltered;
   final FilterType? filterType;
   final String? searchQuery;
+  final bool showVegOnly;
+  final bool showNonVegOnly;
 
   const MenuItemsLoaded({
     required this.menuItems,
@@ -30,6 +32,8 @@ class MenuItemsLoaded extends MenuItemsState {
     this.isFiltered = false,
     this.filterType,
     this.searchQuery,
+    this.showVegOnly = false,
+    this.showNonVegOnly = false,
   });
 
   @override
@@ -39,6 +43,8 @@ class MenuItemsLoaded extends MenuItemsState {
         isFiltered,
         filterType,
         searchQuery,
+        showVegOnly,
+        showNonVegOnly,
       ];
 }
 

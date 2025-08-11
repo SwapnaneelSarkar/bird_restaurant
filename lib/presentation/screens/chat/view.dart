@@ -3,6 +3,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../ui_components/universal_widget/order_widgets.dart';
 import '../../../ui_components/universal_widget/topbar.dart';
 import '../../resources/colors.dart';
@@ -43,9 +44,10 @@ class _ChatViewState extends State<ChatView> with WidgetsBindingObserver {
     // Add observer to listen to app lifecycle changes
     WidgetsBinding.instance.addObserver(this);
     
-    // Load chat data when the widget initializes
+    // Load chat data when the widget initializes (immediately)
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
+        debugPrint('ChatView: 🚀 Loading chat data immediately for order: ${widget.orderId}');
         context.read<ChatBloc>().add(LoadChatData(widget.orderId));
         
         // Mark messages as read after a short delay to ensure chat is loaded
@@ -567,9 +569,72 @@ class _ChatViewState extends State<ChatView> with WidgetsBindingObserver {
       ),
       child: Row(
         children: [
-          const Expanded(
-            child: AppBackHeader(title: 'Chat'),
+          // Back button and title
+          Expanded(
+            child: Row(
+              children: [
+                GestureDetector(
+                  onTap: () => _handleBackNavigation(context),
+                  child: Icon(
+                    Icons.chevron_left,
+                    size: 28,
+                    color: ColorManager.black,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'Chat',
+                        style: TextStyle(
+                          fontSize: FontSize.s20,
+                          fontWeight: FontWeightManager.bold,
+                          color: ColorManager.black,
+                        ),
+                      ),
+                      // Customer details
+                      if (state.userDetails != null) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          state.userDetails!.username,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey.shade600,
+                            fontWeight: FontWeightManager.medium,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
+          
+          // Call button
+          if (state.userDetails?.mobile != null) ...[
+            GestureDetector(
+              onTap: () => _makePhoneCall(state.userDetails!.mobile),
+              child: Container(
+                margin: const EdgeInsets.only(right: 8),
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: ColorManager.primary.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  Icons.phone,
+                  color: ColorManager.primary,
+                  size: 20,
+                ),
+              ),
+            ),
+          ],
+          
           // Show Live/Inactive based on isOrderActive
           Container(
             margin: const EdgeInsets.only(right: 8),
@@ -714,6 +779,49 @@ class _ChatViewState extends State<ChatView> with WidgetsBindingObserver {
           backgroundColor: Colors.red,
         ),
       );
+    }
+  }
+
+  void _handleBackNavigation(BuildContext context) {
+    // Check if there's a previous route in the navigation stack
+    if (Navigator.of(context).canPop()) {
+      // If there's a previous route, pop normally
+      Navigator.of(context).pop();
+    } else {
+      // If there's no previous route (e.g., navigated from notification), go to home
+      Navigator.of(context).pushNamedAndRemoveUntil(
+        '/home', // You might need to adjust this route name
+        (route) => false,
+      );
+    }
+  }
+
+  Future<void> _makePhoneCall(String phoneNumber) async {
+    final Uri phoneUri = Uri(scheme: 'tel', path: phoneNumber);
+    
+    try {
+      if (await canLaunchUrl(phoneUri)) {
+        await launchUrl(phoneUri);
+      } else {
+        // Fallback: show a snackbar with the phone number
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Cannot make call. Phone number: $phoneNumber'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error making call: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
@@ -1105,7 +1213,7 @@ class _ChatViewState extends State<ChatView> with WidgetsBindingObserver {
                 Padding(
                   padding: const EdgeInsets.only(left: 8),
                   child: Text(
-                    'Now',
+                    orderDetails.formattedOrderTime,
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeightManager.regular,

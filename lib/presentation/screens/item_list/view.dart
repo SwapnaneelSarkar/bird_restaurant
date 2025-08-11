@@ -249,6 +249,122 @@ class _EditMenuViewState extends State<EditMenuView> {
             ],
           ),
         ),
+        // Veg/NonVeg Filter Toggles
+        Container(
+          height: 60,
+          color: Colors.white,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: BlocBuilder<MenuItemsBloc, MenuItemsState>(
+            builder: (context, state) {
+              final showVegOnly = state is MenuItemsLoaded ? state.showVegOnly : false;
+              final showNonVegOnly = state is MenuItemsLoaded ? state.showNonVegOnly : false;
+              
+              return Row(
+                children: [
+                  // Veg Toggle
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () {
+                        _menuItemsBloc.add(ToggleVegFilterEvent(
+                          showVegOnly: !showVegOnly,
+                          showNonVegOnly: showNonVegOnly,
+                        ));
+                      },
+                      child: Container(
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: showVegOnly ? Colors.green.withValues(alpha: 0.1) : Colors.grey[100],
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: showVegOnly ? Colors.green : Colors.grey[300]!,
+                            width: showVegOnly ? 2 : 1,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Container(
+                              width: 16,
+                              height: 16,
+                              decoration: BoxDecoration(
+                                color: Colors.green,
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(
+                                Icons.circle,
+                                color: Colors.white,
+                                size: 10,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Veg',
+                              style: TextStyle(
+                                color: showVegOnly ? Colors.green : Colors.black54,
+                                fontWeight: showVegOnly ? FontWeight.w600 : FontWeight.w500,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  // NonVeg Toggle
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () {
+                        _menuItemsBloc.add(ToggleVegFilterEvent(
+                          showVegOnly: showVegOnly,
+                          showNonVegOnly: !showNonVegOnly,
+                        ));
+                      },
+                      child: Container(
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: showNonVegOnly ? Colors.red.withValues(alpha: 0.1) : Colors.grey[100],
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: showNonVegOnly ? Colors.red : Colors.grey[300]!,
+                            width: showNonVegOnly ? 2 : 1,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Container(
+                              width: 16,
+                              height: 16,
+                              decoration: BoxDecoration(
+                                color: Colors.red,
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(
+                                Icons.stop,
+                                color: Colors.white,
+                                size: 10,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Non-Veg',
+                              style: TextStyle(
+                                color: showNonVegOnly ? Colors.red : Colors.black54,
+                                fontWeight: showNonVegOnly ? FontWeight.w600 : FontWeight.w500,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+        ),
       ],
     );
   }

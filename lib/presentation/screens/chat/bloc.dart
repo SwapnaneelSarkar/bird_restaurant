@@ -6,6 +6,7 @@ import '../../../services/chat_services.dart';
 import '../../../services/menu_item_service.dart';
 import '../../../services/token_service.dart';
 import '../../../services/order_service.dart';
+import '../../../services/user_service.dart';
 import '../../../utils/time_utils.dart';
 import 'event.dart';
 import 'state.dart';
@@ -41,6 +42,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     on<RefreshChat>(_onRefreshChat);
     on<ShowOrderOptions>(_onShowOrderOptions);
     on<LoadOrderDetails>(_onLoadOrderDetails);
+    on<LoadUserDetails>(_onLoadUserDetails);
     on<ChangeOrderStatus>(_onChangeOrderStatus);
     on<UpdateOrderStatus>(_onUpdateOrderStatus);
     on<ForceRefreshMenuItems>(_onForceRefreshMenuItems);
@@ -330,20 +332,22 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       await _chatService.connect();
       await _chatService.joinRoom(_currentRoomId!);
       
-      // FETCH REAL ORDER STATUS FROM API
+      // FETCH ORDER DETAILS ONCE AND USE FOR BOTH STATUS AND FULL DETAILS
+      OrderDetails? orderDetails;
       String actualOrderStatus = 'Preparing'; // Default fallback
-      try {
-        if (_currentPartnerId != null) {
-          final orderDetails = await OrderService.getOrderDetails(
+      
+      if (_currentPartnerId != null) {
+        try {
+          orderDetails = await OrderService.getOrderDetails(
             partnerId: _currentPartnerId!,
             orderId: _fullOrderId!,
           );
           if (orderDetails != null) {
             actualOrderStatus = OrderService.formatOrderStatus(orderDetails.orderStatus);
           }
+        } catch (e) {
+          // Use default status if order details fetch fails
         }
-      } catch (e) {
-        // Use default status if order details fetch fails
       }
       
       // Create order info with REAL status and FORMATTED display ID (for UI only)
@@ -368,13 +372,13 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
         );
       }).toList();
 
-      // Create the initial state
+      // Create the initial state with order details if available
       final initialState = ChatLoaded(
         orderInfo: orderInfo,
         messages: messages,
         isConnected: _chatService.isConnected,
         menuItems: const {},
-        orderDetails: null,
+        orderDetails: orderDetails, // Include order details if fetched
         isLoadingOrderDetails: false,
         isSendingMessage: false,
         isRefreshing: false,
@@ -385,27 +389,18 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       
       emit(initialState);
       
-      // OPTIMIZATION: Load order details immediately after initial state
-      if (_currentPartnerId != null) {
-        try {
-          final orderDetails = await OrderService.getOrderDetails(
-            partnerId: _currentPartnerId!,
-            orderId: _fullOrderId!,
-          );
-          
-          if (orderDetails != null && state is ChatLoaded) {
-            final currentState = state as ChatLoaded;
-            emit(currentState.copyWith(
-              orderDetails: orderDetails,
-              isLoadingOrderDetails: false,
-            ));
-            
-            // Load menu items in parallel for better performance
-            _loadMenuItemsForOrder(orderDetails, emit);
-          }
-        } catch (e) {
-          // Don't fail the entire chat load if order details fail
+      // Load additional data if order details are available
+      if (orderDetails != null) {
+        // Load menu items in parallel for better performance
+        _loadMenuItemsForOrder(orderDetails, emit);
+        
+        // Load user details if we have a userId
+        if (orderDetails.userId.isNotEmpty) {
+          add(LoadUserDetails(orderDetails.userId));
         }
+      } else {
+        // Fallback: Try to get user details from chat room if order details failed
+        _loadUserDetailsFromChatRoom(event.orderId, emit);
       }
       
       // Small delay to prevent immediate update cycle
@@ -456,6 +451,11 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
         
         // Load menu items with better error handling
         await _loadMenuItemsForOrder(orderDetails!, emit);
+        
+        // Load user details if we have a userId
+        if (orderDetails.userId.isNotEmpty) {
+          add(LoadUserDetails(orderDetails.userId));
+        }
       } else {
         // For standalone order details loading
         emit(OrderDetailsLoaded(orderDetails!));
@@ -473,6 +473,87 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       }
       
       emit(const ChatError('Failed to load order details. Please try again.'));
+    }
+  }
+
+  // Load user details from chat room as fallback
+  Future<void> _loadUserDetailsFromChatRoom(String orderId, Emitter<ChatState> emit) async {
+    try {
+      debugPrint('ChatBloc: 🔄 Loading user details from chat room for orderId: $orderId');
+      
+      final chatRoom = await _chatService.getChatRoomByOrderId(orderId);
+      
+      if (chatRoom != null && chatRoom.userParticipant != null) {
+        final userParticipant = chatRoom.userParticipant!;
+        
+        // Create UserDetails from chat room participant
+        final userDetails = UserDetails(
+          userId: userParticipant.userId,
+          username: userParticipant.name,
+          email: '', // Not available in chat room
+          mobile: '', // Not available in chat room
+          image: userParticipant.profilePicture.isNotEmpty ? userParticipant.profilePicture : null,
+        );
+        
+        debugPrint('ChatBloc: ✅ User details loaded from chat room');
+        debugPrint('ChatBloc: 👤 User: ${userDetails.username} (ID: ${userDetails.userId})');
+        
+        if (state is ChatLoaded) {
+          final currentState = state as ChatLoaded;
+          emit(currentState.copyWith(
+            userDetails: userDetails,
+            isLoadingUserDetails: false,
+          ));
+        }
+      } else {
+        debugPrint('ChatBloc: ⚠️ No user participant found in chat room');
+      }
+    } catch (e) {
+      debugPrint('ChatBloc: ❌ Error loading user details from chat room: $e');
+    }
+  }
+
+  // Load user details by userId
+  Future<void> _onLoadUserDetails(LoadUserDetails event, Emitter<ChatState> emit) async {
+    try {
+      debugPrint('ChatBloc: 👤 Loading user details for userId: ${event.userId}');
+      
+      if (state is ChatLoaded) {
+        final currentState = state as ChatLoaded;
+        emit(currentState.copyWith(isLoadingUserDetails: true));
+      }
+
+      final result = await UserService.getUserDetails(event.userId);
+
+      if (result['success'] == true) {
+        final userData = result['data'] as Map<String, dynamic>;
+        final userDetails = UserDetails.fromJson(userData);
+        
+        debugPrint('ChatBloc: ✅ User details loaded successfully');
+        debugPrint('ChatBloc: 👤 User: ${userDetails.username} (${userDetails.mobile})');
+        
+        if (state is ChatLoaded) {
+          final currentState = state as ChatLoaded;
+          emit(currentState.copyWith(
+            userDetails: userDetails,
+            isLoadingUserDetails: false,
+          ));
+        }
+      } else {
+        debugPrint('ChatBloc: ❌ Failed to load user details: ${result['message']}');
+        
+        if (state is ChatLoaded) {
+          final currentState = state as ChatLoaded;
+          emit(currentState.copyWith(isLoadingUserDetails: false));
+        }
+      }
+    } catch (e) {
+      debugPrint('ChatBloc: ❌ Error loading user details: $e');
+      
+      if (state is ChatLoaded) {
+        final currentState = state as ChatLoaded;
+        emit(currentState.copyWith(isLoadingUserDetails: false));
+      }
     }
   }
 

@@ -3,10 +3,10 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:maps_launcher/maps_launcher.dart';
 import '../../../../services/delivery_partner_services/delivery_partner_orders_service.dart';
-import '../../../../services/location_services.dart';
 import '../../../resources/colors.dart';
 import '../../../resources/font.dart';
 import 'package:intl/intl.dart';
+import '../../../../utils/time_utils.dart';
 
 class DeliveryPartnerOrderDetailsView extends StatefulWidget {
   const DeliveryPartnerOrderDetailsView({Key? key}) : super(key: key);
@@ -18,7 +18,6 @@ class DeliveryPartnerOrderDetailsView extends StatefulWidget {
 class _DeliveryPartnerOrderDetailsViewState extends State<DeliveryPartnerOrderDetailsView> {
   String? orderId;
   Future<Map<String, dynamic>?>? _orderFuture;
-  Future<Map<String, dynamic>?>? _userFuture;
   Future<Map<String, dynamic>?>? _restaurantFuture;
 
   // Add a local flag to track if the order is delivered
@@ -41,27 +40,12 @@ class _DeliveryPartnerOrderDetailsViewState extends State<DeliveryPartnerOrderDe
     print('OrderDetailsView: fetchOrderDetailsById result: $result');
     if (result['success'] == true) {
       final data = result['data'];
-      // Fetch user details if user_id is available
-      if (data['user_id'] != null && data['user_id'].toString().isNotEmpty) {
-        print('OrderDetailsView: Fetching user details for user_id: ${data['user_id']}');
-        _userFuture = _fetchUser(data['user_id']);
-      }
       // Fetch restaurant details if partner_id is available
       if (data['partner_id'] != null && data['partner_id'].toString().isNotEmpty) {
         print('OrderDetailsView: Fetching restaurant details for partner_id: ${data['partner_id']}');
         _restaurantFuture = _fetchRestaurant(data['partner_id']);
       }
       return data;
-    }
-    return null;
-  }
-
-  Future<Map<String, dynamic>?> _fetchUser(String userId) async {
-    print('OrderDetailsView: _fetchUser called for userId: $userId');
-    final result = await DeliveryPartnerOrdersService.fetchUserDetails(userId);
-    print('OrderDetailsView: fetchUserDetails result for userId $userId: $result');
-    if (result['success'] == true || result['status'] == true) {
-      return result['data'];
     }
     return null;
   }
@@ -77,8 +61,8 @@ class _DeliveryPartnerOrderDetailsViewState extends State<DeliveryPartnerOrderDe
   String _formatDate(String? dateString) {
     if (dateString == null) return '-';
     try {
-      final date = DateTime.parse(dateString);
-      return DateFormat('MMM dd, yyyy - HH:mm').format(date);
+      final dateIst = TimeUtils.parseToIST(dateString);
+      return DateFormat('MMM dd, yyyy - HH:mm').format(dateIst);
     } catch (e) {
       return dateString;
     }

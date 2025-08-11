@@ -1,7 +1,7 @@
 // lib/presentation/resources/router/router.dart - FIXED VERSION
 
 import 'package:bird_restaurant/presentation/partner_selection/view.dart';
-import 'package:bird_restaurant/presentation/screens/delivery_partner_pages/auth_success/view.dart';
+
 import 'package:bird_restaurant/presentation/screens/delivery_partner_pages/otp/view.dart';
 import 'package:bird_restaurant/presentation/screens/delivery_partner_pages/signin/view.dart';
 import 'package:bird_restaurant/presentation/screens/add_product/view.dart';
@@ -20,6 +20,10 @@ import 'package:bird_restaurant/presentation/screens/contact_us/view.dart';
 import 'package:bird_restaurant/presentation/screens/delivery_partner_pages/dashboard/view.dart';
 import 'package:bird_restaurant/presentation/screens/delivery_partner_pages/profile/view.dart';
 import 'package:bird_restaurant/presentation/screens/delivery_partner_pages/order_details/view.dart';
+import 'package:bird_restaurant/presentation/screens/delivery_partner_pages/chat/view.dart';
+import 'package:bird_restaurant/presentation/screens/delivery_partner_pages/chat/bloc.dart';
+import 'package:bird_restaurant/services/delivery_partner_chat_service.dart';
+import 'package:bird_restaurant/test/delivery_partner_chat_test.dart';
 import 'package:bird_restaurant/presentation/screens/delivery_partners/view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -36,6 +40,9 @@ import '../../screens/splashScreen/view.dart';
 import 'package:bird_restaurant/presentation/screens/delivery_partners/bloc.dart';
 import 'package:bird_restaurant/services/delivery_partners_service.dart';
 import 'package:bird_restaurant/presentation/screens/delivery_partner_pages/profile/edit/view.dart';
+import 'package:bird_restaurant/presentation/screens/order_action/view.dart';
+import 'package:bird_restaurant/presentation/screens/order_action_result/view.dart';
+import 'package:bird_restaurant/test/notification_debug_widget.dart';
 
 class Routes {
   static const String splash = '/';
@@ -59,6 +66,9 @@ class Routes {
   static const String terms = '/terms';
   static const String contact = '/contact';
   static const String deliveryPartners = '/deliveryPartners';
+  static const String orderAction = '/orderAction';
+  static const String orderActionResult = '/orderActionResult';
+  static const String notificationDebug = '/notificationDebug';
 
   static const String partnerSelection = '/partnerSelection';
 
@@ -68,6 +78,8 @@ class Routes {
   static const String deliveryPartnerDashboard = '/deliveryPartnerDashboard';
   static const String deliveryPartnerProfile = '/deliveryPartnerProfile';
   static const String deliveryPartnerOrderDetails = '/deliveryPartnerOrderDetails';
+  static const String deliveryPartnerChat = '/deliveryPartnerChat';
+  static const String deliveryPartnerChatTest = '/deliveryPartnerChatTest';
   static const String deliveryPartnerProfileEdit = '/deliveryPartnerProfileEdit';
 
   static const String blank = '/blank';
@@ -218,9 +230,38 @@ class RouteGenerator {
           return MaterialPageRoute(builder: (_) => const DeliveryPartnerProfileView());
 
         case Routes.deliveryPartnerOrderDetails:
-          final String? orderId = routeSettings.arguments as String?;
           return MaterialPageRoute(
             builder: (_) => DeliveryPartnerOrderDetailsView(),
+            settings: routeSettings,
+          );
+
+        case Routes.deliveryPartnerChat:
+          final dynamic args = routeSettings.arguments;
+          String orderId = '';
+          VoidCallback? onOrderDelivered;
+          
+          if (args is String) {
+            orderId = args;
+          } else if (args is Map<String, dynamic>) {
+            orderId = args['orderId'] ?? '';
+            onOrderDelivered = args['onOrderDelivered'];
+          }
+          
+          return MaterialPageRoute(
+            builder: (_) => BlocProvider<DeliveryPartnerChatBloc>(
+              create: (context) => DeliveryPartnerChatBloc(chatService: DeliveryPartnerChatService()),
+              child: DeliveryPartnerChatView(
+                orderId: orderId,
+                isOrderActive: true,
+                onOrderDelivered: onOrderDelivered,
+              ),
+            ),
+            settings: routeSettings,
+          );
+
+        case Routes.deliveryPartnerChatTest:
+          return MaterialPageRoute(
+            builder: (_) => DeliveryPartnerChatTest(),
             settings: routeSettings,
           );
 
@@ -239,6 +280,33 @@ class RouteGenerator {
               ),
               child: const DeliveryPartnersView(),
             ),
+            settings: routeSettings,
+          );
+
+        case Routes.orderAction:
+          final String? orderId = routeSettings.arguments as String?;
+          return MaterialPageRoute(
+            builder: (_) => OrderActionView(orderId: orderId ?? ''),
+            settings: routeSettings,
+          );
+
+        case Routes.orderActionResult:
+          final Map<String, dynamic>? args = routeSettings.arguments as Map<String, dynamic>?;
+          final String orderId = args?['orderId'] as String? ?? '';
+          final String action = args?['action'] as String? ?? '';
+          final bool isSuccess = args?['isSuccess'] as bool? ?? false;
+          return MaterialPageRoute(
+            builder: (_) => OrderActionResultView(
+              orderId: orderId,
+              action: action,
+              isSuccess: isSuccess,
+            ),
+            settings: routeSettings,
+          );
+
+        case Routes.notificationDebug:
+          return MaterialPageRoute(
+            builder: (_) => const NotificationDebugWidget(),
             settings: routeSettings,
           );
 

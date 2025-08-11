@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import '../models/restaurant_menu_model.dart';
 import '../services/currency_service.dart';
+import 'confirmation_dialog.dart';
 
 class MenuItemCard extends StatelessWidget {
   final MenuItem menuItem;
@@ -26,7 +27,7 @@ class MenuItemCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -64,13 +65,33 @@ class MenuItemCard extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        menuItem.name,
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.black,
-                        ),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              menuItem.name,
+                              style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.black,
+                              ),
+                            ),
+                          ),
+                          // Veg/Non-Veg Icon
+                          Container(
+                            width: 20,
+                            height: 20,
+                            decoration: BoxDecoration(
+                              color: menuItem.isVeg ? Colors.green : Colors.red,
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              menuItem.isVeg ? Icons.circle : Icons.stop,
+                              color: Colors.white,
+                              size: 12,
+                            ),
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 4),
                       FutureBuilder<String>(
@@ -105,7 +126,17 @@ class MenuItemCard extends StatelessWidget {
                 // Availability Switch
                 Switch(
                   value: menuItem.available,
-                  onChanged: onToggleAvailability,
+                  onChanged: (bool value) {
+                    // Show confirmation dialog before toggling
+                    ConfirmationDialog.showAvailabilityToggle(
+                      context: context,
+                      itemName: menuItem.name,
+                      currentAvailability: menuItem.available,
+                      onConfirm: () {
+                        onToggleAvailability(value);
+                      },
+                    );
+                  },
                   activeColor: Colors.white,
                   activeTrackColor: const Color(0xFFE67E22),
                   inactiveThumbColor: Colors.white,
