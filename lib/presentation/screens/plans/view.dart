@@ -160,11 +160,13 @@ class _PlanSelectionScreenState extends State<PlanSelectionScreen> {
                 size: 28,
               ),
               const SizedBox(width: 12),
-              const Text(
-                'Upgrade Subscription',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
+              Expanded(
+                child: Text(
+                  'Upgrade Subscription',
+                  style: TextStyle(
+                    fontSize: MediaQuery.of(context).size.width < 360 ? 18 : 20,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
             ],
@@ -172,7 +174,7 @@ class _PlanSelectionScreenState extends State<PlanSelectionScreen> {
           content: Text(
             'You are about to upgrade to the ${plan.title} plan for ₹${plan.price.toStringAsFixed(2)}/month. This will replace your current subscription.',
             style: TextStyle(
-              fontSize: 16,
+              fontSize: MediaQuery.of(context).size.width < 360 ? 14 : 16,
               height: 1.4,
             ),
           ),
@@ -181,10 +183,10 @@ class _PlanSelectionScreenState extends State<PlanSelectionScreen> {
               onPressed: () {
                 Navigator.of(context).pop();
               },
-              child: const Text(
+              child: Text(
                 'Cancel',
                 style: TextStyle(
-                  fontSize: 16,
+                  fontSize: MediaQuery.of(context).size.width < 360 ? 14 : 16,
                   color: Colors.grey,
                 ),
               ),
@@ -200,10 +202,10 @@ class _PlanSelectionScreenState extends State<PlanSelectionScreen> {
                   borderRadius: BorderRadius.circular(8),
                 ),
               ),
-              child: const Text(
+              child: Text(
                 'Continue',
                 style: TextStyle(
-                  fontSize: 16,
+                  fontSize: MediaQuery.of(context).size.width < 360 ? 14 : 16,
                   color: Colors.white,
                   fontWeight: FontWeight.w600,
                 ),
@@ -269,12 +271,23 @@ class _PlanSelectionScreenState extends State<PlanSelectionScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final screenHeight = MediaQuery.of(context).size.height;
+    final isSmallScreen = screenWidth < 360;
+    final isMediumScreen = screenWidth >= 360 && screenWidth < 414;
+    final padding = isSmallScreen ? 16.0 : (isMediumScreen ? 18.0 : 20.0);
+    
     // Show loading while checking subscription
     if (!_hasCheckedSubscription) {
       return Scaffold(
         backgroundColor: const Color(0xFFF8F9FA),
         appBar: AppBar(
-          title: const Text('Subscription Plans'),
+          title: Text(
+            'Subscription Plans',
+            style: TextStyle(
+              fontSize: isSmallScreen ? 16 : 18,
+            ),
+          ),
           backgroundColor: Colors.white,
         ),
         body: Center(
@@ -284,12 +297,16 @@ class _PlanSelectionScreenState extends State<PlanSelectionScreen> {
               CircularProgressIndicator(
                 color: ColorManager.primary,
               ),
-              const SizedBox(height: 16),
-              Text(
-                'Checking subscription status...',
-                style: TextStyle(
-                  fontSize: FontSize.s16,
-                  color: ColorManager.textGrey,
+              SizedBox(height: isSmallScreen ? 12 : 16),
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: padding),
+                child: Text(
+                  'Checking subscription status...',
+                  style: TextStyle(
+                    fontSize: isSmallScreen ? FontSize.s14 : FontSize.s16,
+                    color: ColorManager.textGrey,
+                  ),
+                  textAlign: TextAlign.center,
                 ),
               ),
             ],
@@ -303,43 +320,64 @@ class _PlanSelectionScreenState extends State<PlanSelectionScreen> {
       return Scaffold(
         backgroundColor: const Color(0xFFF8F9FA),
         appBar: AppBar(
-          title: const Text('Error'),
+          title: Text(
+            'Error',
+            style: TextStyle(
+              fontSize: isSmallScreen ? 16 : 18,
+            ),
+          ),
           backgroundColor: Colors.white,
         ),
         body: Center(
           child: Padding(
-            padding: const EdgeInsets.all(20),
+            padding: EdgeInsets.all(padding),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.error_outline, size: 64, color: Colors.red[600]),
-                const SizedBox(height: 16),
+                Icon(
+                  Icons.error_outline, 
+                  size: isSmallScreen ? 48 : (isMediumScreen ? 56 : 64), 
+                  color: Colors.red[600]
+                ),
+                SizedBox(height: isSmallScreen ? 12 : 16),
                 Text(
                   'An error occurred',
                   style: TextStyle(
-                    fontSize: FontSize.s18,
+                    fontSize: isSmallScreen ? FontSize.s16 : FontSize.s18,
                     fontWeight: FontWeightManager.bold,
                     color: ColorManager.black,
                   ),
+                  textAlign: TextAlign.center,
                 ),
-                const SizedBox(height: 8),
+                SizedBox(height: isSmallScreen ? 6 : 8),
                 Text(
                   _errorMessage!,
                   style: TextStyle(
-                    fontSize: FontSize.s14,
+                    fontSize: isSmallScreen ? FontSize.s12 : FontSize.s14,
                     color: ColorManager.grey,
                   ),
                   textAlign: TextAlign.center,
                 ),
-                const SizedBox(height: 16),
-                ElevatedButton(
-                  onPressed: () {
-                    setState(() {
-                      _errorMessage = null;
-                    });
-                    _loadRestaurantInfo();
-                  },
-                  child: const Text('Retry'),
+                SizedBox(height: isSmallScreen ? 12 : 16),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      setState(() {
+                        _errorMessage = null;
+                      });
+                      _loadRestaurantInfo();
+                    },
+                    style: ElevatedButton.styleFrom(
+                      padding: EdgeInsets.symmetric(vertical: isSmallScreen ? 12 : 16),
+                    ),
+                    child: Text(
+                      'Retry',
+                      style: TextStyle(
+                        fontSize: isSmallScreen ? 14 : 16,
+                      ),
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -366,27 +404,28 @@ class _PlanSelectionScreenState extends State<PlanSelectionScreen> {
           automaticallyImplyLeading: false,
           elevation: 0,
           backgroundColor: Colors.white,
+          toolbarHeight: isSmallScreen ? 56 : 60,
           title: Row(
             children: [
               InkWell(
                 borderRadius: BorderRadius.circular(40),
                 onTap: _openSidebar,
-                child: const Padding(
-                  padding: EdgeInsets.all(8.0),
+                child: Padding(
+                  padding: EdgeInsets.all(isSmallScreen ? 6.0 : 8.0),
                   child: Icon(
                     Icons.menu_rounded,
                     color: Colors.black87,
-                    size: 24.0,
+                    size: isSmallScreen ? 20.0 : 24.0,
                   ),
                 ),
               ),
-              const SizedBox(width: 12),
+              SizedBox(width: isSmallScreen ? 8 : 12),
               Expanded(
                 child: Text(
                   'Subscription Plans',
                   style: TextStyle(
                     fontFamily: FontConstants.fontFamily,
-                    fontSize: FontSize.s18,
+                    fontSize: isSmallScreen ? FontSize.s16 : FontSize.s18,
                     fontWeight: FontWeightManager.semiBold,
                     color: ColorManager.black,
                   ),
@@ -398,7 +437,7 @@ class _PlanSelectionScreenState extends State<PlanSelectionScreen> {
           actions: [
             if (_hasValidSubscription)
               Padding(
-                padding: const EdgeInsets.only(right: 8.0),
+                padding: EdgeInsets.only(right: isSmallScreen ? 4.0 : 8.0),
                 child: IconButton(
                   onPressed: () async {
                     try {
@@ -416,7 +455,7 @@ class _PlanSelectionScreenState extends State<PlanSelectionScreen> {
                   icon: Icon(
                     Icons.subscriptions,
                     color: ColorManager.primary,
-                    size: 24,
+                    size: isSmallScreen ? 20 : 24,
                   ),
                 ),
               ),
@@ -462,27 +501,31 @@ class _PlanSelectionScreenState extends State<PlanSelectionScreen> {
               
               if (state is PlanSelectionError) {
                 return Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        'Error',
-                        style: TextStyle(
-                          fontSize: FontSize.s18,
-                          fontWeight: FontWeightManager.bold,
-                          color: ColorManager.black,
+                  child: Padding(
+                    padding: EdgeInsets.all(padding),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          'Error',
+                          style: TextStyle(
+                            fontSize: isSmallScreen ? FontSize.s16 : FontSize.s18,
+                            fontWeight: FontWeightManager.bold,
+                            color: ColorManager.black,
+                          ),
+                          textAlign: TextAlign.center,
                         ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        state.message,
-                        style: TextStyle(
-                          fontSize: FontSize.s14,
-                          color: ColorManager.grey,
+                        SizedBox(height: isSmallScreen ? 6 : 8),
+                        Text(
+                          state.message,
+                          style: TextStyle(
+                            fontSize: isSmallScreen ? FontSize.s12 : FontSize.s14,
+                            color: ColorManager.grey,
+                          ),
+                          textAlign: TextAlign.center,
                         ),
-                        textAlign: TextAlign.center,
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 );
               }
@@ -522,14 +565,14 @@ class _PlanSelectionScreenState extends State<PlanSelectionScreen> {
                 return Stack(
                   children: [
                     SingleChildScrollView(
-                      padding: const EdgeInsets.all(20),
+                      padding: EdgeInsets.all(padding),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           // Show current subscription status if user has one
                           if (_hasValidSubscription) ...[
                             Container(
-                              padding: const EdgeInsets.all(16),
+                              padding: EdgeInsets.all(isSmallScreen ? 12 : 16),
                               decoration: BoxDecoration(
                                 color: ColorManager.primary.withOpacity(0.05),
                                 borderRadius: BorderRadius.circular(12),
@@ -538,13 +581,14 @@ class _PlanSelectionScreenState extends State<PlanSelectionScreen> {
                                 ),
                               ),
                               child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Icon(
                                     Icons.check_circle,
                                     color: ColorManager.primary,
-                                    size: 24,
+                                    size: isSmallScreen ? 20 : 24,
                                   ),
-                                  const SizedBox(width: 12),
+                                  SizedBox(width: isSmallScreen ? 8 : 12),
                                   Expanded(
                                     child: Column(
                                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -552,20 +596,18 @@ class _PlanSelectionScreenState extends State<PlanSelectionScreen> {
                                         Text(
                                           'You have an active subscription',
                                           style: TextStyle(
-                                            fontSize: FontSize.s16,
+                                            fontSize: isSmallScreen ? FontSize.s14 : FontSize.s16,
                                             fontWeight: FontWeightManager.semiBold,
                                             color: ColorManager.black,
                                           ),
-                                          overflow: TextOverflow.ellipsis,
                                         ),
-                                        const SizedBox(height: 4),
+                                        SizedBox(height: isSmallScreen ? 2 : 4),
                                         Text(
                                           'Tap the subscription icon in the top right to view details',
                                           style: TextStyle(
-                                            fontSize: FontSize.s14,
+                                            fontSize: isSmallScreen ? FontSize.s12 : FontSize.s14,
                                             color: ColorManager.textGrey,
                                           ),
-                                          overflow: TextOverflow.ellipsis,
                                         ),
                                       ],
                                     ),
@@ -573,30 +615,28 @@ class _PlanSelectionScreenState extends State<PlanSelectionScreen> {
                                 ],
                               ),
                             ),
-                            const SizedBox(height: 24),
+                            SizedBox(height: isSmallScreen ? 16 : 24),
                           ],
                           
                           Text(
                             'Choose Your Plan',
                             style: TextStyle(
-                              fontSize: FontSize.s22,
+                              fontSize: isSmallScreen ? FontSize.s20 : FontSize.s22,
                               fontWeight: FontWeightManager.bold,
                               color: ColorManager.black,
                             ),
-                            overflow: TextOverflow.ellipsis,
                           ),
-                          const SizedBox(height: 8),
+                          SizedBox(height: isSmallScreen ? 6 : 8),
                           Text(
                             _hasValidSubscription 
                               ? 'View other plans or upgrade your current subscription'
                               : 'Select the best plan for your business',
                             style: TextStyle(
-                              fontSize: FontSize.s16,
+                              fontSize: isSmallScreen ? FontSize.s14 : FontSize.s16,
                               color: ColorManager.textGrey,
                             ),
-                            overflow: TextOverflow.ellipsis,
                           ),
-                          const SizedBox(height: 24),
+                          SizedBox(height: isSmallScreen ? 16 : 24),
                           
                           // Plans list
                           ...plans.map((plan) {
@@ -605,8 +645,8 @@ class _PlanSelectionScreenState extends State<PlanSelectionScreen> {
                               if (plan.id.isEmpty || plan.title.isEmpty) {
                                 debugPrint('PlanSelectionView: Invalid plan data detected: ${plan.id} - ${plan.title}');
                                 return Container(
-                                  padding: const EdgeInsets.all(16),
-                                  margin: const EdgeInsets.only(bottom: 16),
+                                  padding: EdgeInsets.all(isSmallScreen ? 12 : 16),
+                                  margin: EdgeInsets.only(bottom: isSmallScreen ? 12 : 16),
                                   decoration: BoxDecoration(
                                     color: Colors.orange.withOpacity(0.1),
                                     borderRadius: BorderRadius.circular(12),
@@ -614,7 +654,10 @@ class _PlanSelectionScreenState extends State<PlanSelectionScreen> {
                                   ),
                                   child: Text(
                                     'Invalid plan data',
-                                    style: TextStyle(color: Colors.orange[700]),
+                                    style: TextStyle(
+                                      color: Colors.orange[700],
+                                      fontSize: isSmallScreen ? FontSize.s12 : FontSize.s14,
+                                    ),
                                   ),
                                 );
                               }
@@ -646,8 +689,8 @@ class _PlanSelectionScreenState extends State<PlanSelectionScreen> {
                             } catch (e) {
                               debugPrint('PlanSelectionView: Error rendering plan card: $e');
                               return Container(
-                                padding: const EdgeInsets.all(16),
-                                margin: const EdgeInsets.only(bottom: 16),
+                                padding: EdgeInsets.all(isSmallScreen ? 12 : 16),
+                                margin: EdgeInsets.only(bottom: isSmallScreen ? 12 : 16),
                                 decoration: BoxDecoration(
                                   color: Colors.red.withOpacity(0.1),
                                   borderRadius: BorderRadius.circular(12),
@@ -655,7 +698,10 @@ class _PlanSelectionScreenState extends State<PlanSelectionScreen> {
                                 ),
                                 child: Text(
                                   'Error loading plan: $e',
-                                  style: TextStyle(color: Colors.red),
+                                  style: TextStyle(
+                                    color: Colors.red,
+                                    fontSize: isSmallScreen ? FontSize.s12 : FontSize.s14,
+                                  ),
                                 ),
                               );
                             }
@@ -670,7 +716,8 @@ class _PlanSelectionScreenState extends State<PlanSelectionScreen> {
                         color: Colors.black.withOpacity(0.3),
                         child: Center(
                           child: Container(
-                            padding: const EdgeInsets.all(24),
+                            margin: EdgeInsets.all(padding),
+                            padding: EdgeInsets.all(isSmallScreen ? 20 : 24),
                             decoration: BoxDecoration(
                               color: Colors.white,
                               borderRadius: BorderRadius.circular(16),
@@ -681,14 +728,15 @@ class _PlanSelectionScreenState extends State<PlanSelectionScreen> {
                                 CircularProgressIndicator(
                                   color: ColorManager.primary,
                                 ),
-                                const SizedBox(height: 16),
+                                SizedBox(height: isSmallScreen ? 12 : 16),
                                 Text(
                                   'Creating Subscription...',
                                   style: TextStyle(
-                                    fontSize: FontSize.s16,
+                                    fontSize: isSmallScreen ? FontSize.s14 : FontSize.s16,
                                     fontWeight: FontWeightManager.medium,
                                     color: ColorManager.black,
                                   ),
+                                  textAlign: TextAlign.center,
                                 ),
                               ],
                             ),
@@ -700,8 +748,17 @@ class _PlanSelectionScreenState extends State<PlanSelectionScreen> {
               }
               
               // Default case - should not reach here but just in case
-              return const Center(
-                child: Text('No plans available'),
+              return Center(
+                child: Padding(
+                  padding: EdgeInsets.all(padding),
+                  child: Text(
+                    'No plans available',
+                    style: TextStyle(
+                      fontSize: isSmallScreen ? FontSize.s14 : FontSize.s16,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
               );
             },
           ),
@@ -710,4 +767,3 @@ class _PlanSelectionScreenState extends State<PlanSelectionScreen> {
     );
   }
 }
-

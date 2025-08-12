@@ -16,6 +16,8 @@ class DeliveryPartnerSigninBloc extends Bloc<DeliveryPartnerSigninEvent, Deliver
     emit(state.copyWith(
       username: event.username,
       isValid: event.username.isNotEmpty && state.password.isNotEmpty,
+      status: DeliveryPartnerSigninStatus.initial, // Reset status to clear error
+      errorMessage: null, // Clear error message
     ));
   }
 
@@ -24,6 +26,8 @@ class DeliveryPartnerSigninBloc extends Bloc<DeliveryPartnerSigninEvent, Deliver
     emit(state.copyWith(
       password: event.password,
       isValid: state.username.isNotEmpty && event.password.isNotEmpty,
+      status: DeliveryPartnerSigninStatus.initial, // Reset status to clear error
+      errorMessage: null, // Clear error message
     ));
   }
 
@@ -52,4 +56,4 @@ class DeliveryPartnerSigninBloc extends Bloc<DeliveryPartnerSigninEvent, Deliver
       ));
     }
   }
-} 
+}
