@@ -4,7 +4,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:url_launcher/url_launcher.dart';
-import '../../../../ui_components/universal_widget/order_widgets.dart';
+
 import '../../../../ui_components/universal_widget/topbar.dart';
 import '../../../../presentation/resources/colors.dart';
 import '../../../../presentation/resources/font.dart';
@@ -501,120 +501,89 @@ class _DeliveryPartnerChatViewState extends State<DeliveryPartnerChatView> with 
   }
 
   Widget _buildOrderHeader(chat_state.ChatOrderInfo orderInfo) {
-    return GestureDetector(
-      onTap: () => _onOrderHeaderTap(orderInfo),
-      child: Container(
-        width: double.infinity,
-        padding: EdgeInsets.all(MediaQuery.of(context).size.width * 0.04),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          border: Border(
-            bottom: BorderSide(
-              color: Colors.grey.shade200,
-              width: 1,
-            ),
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.all(MediaQuery.of(context).size.width * 0.04),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border(
+          bottom: BorderSide(
+            color: Colors.grey.shade200,
+            width: 1,
           ),
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: Text(
-                    'Order ${orderInfo.orderId}',
-                    style: TextStyle(
-                      fontSize: MediaQuery.of(context).size.width * 0.035,
-                      fontWeight: FontWeightManager.bold,
-                      color: ColorManager.black,
-                      fontFamily: FontFamily.Montserrat,
-                    ),
-                    overflow: TextOverflow.ellipsis,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Text(
+                  'Order ${orderInfo.orderId}',
+                  style: TextStyle(
+                    fontSize: MediaQuery.of(context).size.width * 0.035,
+                    fontWeight: FontWeightManager.bold,
+                    color: ColorManager.black,
+                    fontFamily: FontFamily.Montserrat,
                   ),
+                  overflow: TextOverflow.ellipsis,
                 ),
-                Container(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: MediaQuery.of(context).size.width * 0.028,
-                    vertical: MediaQuery.of(context).size.height * 0.004,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.orange.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(
-                      MediaQuery.of(context).size.width * 0.035,
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: MediaQuery.of(context).size.width * 0.018,
-                        height: MediaQuery.of(context).size.width * 0.018,
-                        decoration: const BoxDecoration(
-                          color: Colors.orange,
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                      SizedBox(width: MediaQuery.of(context).size.width * 0.018),
-                      Text(
-                        orderInfo.status,
-                        style: TextStyle(
-                          fontSize: MediaQuery.of(context).size.width * 0.033,
-                          fontWeight: FontWeightManager.medium,
-                          color: Colors.orange,
-                          fontFamily: FontFamily.Montserrat,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            SizedBox(height: MediaQuery.of(context).size.height * 0.004),
-            Text(
-              '${orderInfo.restaurantName} • Estimated delivery: ${orderInfo.estimatedDelivery}',
-              style: TextStyle(
-                fontSize: MediaQuery.of(context).size.width * 0.033,
-                fontWeight: FontWeightManager.regular,
-                color: Colors.grey.shade600,
-                fontFamily: FontFamily.Montserrat,
               ),
+              Container(
+                padding: EdgeInsets.symmetric(
+                  horizontal: MediaQuery.of(context).size.width * 0.028,
+                  vertical: MediaQuery.of(context).size.height * 0.004,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(
+                    MediaQuery.of(context).size.width * 0.035,
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: MediaQuery.of(context).size.width * 0.018,
+                      height: MediaQuery.of(context).size.width * 0.018,
+                      decoration: const BoxDecoration(
+                        color: Colors.orange,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    SizedBox(width: MediaQuery.of(context).size.width * 0.018),
+                    Text(
+                      orderInfo.status,
+                      style: TextStyle(
+                        fontSize: MediaQuery.of(context).size.width * 0.033,
+                        fontWeight: FontWeightManager.medium,
+                        color: Colors.orange,
+                        fontFamily: FontFamily.Montserrat,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: MediaQuery.of(context).size.height * 0.004),
+          Text(
+            '${orderInfo.restaurantName} • Estimated delivery: ${orderInfo.estimatedDelivery}',
+            style: TextStyle(
+              fontSize: MediaQuery.of(context).size.width * 0.033,
+              fontWeight: FontWeightManager.regular,
+              color: Colors.grey.shade600,
+              fontFamily: FontFamily.Montserrat,
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 
-  void _onOrderHeaderTap(chat_state.ChatOrderInfo orderInfo) {
-    final chatBloc = context.read<DeliveryPartnerChatBloc>();
-    final partnerId = chatBloc.currentPartnerId ?? '';
-    final orderId = chatBloc.currentOrderId ?? widget.orderId;
 
-    print('DeliveryPartnerChatView: Tapping order header');
-    print('DeliveryPartnerChatView: Partner ID: $partnerId');
-    print('DeliveryPartnerChatView: Full Order ID: $orderId');
-
-    if (partnerId.isNotEmpty && orderId.isNotEmpty) {
-      // Show the order options bottom sheet
-      showModalBottomSheet(
-        context: context,
-        isScrollControlled: true,
-        backgroundColor: Colors.transparent,
-        builder: (context) => OrderOptionsBottomSheet(
-          orderId: orderId,
-          partnerId: partnerId,
-        ),
-      );
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Unable to load order options. Please try again.'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
-  }
 
   void _handleBackNavigation(BuildContext context) {
     // Check if there's a previous route in the navigation stack
