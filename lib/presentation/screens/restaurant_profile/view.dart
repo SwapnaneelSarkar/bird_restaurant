@@ -228,7 +228,7 @@ class _BodyState extends State<_Body> {
     return WillPopScope(
       onWillPop: () async {
         Navigator.of(context).pushNamedAndRemoveUntil(
-          '/home',
+          Routes.homePage,
           (route) => false,
         );
         return false;

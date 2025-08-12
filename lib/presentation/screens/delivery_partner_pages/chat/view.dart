@@ -9,6 +9,7 @@ import '../../../../ui_components/universal_widget/topbar.dart';
 import '../../../../presentation/resources/colors.dart';
 import '../../../../presentation/resources/font.dart';
 import '../../../../services/menu_item_service.dart';
+import '../../../../services/delivery_partner_services/delivery_partner_orders_service.dart';
 import 'bloc.dart';
 import 'event.dart';
 import 'event.dart' as chat_event;
@@ -240,52 +241,77 @@ class _DeliveryPartnerChatViewState extends State<DeliveryPartnerChatView> with 
             },
             listener: (context, state) {
               if (state is chat_state.DeliveryPartnerChatSuccess) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Row(
-                      children: [
-                        const Icon(Icons.check_circle, color: Colors.white, size: 20),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            state.message,
-                            style: const TextStyle(
-                              fontWeight: FontWeightManager.medium,
-                              fontSize: 14,
+                // Show success message
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Row(
+                        children: [
+                          const Icon(Icons.check_circle, color: Colors.white, size: 20),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              state.message,
+                              style: const TextStyle(
+                                fontWeight: FontWeightManager.medium,
+                                fontSize: 14,
+                              ),
                             ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
+                      backgroundColor: Colors.green,
+                      behavior: SnackBarBehavior.floating,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      duration: const Duration(seconds: 3),
                     ),
-                    backgroundColor: Colors.green,
-                    behavior: SnackBarBehavior.floating,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    duration: const Duration(seconds: 3),
-                  ),
-                );
+                  );
+                }
                 
                 // Call the callback to refresh dashboard
-                widget.onOrderDelivered?.call();
-                
-                // Navigate back to dashboard
-                Navigator.of(context).pop();
+                if (mounted) {
+                  widget.onOrderDelivered?.call();
+                  
+                  // Navigate back to dashboard with a small delay to ensure UI updates
+                  Future.delayed(const Duration(milliseconds: 100), () {
+                    if (mounted && Navigator.of(context).canPop()) {
+                      Navigator.of(context).pop();
+                    }
+                  });
+                }
               }
             },
           ),
         ],
         child: BlocBuilder<DeliveryPartnerChatBloc, chat_state.DeliveryPartnerChatState>(
           builder: (context, state) {
-            
+            // Handle loading state
             if (state is chat_state.DeliveryPartnerChatLoading) {
               return _buildLoadingState();
-            } else if (state is chat_state.DeliveryPartnerChatLoaded) {
+            } 
+            // Handle loaded state
+            else if (state is chat_state.DeliveryPartnerChatLoaded) {
               return _buildChatContent(context, state);
-            } else if (state is chat_state.DeliveryPartnerChatError) {
+            } 
+            // Handle error state
+            else if (state is chat_state.DeliveryPartnerChatError) {
               return _buildErrorState(context, state);
-            } else {
-              return _buildLoadingState(); // Show loading for initial state
+            } 
+            // Handle success state - show loading briefly then navigate
+            else if (state is chat_state.DeliveryPartnerChatSuccess) {
+              // Show a brief loading state before navigation
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted) {
+                  // The success listener will handle the navigation
+                }
+              });
+              return _buildLoadingState();
+            }
+            // Default to loading state
+            else {
+              return _buildLoadingState();
             }
           },
         ),
@@ -316,6 +342,10 @@ class _DeliveryPartnerChatViewState extends State<DeliveryPartnerChatView> with 
   }
 
   Widget _buildChatContent(BuildContext context, chat_state.DeliveryPartnerChatLoaded state) {
+    debugPrint('DeliveryPartnerChatView: 🏗️ _buildChatContent called');
+    debugPrint('DeliveryPartnerChatView: 🏗️ Order info status: "${state.orderInfo.status}"');
+    debugPrint('DeliveryPartnerChatView: 🏗️ Order info orderId: "${state.orderInfo.orderId}"');
+    
     return SafeArea(
       child: Column(
         children: [
@@ -1161,6 +1191,12 @@ class _DeliveryPartnerChatViewState extends State<DeliveryPartnerChatView> with 
   }
 
   Widget _buildActionButtons(BuildContext context, chat_state.DeliveryPartnerChatLoaded state) {
+    debugPrint('DeliveryPartnerChatView: 🔘 _buildActionButtons called');
+    debugPrint('DeliveryPartnerChatView: 🔘 Order status: "${state.orderInfo.status}"');
+    debugPrint('DeliveryPartnerChatView: 🔘 Order status lowercase: "${state.orderInfo.status.toLowerCase()}"');
+    debugPrint('DeliveryPartnerChatView: 🔘 Contains delivered: ${state.orderInfo.status.toLowerCase().contains('delivered')}');
+    debugPrint('DeliveryPartnerChatView: 🔘 Is updating: ${state.isUpdatingOrderStatus}');
+    
     return Container(
       padding: EdgeInsets.all(MediaQuery.of(context).size.width * 0.035),
       decoration: BoxDecoration(
@@ -1174,31 +1210,48 @@ class _DeliveryPartnerChatViewState extends State<DeliveryPartnerChatView> with 
       ),
       child: Column(
         children: [
-          // Mark as delivered button
-          if (state.orderInfo.status != 'Delivered') ...[
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green[700],
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
+          // Mark as delivered button - show for OUT_FOR_DELIVERY status
+          if (state.orderInfo.status.toLowerCase() == 'out for delivery') ...[
+            Builder(
+              builder: (context) {
+                debugPrint('DeliveryPartnerChatView: 🔘 Button condition check - status: "${state.orderInfo.status}"');
+                debugPrint('DeliveryPartnerChatView: 🔘 Button should be shown: ${state.orderInfo.status.toLowerCase() == 'out for delivery'}');
+                return SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green[700],
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      elevation: 0,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                    ),
+                    icon: state.isUpdatingOrderStatus 
+                        ? SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                            ),
+                          )
+                        : const Icon(Icons.done_all, color: Colors.white),
+                    label: Text(
+                      state.isUpdatingOrderStatus ? 'Updating...' : 'Mark as Delivered',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeightManager.semiBold,
+                        fontSize: FontSize.s16,
+                        fontFamily: FontFamily.Montserrat,
+                      ),
+                    ),
+                    onPressed: state.isUpdatingOrderStatus 
+                        ? null 
+                        : () => _showMarkAsDeliveredDialog(context, widget.orderId),
                   ),
-                  elevation: 0,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                ),
-                icon: const Icon(Icons.done_all, color: Colors.white),
-                label: Text(
-                  'Mark as Delivered',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeightManager.semiBold,
-                    fontSize: FontSize.s16,
-                    fontFamily: FontFamily.Montserrat,
-                  ),
-                ),
-                onPressed: () => _showMarkAsDeliveredDialog(context, state.orderInfo.orderId),
-              ),
+                );
+              },
             ),
             const SizedBox(height: 12),
           ],
@@ -1225,6 +1278,10 @@ class _DeliveryPartnerChatViewState extends State<DeliveryPartnerChatView> with 
   }
 
   void _showMarkAsDeliveredDialog(BuildContext context, String orderId) {
+    debugPrint('DeliveryPartnerChatView: 🎯 _showMarkAsDeliveredDialog called with orderId: $orderId');
+    
+    debugPrint('DeliveryPartnerChatView: 📋 Showing mark as delivered dialog');
+    
     showDialog(
       context: context,
       builder: (BuildContext context) {
@@ -1295,9 +1352,143 @@ class _DeliveryPartnerChatViewState extends State<DeliveryPartnerChatView> with 
               ),
             ),
             ElevatedButton(
-              onPressed: () {
+              onPressed: () async {
+                debugPrint('DeliveryPartnerChatView: 🎯 Dialog button clicked for orderId: $orderId');
+                
+                debugPrint('DeliveryPartnerChatView: 📞 Making direct API call to mark order as delivered');
+                
+                // Close the dialog first
                 Navigator.of(context).pop();
-                context.read<DeliveryPartnerChatBloc>().add(MarkOrderAsDelivered(orderId));
+                
+                // Show loading indicator
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Row(
+                        children: [
+                          SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          const Text('Marking order as delivered...'),
+                        ],
+                      ),
+                      backgroundColor: Colors.blue,
+                      duration: const Duration(seconds: 10),
+                    ),
+                  );
+                }
+                
+                try {
+                  // Make the API call directly
+                  final response = await DeliveryPartnerOrdersService.updateOrderStatus(orderId, 'DELIVERED');
+                  
+                  debugPrint('DeliveryPartnerChatView: 📋 API response: $response');
+                  
+                  // Check if widget is still mounted before accessing context
+                  if (!mounted) {
+                    debugPrint('DeliveryPartnerChatView: ⚠️ Widget no longer mounted, skipping UI updates');
+                    return;
+                  }
+                  
+                  // Hide the loading snackbar safely
+                  try {
+                    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                  } catch (e) {
+                    debugPrint('DeliveryPartnerChatView: ⚠️ Could not hide loading snackbar: $e');
+                  }
+                  
+                  if (response['success'] == true) {
+                    debugPrint('DeliveryPartnerChatView: ✅ Order marked as delivered successfully');
+                    
+                    // Show success message safely
+                    try {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Row(
+                            children: [
+                              const Icon(Icons.check_circle, color: Colors.white, size: 20),
+                              const SizedBox(width: 12),
+                              const Text('Order marked as delivered successfully!'),
+                            ],
+                          ),
+                          backgroundColor: Colors.green,
+                          duration: const Duration(seconds: 3),
+                        ),
+                      );
+                    } catch (e) {
+                      debugPrint('DeliveryPartnerChatView: ⚠️ Could not show success snackbar: $e');
+                    }
+                    
+                    // Call the callback to refresh dashboard
+                    widget.onOrderDelivered?.call();
+                    
+                    // Navigate back to dashboard
+                    if (Navigator.of(context).canPop()) {
+                      Navigator.of(context).pop();
+                    }
+                  } else {
+                    debugPrint('DeliveryPartnerChatView: ❌ API returned failure: ${response['message']}');
+                    
+                    // Show error message safely
+                    try {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Row(
+                            children: [
+                              const Icon(Icons.error, color: Colors.white, size: 20),
+                              const SizedBox(width: 12),
+                              Text(response['message'] ?? 'Failed to mark order as delivered'),
+                            ],
+                          ),
+                          backgroundColor: Colors.red,
+                          duration: const Duration(seconds: 3),
+                        ),
+                      );
+                    } catch (e) {
+                      debugPrint('DeliveryPartnerChatView: ⚠️ Could not show error snackbar: $e');
+                    }
+                  }
+                } catch (e) {
+                  debugPrint('DeliveryPartnerChatView: ❌ Error marking order as delivered: $e');
+                  
+                  // Check if widget is still mounted before accessing context
+                  if (!mounted) {
+                    debugPrint('DeliveryPartnerChatView: ⚠️ Widget no longer mounted, skipping error UI updates');
+                    return;
+                  }
+                  
+                  // Hide the loading snackbar safely
+                  try {
+                    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                  } catch (e) {
+                    debugPrint('DeliveryPartnerChatView: ⚠️ Could not hide loading snackbar: $e');
+                  }
+                  
+                  // Show error message safely
+                  try {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Row(
+                          children: [
+                            const Icon(Icons.error, color: Colors.white, size: 20),
+                            const SizedBox(width: 12),
+                            Text('Error: $e'),
+                          ],
+                        ),
+                        backgroundColor: Colors.red,
+                        duration: const Duration(seconds: 3),
+                      ),
+                    );
+                  } catch (e2) {
+                    debugPrint('DeliveryPartnerChatView: ⚠️ Could not show error snackbar: $e2');
+                  }
+                }
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.green[600],

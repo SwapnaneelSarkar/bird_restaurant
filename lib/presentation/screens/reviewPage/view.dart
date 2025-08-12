@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../resources/colors.dart';
 import '../../resources/font.dart';
+import '../../resources/router/router.dart';
 import 'bloc.dart';
 import 'event.dart';
 import 'state.dart';
@@ -435,153 +436,190 @@ class _ReviewsViewState extends State<ReviewsView> {
   }
 
   Widget _buildReviewCard(Review review) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-            spreadRadius: 0,
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header with user name, rating, and date
-          Row(
-            children: [
-              // User avatar
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
+    return GestureDetector(
+      onTap: () {
+        if (review.orderId.isNotEmpty) {
+          Navigator.pushNamed(
+            context, 
+            Routes.restaurantOrderDetails, 
+            arguments: review.orderId
+          );
+        }
+      },
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 16),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.04),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+              spreadRadius: 0,
+            ),
+          ],
+          border: review.orderId.isNotEmpty 
+              ? Border.all(
                   color: ColorManager.primary.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(22),
-                  border: Border.all(
-                    color: ColorManager.primary.withOpacity(0.2),
-                    width: 1,
-                  ),
-                ),
-                child: Center(
-                  child: Text(
-                    review.userName.isNotEmpty 
-                        ? review.userName[0].toUpperCase()
-                        : 'A',
-                    style: TextStyle(
-                      color: ColorManager.primary,
-                      fontSize: FontSize.s16,
-                      fontWeight: FontWeightManager.bold,
-                      fontFamily: FontConstants.fontFamily,
+                  width: 1,
+                )
+              : null,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header with user name, rating, and date
+            Row(
+              children: [
+                // User avatar
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: ColorManager.primary.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(22),
+                    border: Border.all(
+                      color: ColorManager.primary.withOpacity(0.2),
+                      width: 1,
                     ),
                   ),
-                ),
-              ),
-              
-              const SizedBox(width: 12),
-              
-              // User name and rating
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      review.userName,
+                  child: Center(
+                    child: Text(
+                      review.userName.isNotEmpty 
+                          ? review.userName[0].toUpperCase()
+                          : 'A',
                       style: TextStyle(
-                        color: ColorManager.black,
+                        color: ColorManager.primary,
                         fontSize: FontSize.s16,
-                        fontWeight: FontWeightManager.semiBold,
+                        fontWeight: FontWeightManager.bold,
                         fontFamily: FontConstants.fontFamily,
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        // Star rating
-                        Row(
-                          children: List.generate(5, (index) {
-                            return Icon(
-                              Icons.star,
-                              color: index < review.rating 
-                                  ? const Color(0xFFFFC107)
-                                  : ColorManager.grey,
-                              size: 16,
-                            );
-                          }),
+                  ),
+                ),
+                
+                const SizedBox(width: 12),
+                
+                // User name and rating
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        review.userName,
+                        style: TextStyle(
+                          color: ColorManager.black,
+                          fontSize: FontSize.s16,
+                          fontWeight: FontWeightManager.semiBold,
+                          fontFamily: FontConstants.fontFamily,
                         ),
-                        const SizedBox(width: 8),
-                        Text(
-                          '${review.rating}/5',
-                          style: TextStyle(
-                            color: ColorManager.textGrey,
-                            fontSize: FontSize.s12,
-                            fontWeight: FontWeightManager.medium,
-                            fontFamily: FontFamily.Montserrat,
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          // Star rating
+                          Row(
+                            children: List.generate(5, (index) {
+                              return Icon(
+                                Icons.star,
+                                color: index < review.rating 
+                                    ? const Color(0xFFFFC107)
+                                    : ColorManager.grey,
+                                size: 16,
+                              );
+                            }),
                           ),
-                        ),
-                      ],
-                    ),
-                  ],
+                          const SizedBox(width: 8),
+                          Text(
+                            '${review.rating}/5',
+                            style: TextStyle(
+                              color: ColorManager.textGrey,
+                              fontSize: FontSize.s12,
+                              fontWeight: FontWeightManager.medium,
+                              fontFamily: FontFamily.Montserrat,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              
-              // Time ago
-              Text(
-                review.timeAgo,
-                style: TextStyle(
-                  color: ColorManager.textGrey,
-                  fontSize: FontSize.s12,
-                  fontFamily: FontFamily.Montserrat,
+                
+                // Time ago
+                Text(
+                  review.timeAgo,
+                  style: TextStyle(
+                    color: ColorManager.textGrey,
+                    fontSize: FontSize.s12,
+                    fontFamily: FontFamily.Montserrat,
+                  ),
                 ),
-              ),
-            ],
-          ),
-          
-          const SizedBox(height: 16),
-          
-          // Review text
-          if (review.reviewText.isNotEmpty) ...[
-            Text(
-              review.reviewText,
-              style: TextStyle(
-                color: ColorManager.textgrey2,
-                fontSize: FontSize.s14,
-                height: 1.5,
-                fontFamily: FontFamily.Montserrat,
-              ),
+              ],
             ),
-            const SizedBox(height: 12),
-          ],
-          
-          // Order ID (if available)
-          if (review.orderId.isNotEmpty) ...[
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: ColorManager.cardGrey,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(
-                  color: ColorManager.grey,
-                  width: 1,
-                ),
-              ),
-              child: Text(
-                'Order #${review.orderId.length > 8 ? review.orderId.substring(review.orderId.length - 8) : review.orderId}',
+            
+            const SizedBox(height: 16),
+            
+            // Review text
+            if (review.reviewText.isNotEmpty) ...[
+              Text(
+                review.reviewText,
                 style: TextStyle(
                   color: ColorManager.textgrey2,
-                  fontSize: FontSize.s12,
-                  fontWeight: FontWeightManager.medium,
+                  fontSize: FontSize.s14,
+                  height: 1.5,
                   fontFamily: FontFamily.Montserrat,
                 ),
               ),
-            ),
+              const SizedBox(height: 12),
+            ],
+            
+            // Order ID (if available) with clickable indicator
+            if (review.orderId.isNotEmpty) ...[
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: ColorManager.cardGrey,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: ColorManager.grey,
+                        width: 1,
+                      ),
+                    ),
+                    child: Text(
+                      'Order #${review.orderId.length > 8 ? review.orderId.substring(review.orderId.length - 8) : review.orderId}',
+                      style: TextStyle(
+                        color: ColorManager.textgrey2,
+                        fontSize: FontSize.s12,
+                        fontWeight: FontWeightManager.medium,
+                        fontFamily: FontFamily.Montserrat,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Icon(
+                    Icons.arrow_forward_ios,
+                    color: ColorManager.primary,
+                    size: 14,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    'View Order',
+                    style: TextStyle(
+                      color: ColorManager.primary,
+                      fontSize: FontSize.s12,
+                      fontWeight: FontWeightManager.medium,
+                      fontFamily: FontFamily.Montserrat,
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }

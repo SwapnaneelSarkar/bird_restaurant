@@ -40,21 +40,27 @@ class OrderDetailsWidget extends StatelessWidget {
       ),
       body: BlocBuilder<ChatBloc, ChatState>(
         builder: (context, state) {
+          debugPrint('OrderDetailsWidget: Current state: ${state.runtimeType}');
+          
           if (state is OrderDetailsLoading) {
+            debugPrint('OrderDetailsWidget: Showing OrderDetailsLoading');
             return const Center(
               child: CircularProgressIndicator(color: Color(0xFFE17A47)),
             );
           }
           
           if (state is ChatLoaded && state.orderDetails != null) {
+            debugPrint('OrderDetailsWidget: ChatLoaded with orderDetails - ${state.orderDetails!.orderId}');
             return _buildOrderDetails(context, state.orderDetails!, state.menuItems);
           }
           
           if (state is OrderDetailsLoaded) {
+            debugPrint('OrderDetailsWidget: OrderDetailsLoaded - ${state.orderDetails.orderId}');
             return _buildOrderDetails(context, state.orderDetails, state.menuItems ?? {});
           }
           
           if (state is OrderDetailsError) {
+            debugPrint('OrderDetailsWidget: OrderDetailsError - ${state.message}');
             return Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -92,6 +98,7 @@ class OrderDetailsWidget extends StatelessWidget {
             );
           }
           
+          debugPrint('OrderDetailsWidget: Default loading state - waiting for event');
           return const Center(
             child: CircularProgressIndicator(color: Color(0xFFE17A47)),
           );

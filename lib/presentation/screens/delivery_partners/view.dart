@@ -1231,7 +1231,7 @@ class _AddPartnerBottomSheetState extends State<_AddPartnerBottomSheet> {
 
               // License Photo
               Text(
-                'License Photo',
+                'License Photo *',
                 style: TextStyle(
                   fontFamily: FontConstants.fontFamily,
                   fontSize: FontSize.s14,
@@ -1274,16 +1274,16 @@ class _AddPartnerBottomSheetState extends State<_AddPartnerBottomSheet> {
                       Icon(Icons.upload_file, color: ColorManager.primary),
                       const SizedBox(width: 14),
                       Expanded(
-                        child: Text(
-                          licensePhotoFile != null
-                              ? licensePhotoFile!.path.split('/').last
-                              : 'Select License Photo (Optional)',
-                          style: TextStyle(
-                            fontFamily: FontConstants.fontFamily,
-                            fontSize: FontSize.s14,
-                            color: Colors.grey[700],
+                                                  child: Text(
+                            licensePhotoFile != null
+                                ? licensePhotoFile!.path.split('/').last
+                                : 'Select License Photo (Required)',
+                            style: TextStyle(
+                              fontFamily: FontConstants.fontFamily,
+                              fontSize: FontSize.s14,
+                              color: Colors.grey[700],
+                            ),
                           ),
-                        ),
                       ),
                       if (licensePhotoFile != null)
                         const Icon(Icons.check_circle, color: Colors.green),
@@ -1305,7 +1305,7 @@ class _AddPartnerBottomSheetState extends State<_AddPartnerBottomSheet> {
 
               // Vehicle Document
               Text(
-                'Vehicle Document (Optional)',
+                'Vehicle Document *',
                 style: TextStyle(
                   fontFamily: FontConstants.fontFamily,
                   fontSize: FontSize.s14,
@@ -1350,7 +1350,7 @@ class _AddPartnerBottomSheetState extends State<_AddPartnerBottomSheet> {
                         child: Text(
                           vehicleDocumentFile != null
                               ? vehicleDocumentFile!.path.split('/').last
-                              : 'Select Vehicle Document (Optional)',
+                              : 'Select Vehicle Document (Required)',
                           style: TextStyle(
                             fontFamily: FontConstants.fontFamily,
                             fontSize: FontSize.s14,
@@ -1471,6 +1471,8 @@ class _EditPartnerBottomSheetState extends State<_EditPartnerBottomSheet> {
   File? licensePhotoFile;
   File? vehicleDocumentFile;
   bool isSubmitting = false;
+  bool isLicensePhotoValid = true;
+  bool isVehicleDocValid = true;
 
   @override
   void initState() {
@@ -1704,7 +1706,7 @@ class _EditPartnerBottomSheetState extends State<_EditPartnerBottomSheet> {
               const SizedBox(height: 20),
               // License Photo
               Text(
-                'License Photo (Optional)',
+                'License Photo *',
                 style: TextStyle(
                   fontFamily: FontConstants.fontFamily,
                   fontSize: FontSize.s14,
@@ -1722,6 +1724,7 @@ class _EditPartnerBottomSheetState extends State<_EditPartnerBottomSheet> {
                   if (pickedFile != null) {
                     setState(() {
                       licensePhotoFile = File(pickedFile.path);
+                      isLicensePhotoValid = true;
                     });
                   }
                 },
@@ -1745,18 +1748,18 @@ class _EditPartnerBottomSheetState extends State<_EditPartnerBottomSheet> {
                       Icon(Icons.upload_file, color: ColorManager.primary),
                       const SizedBox(width: 14),
                       Expanded(
-                        child: Text(
-                          licensePhotoFile != null
-                              ? licensePhotoFile!.path.split('/').last
-                              : (widget.partner.licensePhoto != null
-                                  ? 'Current: ${widget.partner.licensePhoto!.split('/').last}'
-                                  : 'Select License Photo (Optional)'),
-                          style: TextStyle(
-                            fontFamily: FontConstants.fontFamily,
-                            fontSize: FontSize.s14,
-                            color: Colors.grey[700],
+                                                  child: Text(
+                            licensePhotoFile != null
+                                ? licensePhotoFile!.path.split('/').last
+                                : (widget.partner.licensePhoto != null
+                                    ? 'Current: ${widget.partner.licensePhoto!.split('/').last}'
+                                    : 'Select License Photo (Required)'),
+                            style: TextStyle(
+                              fontFamily: FontConstants.fontFamily,
+                              fontSize: FontSize.s14,
+                              color: Colors.grey[700],
+                            ),
                           ),
-                        ),
                       ),
                       if (licensePhotoFile != null ||
                           widget.partner.licensePhoto != null)
@@ -1766,10 +1769,19 @@ class _EditPartnerBottomSheetState extends State<_EditPartnerBottomSheet> {
                   ),
                 ),
               ),
+              SizedBox(height: 5),
+              if (!isLicensePhotoValid)
+                Padding(
+                  padding: const EdgeInsets.only(top: 4, left: 8),
+                  child: Text(
+                    'This field is mandatory',
+                    style: TextStyle(color: Colors.red, fontSize: 12),
+                  ),
+                ),
               const SizedBox(height: 20),
               // Vehicle Document
               Text(
-                'Vehicle Document (Optional)',
+                'Vehicle Document *',
                 style: TextStyle(
                   fontFamily: FontConstants.fontFamily,
                   fontSize: FontSize.s14,
@@ -1787,6 +1799,7 @@ class _EditPartnerBottomSheetState extends State<_EditPartnerBottomSheet> {
                   if (pickedFile != null) {
                     setState(() {
                       vehicleDocumentFile = File(pickedFile.path);
+                      isVehicleDocValid = true;
                     });
                   }
                 },
@@ -1815,7 +1828,7 @@ class _EditPartnerBottomSheetState extends State<_EditPartnerBottomSheet> {
                               ? vehicleDocumentFile!.path.split('/').last
                               : (widget.partner.vehicleDocument != null
                                   ? 'Current: ${widget.partner.vehicleDocument!.split('/').last}'
-                                  : 'Select Vehicle Document (Optional)'),
+                                  : 'Select Vehicle Document (Required)'),
                           style: TextStyle(
                             fontFamily: FontConstants.fontFamily,
                             fontSize: FontSize.s14,
@@ -1831,6 +1844,15 @@ class _EditPartnerBottomSheetState extends State<_EditPartnerBottomSheet> {
                   ),
                 ),
               ),
+              SizedBox(height: 5),
+              if (!isVehicleDocValid)
+                Padding(
+                  padding: const EdgeInsets.only(top: 4, left: 8),
+                  child: Text(
+                    'This field is mandatory',
+                    style: TextStyle(color: Colors.red, fontSize: 12),
+                  ),
+                ),
               const SizedBox(height: 30),
               // Submit Button
               SizedBox(
@@ -1841,7 +1863,17 @@ class _EditPartnerBottomSheetState extends State<_EditPartnerBottomSheet> {
                       isSubmitting
                           ? null
                           : () async {
-                            if (formKey.currentState!.validate()) {
+                            bool licenseValid = licensePhotoFile != null || widget.partner.licensePhoto != null;
+                            bool vehicleValid = vehicleDocumentFile != null || widget.partner.vehicleDocument != null;
+
+                            setState(() {
+                              isLicensePhotoValid = licenseValid;
+                              isVehicleDocValid = vehicleValid;
+                            });
+
+                            if (formKey.currentState!.validate() &&
+                                licenseValid &&
+                                vehicleValid) {
                               setState(() => isSubmitting = true);
                               widget.bloc.add(
                                 EditDeliveryPartner(

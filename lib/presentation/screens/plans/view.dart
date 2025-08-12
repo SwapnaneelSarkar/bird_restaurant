@@ -17,6 +17,7 @@ import 'event.dart';
 import 'state.dart';
 import 'package:bird_restaurant/constants/api_constants.dart';
 import 'package:bird_restaurant/utils/time_utils.dart';
+import '../../resources/router/router.dart';
 
 class PlanSelectionView extends StatelessWidget {
   const PlanSelectionView({Key? key}) : super(key: key);
@@ -114,7 +115,7 @@ class _PlanSelectionScreenState extends State<PlanSelectionScreen> {
           // Stay on the plans page to view other plans
         },
         onGoToHome: () {
-          Navigator.of(context).pushNamedAndRemoveUntil('/home', (route) => false);
+          Navigator.of(context).pushNamedAndRemoveUntil(Routes.homePage, (route) => false);
         },
         onRenewSubscription: () {
           Navigator.of(context).pop(); // Close the dialog
@@ -260,7 +261,7 @@ class _PlanSelectionScreenState extends State<PlanSelectionScreen> {
       builder: (context) => SubscriptionSuccessDialog(
         subscriptionData: subscriptionData,
         onGoToHome: () {
-          Navigator.of(context).pushNamedAndRemoveUntil('/home', (route) => false);
+          Navigator.of(context).pushNamedAndRemoveUntil(Routes.homePage, (route) => false);
         },
       ),
     );
@@ -349,8 +350,8 @@ class _PlanSelectionScreenState extends State<PlanSelectionScreen> {
 
     return WillPopScope(
       onWillPop: () async {
-        // Allow normal back behavior for all users
-        return true;
+        Navigator.of(context).pushNamedAndRemoveUntil(Routes.homePage, (route) => false);
+        return false;
       },
       child: Scaffold(
         key: _scaffoldKey,

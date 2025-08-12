@@ -8,6 +8,7 @@ import '../../../services/restaurant_info_service.dart';
 import '../../resources/colors.dart';
 import '../../resources/font.dart';
 import '../homePage/sidebar/sidebar_drawer.dart';
+import '../../resources/router/router.dart';
 
 class ContactUsView extends StatefulWidget {
   const ContactUsView({Key? key}) : super(key: key);
@@ -69,7 +70,7 @@ class _ContactUsViewState extends State<ContactUsView>
   Widget build(BuildContext context) {
     return WillPopScope(
       onWillPop: () async {
-        Navigator.of(context).pushNamedAndRemoveUntil('/home', (route) => false);
+        Navigator.of(context).pushNamedAndRemoveUntil(Routes.homePage, (route) => false);
         return false;
       },
       child: Scaffold(

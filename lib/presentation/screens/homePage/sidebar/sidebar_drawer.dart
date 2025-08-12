@@ -256,7 +256,7 @@ class _SidebarDrawerState extends State<SidebarDrawer> with SingleTickerProvider
       try {
         if (routeName == '/home') {
           Navigator.of(context).pushNamedAndRemoveUntil(
-            '/home',
+            Routes.homePage,
             (route) => false,
           );
         } else {
@@ -268,7 +268,7 @@ class _SidebarDrawerState extends State<SidebarDrawer> with SingleTickerProvider
         // Fallback to home
         try {
           Navigator.of(context).pushNamedAndRemoveUntil(
-            '/home',
+            Routes.homePage,
             (route) => false,
           );
         } catch (fallbackError) {

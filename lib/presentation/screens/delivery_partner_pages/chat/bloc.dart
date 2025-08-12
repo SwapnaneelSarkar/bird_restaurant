@@ -20,6 +20,7 @@ class DeliveryPartnerChatBloc extends Bloc<DeliveryPartnerChatEvent, DeliveryPar
   String? _currentPartnerId;
   StreamSubscription? _messageStreamSubscription;
   StreamSubscription? _readStatusStreamSubscription;
+  bool _isProcessingMarkAsDelivered = false;
 
   DeliveryPartnerChatBloc({DeliveryPartnerChatService? chatService}) 
     : _chatService = chatService ?? DeliveryPartnerChatService(),
@@ -36,58 +37,26 @@ class DeliveryPartnerChatBloc extends Bloc<DeliveryPartnerChatEvent, DeliveryPar
     on<RefreshChat>(_onRefreshChat);
     on<MarkOrderAsDelivered>(_onMarkOrderAsDelivered);
     on<MarkAsRead>(_onMarkAsRead);
+    on<UpdateMessages>(_onUpdateMessages);
 
     debugPrint('DeliveryPartnerChatBloc: ✅ Setup complete');
   }
 
   void _setupSocketCallbacks() {
-    // Listen to real-time message stream
+    // Listen for new messages
     _messageStreamSubscription = _chatService.messageStream.listen(
       (message) {
-        if (!message.isFromCurrentUser(_currentUserId) && !isClosed) {
-          if (state is DeliveryPartnerChatLoaded) {
-            _addIncomingMessage(message);
-          }
-        }
+        _addIncomingMessage(message);
       },
       onError: (error) {
         // Handle error silently
       },
     );
 
-    // Listen to read status stream for blue tick updates
+    // Listen for read status updates
     _readStatusStreamSubscription = _chatService.readStatusStream.listen(
-      (readStatusData) {
-        if (!isClosed && state is DeliveryPartnerChatLoaded) {
-          final currentState = state as DeliveryPartnerChatLoaded;
-          
-          // Update messages with new read status
-          final updatedMessages = currentState.messages.map((chatMsg) {
-            final apiMessage = _chatService.messages.firstWhere(
-              (apiMsg) => apiMsg.id == chatMsg.id,
-              orElse: () => DeliveryPartnerApiMessage(
-                id: chatMsg.id,
-                roomId: '',
-                senderId: '',
-                senderType: '',
-                content: chatMsg.message,
-                messageType: 'text',
-                readBy: [],
-                createdAt: DateTime.now(),
-              ),
-            );
-            
-            return DeliveryPartnerChatMessage(
-              id: chatMsg.id,
-              message: chatMsg.message,
-              isUserMessage: chatMsg.isUserMessage,
-              time: chatMsg.time,
-              isRead: apiMessage.isRead,
-            );
-          }).toList();
-          
-          emit(currentState.copyWith(messages: updatedMessages));
-        }
+      (data) {
+        _updateMessageReadStatus(data['messageId'], data['isRead']);
       },
       onError: (error) {
         // Handle error silently
@@ -119,8 +88,25 @@ class DeliveryPartnerChatBloc extends Bloc<DeliveryPartnerChatEvent, DeliveryPar
         // Sort messages by timestamp - use string comparison for safety
         updatedMessages.sort((a, b) => a.id.compareTo(b.id));
         
-        emit(currentState.copyWith(messages: updatedMessages));
+        // Use add instead of emit for internal updates
+        add(const UpdateMessages());
       }
+    }
+  }
+
+  void _updateMessageReadStatus(String messageId, bool isRead) {
+    if (state is DeliveryPartnerChatLoaded) {
+      final currentState = state as DeliveryPartnerChatLoaded;
+      
+      final updatedMessages = currentState.messages.map((chatMsg) {
+        if (chatMsg.id == messageId) {
+          return chatMsg.copyWith(isRead: isRead);
+        }
+        return chatMsg;
+      }).toList();
+      
+      // Use add instead of emit for internal updates
+      add(const UpdateMessages());
     }
   }
 
@@ -197,35 +183,47 @@ class DeliveryPartnerChatBloc extends Bloc<DeliveryPartnerChatEvent, DeliveryPar
   }
 
   Future<void> _onMarkOrderAsDelivered(MarkOrderAsDelivered event, Emitter<DeliveryPartnerChatState> emit) async {
+    debugPrint('DeliveryPartnerChatBloc: 🎯 _onMarkOrderAsDelivered called with orderId: ${event.orderId}');
+    
+    _isProcessingMarkAsDelivered = true;
+    
     try {
       if (state is DeliveryPartnerChatLoaded) {
         final currentState = state as DeliveryPartnerChatLoaded;
+        debugPrint('DeliveryPartnerChatBloc: 🔄 Setting isUpdatingOrderStatus to true');
         emit(currentState.copyWith(isUpdatingOrderStatus: true));
       }
 
+      debugPrint('DeliveryPartnerChatBloc: 📞 Calling DeliveryPartnerOrdersService.updateOrderStatus');
       final response = await DeliveryPartnerOrdersService.updateOrderStatus(event.orderId, 'DELIVERED');
       
+      debugPrint('DeliveryPartnerChatBloc: 📋 API response: $response');
+      
       if (response['success'] == true) {
-        if (state is DeliveryPartnerChatLoaded) {
-          final currentState = state as DeliveryPartnerChatLoaded;
-          final updatedOrderInfo = currentState.orderInfo.copyWith(status: 'Delivered');
-          
-          emit(currentState.copyWith(
-            orderInfo: updatedOrderInfo,
-            isUpdatingOrderStatus: false,
-            lastUpdateSuccess: true,
-            lastUpdateMessage: 'Order marked as delivered successfully!',
-            lastUpdateTimestamp: DateTime.now(),
-          ));
-        }
-        
+        debugPrint('DeliveryPartnerChatBloc: ✅ Order marked as delivered successfully');
+        // Only emit success state, don't emit multiple states
         emit(DeliveryPartnerChatSuccess('Order marked as delivered successfully!'));
       } else {
+        debugPrint('DeliveryPartnerChatBloc: ❌ API returned failure: ${response['message']}');
+        // Reset the loading state and emit error
+        if (state is DeliveryPartnerChatLoaded) {
+          final currentState = state as DeliveryPartnerChatLoaded;
+          emit(currentState.copyWith(isUpdatingOrderStatus: false));
+        }
         throw Exception(response['message'] ?? 'Failed to mark order as delivered');
       }
     } catch (e) {
       debugPrint('DeliveryPartnerChatBloc: ❌ Error marking order as delivered: $e');
+      
+      // Reset the loading state if we're in a loaded state
+      if (state is DeliveryPartnerChatLoaded) {
+        final currentState = state as DeliveryPartnerChatLoaded;
+        emit(currentState.copyWith(isUpdatingOrderStatus: false));
+      }
+      
       emit(DeliveryPartnerChatError('Error: $e'));
+    } finally {
+      _isProcessingMarkAsDelivered = false;
     }
   }
 
@@ -234,6 +232,29 @@ class DeliveryPartnerChatBloc extends Bloc<DeliveryPartnerChatEvent, DeliveryPar
       await _chatService.markAsRead(event.roomId);
     } catch (e) {
       debugPrint('DeliveryPartnerChatBloc: ❌ Error marking messages as read: $e');
+    }
+  }
+
+  Future<void> _onUpdateMessages(UpdateMessages event, Emitter<DeliveryPartnerChatState> emit) async {
+    if (state is DeliveryPartnerChatLoaded) {
+      final currentState = state as DeliveryPartnerChatLoaded;
+      final updatedMessages = _chatService.messages.map((apiMsg) {
+        final isFromCurrentUser = apiMsg.isFromCurrentUser(_currentUserId);
+        final isRead = apiMsg.isReadByOthers(apiMsg.senderId);
+        
+        return DeliveryPartnerChatMessage(
+          id: apiMsg.id,
+          message: apiMsg.content,
+          isUserMessage: isFromCurrentUser,
+          time: _formatTime(apiMsg.createdAt),
+          isRead: isRead,
+        );
+      }).toList();
+      
+      emit(currentState.copyWith(
+        messages: updatedMessages,
+        lastUpdateTimestamp: DateTime.now(),
+      ));
     }
   }
 
@@ -298,11 +319,37 @@ class DeliveryPartnerChatBloc extends Bloc<DeliveryPartnerChatEvent, DeliveryPar
             orderDetails = OrderDetails.fromJson(orderData);
             debugPrint('DeliveryPartnerChatBloc: ✅ Order details parsed successfully');
             
+            // Update order info with real status from API
+            final updatedOrderInfo = orderInfo.copyWith(
+              status: _formatOrderStatus(orderDetails.orderStatus),
+            );
+            
+            debugPrint('DeliveryPartnerChatBloc: 📊 Original order status from API: ${orderDetails.orderStatus}');
+            debugPrint('DeliveryPartnerChatBloc: 📊 Formatted order status: ${_formatOrderStatus(orderDetails.orderStatus)}');
+            debugPrint('DeliveryPartnerChatBloc: 📊 Updated order info status: ${updatedOrderInfo.status}');
+            
             // Load menu items if needed
             if (orderDetails.items.isNotEmpty) {
               menuItems = await _loadMenuItems(orderDetails.items);
               debugPrint('DeliveryPartnerChatBloc: ✅ Loaded ${menuItems.length} menu items');
             }
+            
+            // Emit loaded state with updated order info
+            emit(DeliveryPartnerChatLoaded(
+              messages: chatMessages,
+              orderInfo: updatedOrderInfo,
+              isConnected: _chatService.isConnected,
+              isRefreshing: false,
+              orderDetails: orderDetails,
+              isLoadingOrderDetails: false,
+              menuItems: menuItems,
+              isUpdatingOrderStatus: false,
+              lastUpdateSuccess: false,
+              lastUpdateMessage: '',
+              lastUpdateTimestamp: DateTime.now(),
+              userDetails: null,
+              isLoadingUserDetails: false,
+            ));
           } catch (e) {
             debugPrint('DeliveryPartnerChatBloc: ❌ Error parsing order details: $e');
             debugPrint('DeliveryPartnerChatBloc: ❌ Order data: $orderData');
@@ -316,30 +363,34 @@ class DeliveryPartnerChatBloc extends Bloc<DeliveryPartnerChatEvent, DeliveryPar
         // Continue without order details
       }
 
-      // Emit loaded state
-      emit(DeliveryPartnerChatLoaded(
-        messages: chatMessages,
-        orderInfo: orderInfo,
-        isConnected: _chatService.isConnected,
-        isRefreshing: false,
-        orderDetails: orderDetails,
-        isLoadingOrderDetails: false,
-        menuItems: menuItems,
-        isUpdatingOrderStatus: false,
-        lastUpdateSuccess: false,
-        lastUpdateMessage: '',
-        lastUpdateTimestamp: DateTime.now(),
-        userDetails: null,
-        isLoadingUserDetails: false,
-      ));
+      // If we didn't emit loaded state above (due to order details error), emit it now
+      if (state is! DeliveryPartnerChatLoaded) {
+        emit(DeliveryPartnerChatLoaded(
+          messages: chatMessages,
+          orderInfo: orderInfo,
+          isConnected: _chatService.isConnected,
+          isRefreshing: false,
+          orderDetails: orderDetails,
+          isLoadingOrderDetails: false,
+          menuItems: menuItems,
+          isUpdatingOrderStatus: false,
+          lastUpdateSuccess: false,
+          lastUpdateMessage: '',
+          lastUpdateTimestamp: DateTime.now(),
+          userDetails: null,
+          isLoadingUserDetails: false,
+        ));
+      }
 
       debugPrint('DeliveryPartnerChatBloc: ✅ Chat data loaded successfully');
       debugPrint('DeliveryPartnerChatBloc: 📊 Messages count: ${chatMessages.length}');
       debugPrint('DeliveryPartnerChatBloc: 🏪 Room ID: $_currentRoomId');
 
+      // Mark messages as read
+      await _chatService.markAsRead(_currentRoomId!);
     } catch (e) {
       debugPrint('DeliveryPartnerChatBloc: ❌ Error loading chat data: $e');
-      emit(DeliveryPartnerChatError('Error: $e'));
+      emit(DeliveryPartnerChatError('Failed to load chat: $e'));
     }
   }
 
@@ -403,6 +454,32 @@ class DeliveryPartnerChatBloc extends Bloc<DeliveryPartnerChatEvent, DeliveryPar
     return orderId;
   }
 
+  // Helper method to format order status
+  String _formatOrderStatus(String status) {
+    switch (status.toUpperCase()) {
+      case 'PENDING':
+        return 'Pending';
+      case 'CONFIRMED':
+        return 'Confirmed';
+      case 'PREPARING':
+        return 'Preparing';
+      case 'READY_FOR_DELIVERY':
+        return 'Ready for Delivery';
+      case 'OUT_FOR_DELIVERY':
+        return 'Out for Delivery';
+      case 'DELIVERED':
+        return 'Delivered';
+      case 'CANCELLED':
+        return 'Cancelled';
+      default:
+        return status.replaceAll('_', ' ').split(' ')
+            .map((word) => word.isNotEmpty 
+                ? '${word[0].toUpperCase()}${word.substring(1).toLowerCase()}'
+                : '')
+            .join(' ');
+    }
+  }
+
   // Helper method to format time
   String _formatTime(DateTime dateTime) {
     final istTime = TimeUtils.toIST(dateTime);
@@ -459,7 +536,20 @@ class DeliveryPartnerChatBloc extends Bloc<DeliveryPartnerChatEvent, DeliveryPar
   @override
   Future<void> close() {
     debugPrint('DeliveryPartnerChatBloc: 🔄 Closing bloc and cleaning up resources');
+    debugPrint('DeliveryPartnerChatBloc: 🔄 Is processing mark as delivered: $_isProcessingMarkAsDelivered');
     
+    // Add a small delay if we're processing the mark as delivered event
+    if (_isProcessingMarkAsDelivered) {
+      debugPrint('DeliveryPartnerChatBloc: ⚠️ Delaying close - processing mark as delivered event');
+      return Future.delayed(const Duration(milliseconds: 500), () {
+        _closeBloc();
+      });
+    }
+    
+    return _closeBloc();
+  }
+  
+  Future<void> _closeBloc() async {
     // Cancel subscriptions
     _messageStreamSubscription?.cancel();
     _readStatusStreamSubscription?.cancel();

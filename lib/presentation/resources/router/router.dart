@@ -20,6 +20,7 @@ import 'package:bird_restaurant/presentation/screens/contact_us/view.dart';
 import 'package:bird_restaurant/presentation/screens/delivery_partner_pages/dashboard/view.dart';
 import 'package:bird_restaurant/presentation/screens/delivery_partner_pages/profile/view.dart';
 import 'package:bird_restaurant/presentation/screens/delivery_partner_pages/order_details/view.dart';
+import 'package:bird_restaurant/presentation/screens/order_details/view.dart';
 import 'package:bird_restaurant/presentation/screens/delivery_partner_pages/chat/view.dart';
 import 'package:bird_restaurant/presentation/screens/delivery_partner_pages/chat/bloc.dart';
 import 'package:bird_restaurant/services/delivery_partner_chat_service.dart';
@@ -78,6 +79,7 @@ class Routes {
   static const String deliveryPartnerDashboard = '/deliveryPartnerDashboard';
   static const String deliveryPartnerProfile = '/deliveryPartnerProfile';
   static const String deliveryPartnerOrderDetails = '/deliveryPartnerOrderDetails';
+  static const String restaurantOrderDetails = '/restaurantOrderDetails';
   static const String deliveryPartnerChat = '/deliveryPartnerChat';
   static const String deliveryPartnerChatTest = '/deliveryPartnerChatTest';
   static const String deliveryPartnerProfileEdit = '/deliveryPartnerProfileEdit';
@@ -232,6 +234,11 @@ class RouteGenerator {
         case Routes.deliveryPartnerOrderDetails:
           return MaterialPageRoute(
             builder: (_) => DeliveryPartnerOrderDetailsView(),
+            settings: routeSettings,
+          );
+        case Routes.restaurantOrderDetails:
+          return MaterialPageRoute(
+            builder: (_) => RestaurantOrderDetailsView(),
             settings: routeSettings,
           );
 

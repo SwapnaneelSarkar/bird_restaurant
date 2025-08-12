@@ -6,6 +6,7 @@ import '../../../services/restaurant_info_service.dart';
 import '../../resources/colors.dart';
 import '../../resources/font.dart';
 import '../homePage/sidebar/sidebar_drawer.dart';
+import '../../resources/router/router.dart';
 
 class TermsConditionsView extends StatefulWidget {
   const TermsConditionsView({Key? key}) : super(key: key);
@@ -58,43 +59,49 @@ class _TermsConditionsViewState extends State<TermsConditionsView>
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
 
-    return Scaffold(
-      key: _scaffoldKey,
-      backgroundColor: ColorManager.background,
-      drawer: FutureBuilder<Map<String, String>>(
-        future: RestaurantInfoService.getRestaurantInfo(),
-        builder: (context, snapshot) {
-          final info = snapshot.data ?? {};
-          return SidebarDrawer(
-            activePage: 'terms',
-            restaurantName: info['name'],
-            restaurantSlogan: info['slogan'],
-            restaurantImageUrl: info['imageUrl'],
-          );
-        },
-      ),
-      body: SafeArea(
-        child: Column(
-          children: [
-            // Custom App Bar with sidebar and title
-            _buildCustomAppBar(),
-            
-            // Content
-            Expanded(
-              child: AnimatedBuilder(
-                animation: _animationController,
-                builder: (context, child) {
-                  return FadeTransition(
-                    opacity: _fadeAnimation,
-                    child: SlideTransition(
-                      position: _slideAnimation,
-                      child: _buildContent(),
-                    ),
-                  );
-                },
+    return WillPopScope(
+      onWillPop: () async {
+        Navigator.of(context).pushNamedAndRemoveUntil(Routes.homePage, (route) => false);
+        return false;
+      },
+      child: Scaffold(
+        key: _scaffoldKey,
+        backgroundColor: ColorManager.background,
+        drawer: FutureBuilder<Map<String, String>>(
+          future: RestaurantInfoService.getRestaurantInfo(),
+          builder: (context, snapshot) {
+            final info = snapshot.data ?? {};
+            return SidebarDrawer(
+              activePage: 'terms',
+              restaurantName: info['name'],
+              restaurantSlogan: info['slogan'],
+              restaurantImageUrl: info['imageUrl'],
+            );
+          },
+        ),
+        body: SafeArea(
+          child: Column(
+            children: [
+              // Custom App Bar with sidebar and title
+              _buildCustomAppBar(),
+              
+              // Content
+              Expanded(
+                child: AnimatedBuilder(
+                  animation: _animationController,
+                  builder: (context, child) {
+                    return FadeTransition(
+                      opacity: _fadeAnimation,
+                      child: SlideTransition(
+                        position: _slideAnimation,
+                        child: _buildContent(),
+                      ),
+                    );
+                  },
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
