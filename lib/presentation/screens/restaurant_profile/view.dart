@@ -69,31 +69,33 @@ class _BodyState extends State<_Body> {
   late final TextEditingController _restNameCtrl;
   late final TextEditingController _descriptionCtrl;
   late final TextEditingController _cookTimeCtrl;
-  late final TextEditingController _deliveryRadiusCtrl; // 👈 NEW CONTROLLER ADDED
+  late final TextEditingController
+  _deliveryRadiusCtrl; // 👈 NEW CONTROLLER ADDED
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
   // We'll store address info from the location picker
   String _selectedAddress = '';
-  
+
   // Restaurant info state
   Map<String, String>? _restaurantInfo;
   bool _isRestaurantInfoLoaded = false;
-  
+
   @override
   void initState() {
     super.initState();
-    _ownerNameCtrl   = TextEditingController();
+    _ownerNameCtrl = TextEditingController();
     _ownerMobileCtrl = TextEditingController();
-    _ownerEmailCtrl  = TextEditingController();
-    _ownerAddressCtrl= TextEditingController();
-    _restNameCtrl    = TextEditingController();
+    _ownerEmailCtrl = TextEditingController();
+    _ownerAddressCtrl = TextEditingController();
+    _restNameCtrl = TextEditingController();
     _descriptionCtrl = TextEditingController();
-    _cookTimeCtrl    = TextEditingController();
-    _deliveryRadiusCtrl = TextEditingController(); // 👈 NEW CONTROLLER INITIALIZED
-    
+    _cookTimeCtrl = TextEditingController();
+    _deliveryRadiusCtrl =
+        TextEditingController(); // 👈 NEW CONTROLLER INITIALIZED
+
     // Load mobile number from shared preferences
     _loadMobileNumber();
-    
+
     // Load restaurant info
     _loadRestaurantInfo();
   }
@@ -107,7 +109,9 @@ class _BodyState extends State<_Body> {
           _restaurantInfo = info;
           _isRestaurantInfoLoaded = true;
         });
-        debugPrint('🔄 RestaurantProfilePage: Loaded restaurant info - Name: ${info['name']}, Slogan: ${info['slogan']}, Image: ${info['imageUrl']}');
+        debugPrint(
+          '🔄 RestaurantProfilePage: Loaded restaurant info - Name: ${info['name']}, Slogan: ${info['slogan']}, Image: ${info['imageUrl']}',
+        );
       }
     } catch (e) {
       debugPrint('Error loading restaurant info: $e');
@@ -121,7 +125,7 @@ class _BodyState extends State<_Body> {
         setState(() {
           _ownerMobileCtrl.text = mobile;
         });
-        
+
         // Update the bloc state
         context.read<RestaurantProfileBloc>().add(OwnerMobileChanged(mobile));
       }
@@ -140,34 +144,35 @@ class _BodyState extends State<_Body> {
     _deliveryRadiusCtrl.dispose(); // 👈 NEW CONTROLLER DISPOSED
     super.dispose();
   }
-  
+
   // Method to open the location picker
   Future<void> _openLocationPicker() async {
     final result = await AddressPickerBottomSheet.show(context);
-    
+
     if (result != null) {
       final address = result['address'];
       final subAddress = result['subAddress'];
       final latitude = result['latitude'];
       final longitude = result['longitude'];
-      
+
       // Update the full address
-      final fullAddress = subAddress != null && subAddress.toString().isNotEmpty 
-          ? '$address, $subAddress' 
-          : address;
-          
+      final fullAddress =
+          subAddress != null && subAddress.toString().isNotEmpty
+              ? '$address, $subAddress'
+              : address;
+
       // Update the owner address field
       setState(() {
         _ownerAddressCtrl.text = fullAddress;
         _selectedAddress = fullAddress;
       });
-      
+
       // Update the bloc state with all values
       final bloc = context.read<RestaurantProfileBloc>();
       bloc.add(OwnerAddressChanged(fullAddress));
       bloc.add(LatitudeChanged(latitude.toString()));
       bloc.add(LongitudeChanged(longitude.toString()));
-      
+
       debugPrint('Location selected:');
       debugPrint('Address: $fullAddress');
       debugPrint('Latitude: $latitude');
@@ -180,8 +185,7 @@ class _BodyState extends State<_Body> {
     TimeOfDay initial,
     ValueChanged<TimeOfDay> onSelected,
   ) async {
-    final picked =
-        await showTimePicker(context: context, initialTime: initial);
+    final picked = await showTimePicker(context: context, initialTime: initial);
     if (picked != null) onSelected(picked);
   }
 
@@ -219,18 +223,17 @@ class _BodyState extends State<_Body> {
   @override
   Widget build(BuildContext context) {
     final bloc = context.read<RestaurantProfileBloc>();
-    final mq   = MediaQuery.of(context);
-    final w    = mq.size.width;
-    final h    = mq.size.height;
+    final mq = MediaQuery.of(context);
+    final w = mq.size.width;
+    final h = mq.size.height;
     final side = w * 0.04;
     final vert = h * 0.02;
 
     return WillPopScope(
       onWillPop: () async {
-        Navigator.of(context).pushNamedAndRemoveUntil(
-          Routes.homePage,
-          (route) => false,
-        );
+        Navigator.of(
+          context,
+        ).pushNamedAndRemoveUntil(Routes.homePage, (route) => false);
         return false;
       },
       child: Scaffold(
@@ -276,32 +279,38 @@ class _BodyState extends State<_Body> {
         ),
         body: BlocConsumer<RestaurantProfileBloc, RestaurantProfileState>(
           listenWhen: (previous, current) {
-            // Only update when submissionMessage or errorMessage changes
-            return previous.submissionMessage != current.submissionMessage ||
-                   previous.errorMessage != current.errorMessage;
+            return previous.isSubmitting && !current.isSubmitting;
           },
           listener: (context, state) {
-            // Update text fields when state changes
             _updateTextFields(state);
-            
-            // Show success/error messages
+
             if (state.submissionMessage != null) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text(state.submissionMessage!),
-                  backgroundColor: state.submissionSuccess == true 
-                      ? Colors.green 
-                      : Colors.red,
+                  backgroundColor:
+                      state.submissionSuccess == true
+                          ? Colors.green
+                          : Colors.red,
+                  duration: Duration(seconds: 3),
                 ),
               );
-              // Clear the submission message after showing the SnackBar
-              context.read<RestaurantProfileBloc>().add(ClearSubmissionMessage());
+
+              Future.delayed(Duration(milliseconds: 500), () {
+                if (mounted) {
+                  context.read<RestaurantProfileBloc>().add(
+                    ClearSubmissionMessage(),
+                  );
+                }
+              });
             }
+
             if (state.errorMessage != null) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text(state.errorMessage!),
                   backgroundColor: Colors.red,
+                  duration: Duration(seconds: 3),
                 ),
               );
             }
@@ -309,13 +318,16 @@ class _BodyState extends State<_Body> {
           builder: (context, st) {
             // Update text fields with current state values
             _updateTextFields(st);
-            
+
             return SafeArea(
               child: Stack(
                 children: [
                   // Main content
                   SingleChildScrollView(
-                    padding: EdgeInsets.symmetric(horizontal: side, vertical: vert),
+                    padding: EdgeInsets.symmetric(
+                      horizontal: side,
+                      vertical: vert,
+                    ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -342,7 +354,10 @@ class _BodyState extends State<_Body> {
                                     color: Color(0xFFFCB56E),
                                   ),
                                   padding: const EdgeInsets.all(8),
-                                  child: const Icon(Icons.photo, color: Colors.white),
+                                  child: const Icon(
+                                    Icons.photo,
+                                    color: Colors.white,
+                                  ),
                                 ),
                               ),
                             ),
@@ -376,7 +391,7 @@ class _BodyState extends State<_Body> {
                           onChanged: (v) => bloc.add(OwnerEmailChanged(v)),
                         ),
                         SizedBox(height: vert * .8),
-                        
+
                         // Location picker button and address display
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -404,7 +419,9 @@ class _BodyState extends State<_Body> {
                                 decoration: BoxDecoration(
                                   color: Colors.grey.shade50,
                                   borderRadius: BorderRadius.circular(6),
-                                  border: Border.all(color: Colors.grey.shade300),
+                                  border: Border.all(
+                                    color: Colors.grey.shade300,
+                                  ),
                                 ),
                                 child: Text(
                                   _selectedAddress,
@@ -416,10 +433,13 @@ class _BodyState extends State<_Body> {
                               ),
                           ],
                         ),
-                        
+
                         SizedBox(height: vert * 1.2),
 
-                        _sectionHeader('Restaurant Details', Icons.restaurant_menu_outlined),
+                        _sectionHeader(
+                          'Restaurant Details',
+                          Icons.restaurant_menu_outlined,
+                        ),
                         SizedBox(height: vert * 0.5),
 
                         CustomTextField(
@@ -445,7 +465,7 @@ class _BodyState extends State<_Body> {
                           onChanged: (v) => bloc.add(CookingTimeChanged(v)),
                         ),
                         SizedBox(height: vert * .8),
-                        
+
                         // 👈 NEW DELIVERY RADIUS FIELD ADDED
                         CustomTextField(
                           controller: _deliveryRadiusCtrl,
@@ -463,28 +483,41 @@ class _BodyState extends State<_Body> {
                               ctx: context,
                               label: 'Vegetarian',
                               selected: st.type == RestaurantType.veg,
-                              onTap: () => bloc.add(const TypeChanged(RestaurantType.veg)),
+                              onTap:
+                                  () => bloc.add(
+                                    const TypeChanged(RestaurantType.veg),
+                                  ),
                             ),
                             const SizedBox(width: 12),
                             _typeChip(
                               ctx: context,
                               label: 'Non-Vegetarian',
                               selected: st.type == RestaurantType.nonVeg,
-                              onTap: () => bloc.add(const TypeChanged(RestaurantType.nonVeg)),
+                              onTap:
+                                  () => bloc.add(
+                                    const TypeChanged(RestaurantType.nonVeg),
+                                  ),
                             ),
                           ],
                         ),
-                        
+
                         // Store Type Dropdown - NEW SECTION
                         SizedBox(height: vert * 1.2),
                         _sectionHeader('Kitchen Type', Icons.store_outlined),
                         SizedBox(height: vert * 0.5),
 
-                        BlocBuilder<RestaurantProfileBloc, RestaurantProfileState>(
-                          buildWhen: (previous, current) =>
-                            previous.restaurantTypes != current.restaurantTypes ||
-                            previous.selectedRestaurantType != current.selectedRestaurantType ||
-                            previous.isLoadingRestaurantTypes != current.isLoadingRestaurantTypes,
+                        BlocBuilder<
+                          RestaurantProfileBloc,
+                          RestaurantProfileState
+                        >(
+                          buildWhen:
+                              (previous, current) =>
+                                  previous.restaurantTypes !=
+                                      current.restaurantTypes ||
+                                  previous.selectedRestaurantType !=
+                                      current.selectedRestaurantType ||
+                                  previous.isLoadingRestaurantTypes !=
+                                      current.isLoadingRestaurantTypes,
                           builder: (context, state) {
                             if (state.isLoadingRestaurantTypes) {
                               return Container(
@@ -492,7 +525,9 @@ class _BodyState extends State<_Body> {
                                 decoration: BoxDecoration(
                                   color: Colors.white,
                                   borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(color: Colors.grey.shade300),
+                                  border: Border.all(
+                                    color: Colors.grey.shade300,
+                                  ),
                                 ),
                                 child: Center(
                                   child: SizedBox(
@@ -506,14 +541,16 @@ class _BodyState extends State<_Body> {
                                 ),
                               );
                             }
-                            
+
                             if (state.restaurantTypes.isEmpty) {
                               return Container(
                                 padding: EdgeInsets.all(12),
                                 decoration: BoxDecoration(
                                   color: Colors.white,
                                   borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(color: Colors.grey.shade300),
+                                  border: Border.all(
+                                    color: Colors.grey.shade300,
+                                  ),
                                 ),
                                 child: Text(
                                   'No store types available',
@@ -524,7 +561,7 @@ class _BodyState extends State<_Body> {
                                 ),
                               );
                             }
-                            
+
                             return Container(
                               padding: EdgeInsets.symmetric(horizontal: 12),
                               decoration: BoxDecoration(
@@ -543,21 +580,26 @@ class _BodyState extends State<_Body> {
                                       fontSize: FontSize.s14,
                                     ),
                                   ),
-                                  items: state.restaurantTypes.map<DropdownMenuItem<Map<String, dynamic>>>(
-                                    (Map<String, dynamic> type) {
-                                      return DropdownMenuItem<Map<String, dynamic>>(
-                                        value: type,
-                                        child: Text(
-                                          type['name'],
-                                          style: TextStyle(
-                                            fontSize: FontSize.s14,
-                                            color: ColorManager.black,
+                                  items:
+                                      state.restaurantTypes.map<
+                                        DropdownMenuItem<Map<String, dynamic>>
+                                      >((Map<String, dynamic> type) {
+                                        return DropdownMenuItem<
+                                          Map<String, dynamic>
+                                        >(
+                                          value: type,
+                                          child: Text(
+                                            type['name'],
+                                            style: TextStyle(
+                                              fontSize: FontSize.s14,
+                                              color: ColorManager.black,
+                                            ),
                                           ),
-                                        ),
-                                      );
-                                    },
-                                  ).toList(),
-                                  onChanged: (Map<String, dynamic>? selectedType) {
+                                        );
+                                      }).toList(),
+                                  onChanged: (
+                                    Map<String, dynamic>? selectedType,
+                                  ) {
                                     if (selectedType != null) {
                                       context.read<RestaurantProfileBloc>().add(
                                         RestaurantTypeChanged(selectedType),
@@ -570,8 +612,6 @@ class _BodyState extends State<_Body> {
                           },
                         ),
                         SizedBox(height: vert * 1.2),
-
-
 
                         _sectionHeader('Cuisine Types', Icons.fastfood),
                         SizedBox(height: vert * 0.5),
@@ -595,54 +635,60 @@ class _BodyState extends State<_Body> {
                         ),
                         SizedBox(height: vert * 1.2),
 
-                        _sectionHeader('Working Hours', Icons.access_time_outlined),
+                        _sectionHeader(
+                          'Working Hours',
+                          Icons.access_time_outlined,
+                        ),
                         for (int i = 0; i < st.hours.length; i++) ...[
                           OperationalHourCard(
                             index: i,
                             day: st.hours[i],
-                            onToggleEnabled: () => bloc.add(ToggleDayEnabledEvent(i)),
-                            onPickStart: () => _pickTime(
-                              context,
-                              st.hours[i].start,
-                              (t) => bloc.add(UpdateStartTimeEvent(i, t)),
-                            ),
-                            onPickEnd: () => _pickTime(
-                              context,
-                              st.hours[i].end,
-                              (t) => bloc.add(UpdateEndTimeEvent(i, t)),
-                            ),
+                            onToggleEnabled:
+                                () => bloc.add(ToggleDayEnabledEvent(i)),
+                            onPickStart:
+                                () => _pickTime(
+                                  context,
+                                  st.hours[i].start,
+                                  (t) => bloc.add(UpdateStartTimeEvent(i, t)),
+                                ),
+                            onPickEnd:
+                                () => _pickTime(
+                                  context,
+                                  st.hours[i].end,
+                                  (t) => bloc.add(UpdateEndTimeEvent(i, t)),
+                                ),
                           ),
                           SizedBox(height: vert * .1),
                         ],
                         SizedBox(height: vert * 1),
 
                         ProfileButton(
-                          label: st.isSubmitting ? 'Updating...' : 'Update Profile',
+                          label:
+                              st.isSubmitting
+                                  ? 'Updating...'
+                                  : 'Update Profile',
                           icon: Icons.save_outlined,
                           style: ProfileButtonStyle.filled,
-                          onPressed: st.isValid && !st.isSubmitting
-                              ? () => bloc.add(const UpdateProfilePressed())
-                              : null,
+                          onPressed:
+                              st.isValid && !st.isSubmitting
+                                  ? () => bloc.add(const UpdateProfilePressed())
+                                  : null,
                         ),
                         SizedBox(height: vert),
                       ],
                     ),
                   ),
-                  
+
                   // Overlays
                   if (st.isLoading)
                     Container(
                       color: Colors.black.withOpacity(0.3),
-                      child: const Center(
-                        child: CircularProgressIndicator(),
-                      ),
+                      child: const Center(child: CircularProgressIndicator()),
                     ),
                   if (st.isSubmitting)
                     Container(
                       color: Colors.black.withOpacity(0.3),
-                      child: const Center(
-                        child: CircularProgressIndicator(),
-                      ),
+                      child: const Center(child: CircularProgressIndicator()),
                     ),
                 ],
               ),
@@ -665,34 +711,38 @@ class _BodyState extends State<_Body> {
           height: double.infinity,
         ),
       );
-    } 
+    }
     // If we have a URL from the API, display network image
-    else if (state.restaurantImageUrl != null && state.restaurantImageUrl!.isNotEmpty) {
+    else if (state.restaurantImageUrl != null &&
+        state.restaurantImageUrl!.isNotEmpty) {
       // Clean and construct the image URL
       String cleanUrl = state.restaurantImageUrl!;
-      
+
       // Remove malformed prefix if present
       if (cleanUrl.contains('https://api.bird.delivery/api/%5B%22')) {
-        cleanUrl = cleanUrl.replaceAll('https://api.bird.delivery/api/%5B%22', '');
+        cleanUrl = cleanUrl.replaceAll(
+          'https://api.bird.delivery/api/%5B%22',
+          '',
+        );
       }
-      
+
       // Remove trailing encoded characters
       if (cleanUrl.contains('%22%5D')) {
         cleanUrl = cleanUrl.replaceAll('%22%5D', '');
       }
-      
+
       // URL decode any remaining encoded characters
       cleanUrl = Uri.decodeFull(cleanUrl);
-      
+
       // If it's already a full URL (starts with http), use it as is
       // Otherwise, check if we need to add base URL
       String fullUrl = cleanUrl;
       if (!cleanUrl.startsWith('http')) {
         fullUrl = '${ApiConstants.baseUrl}/$cleanUrl';
       }
-      
+
       debugPrint('Using cleaned image URL: $fullUrl');
-      
+
       return ClipRRect(
         borderRadius: BorderRadius.circular(8),
         child: Image.network(
@@ -714,16 +764,17 @@ class _BodyState extends State<_Body> {
             if (loadingProgress == null) return child;
             return Center(
               child: CircularProgressIndicator(
-                value: loadingProgress.expectedTotalBytes != null
-                    ? loadingProgress.cumulativeBytesLoaded / 
-                      loadingProgress.expectedTotalBytes!
-                    : null,
+                value:
+                    loadingProgress.expectedTotalBytes != null
+                        ? loadingProgress.cumulativeBytesLoaded /
+                            loadingProgress.expectedTotalBytes!
+                        : null,
               ),
             );
           },
         ),
       );
-    } 
+    }
     // Default placeholder
     else {
       return Icon(
@@ -735,115 +786,116 @@ class _BodyState extends State<_Body> {
   }
 
   Widget _sectionHeader(String title, IconData icon) => Padding(
-        padding: const EdgeInsets.only(bottom: 8),
-        child: Row(
-          children: [
-            Icon(icon, size: 18, color: Colors.grey.shade600),
-            const SizedBox(width: 6),
-            Text(
-              title,
-              style: TextStyle(
-                fontFamily: FontConstants.fontFamily,
-                fontSize: FontSize.s14,
-                fontWeight: FontWeightManager.medium,
-                color: Colors.grey.shade800,
-              ),
-            ),
-          ],
+    padding: const EdgeInsets.only(bottom: 8),
+    child: Row(
+      children: [
+        Icon(icon, size: 18, color: Colors.grey.shade600),
+        const SizedBox(width: 6),
+        Text(
+          title,
+          style: TextStyle(
+            fontFamily: FontConstants.fontFamily,
+            fontSize: FontSize.s14,
+            fontWeight: FontWeightManager.medium,
+            color: Colors.grey.shade800,
+          ),
         ),
-      );
+      ],
+    ),
+  );
 
   Widget _typeChip({
     required BuildContext ctx,
     required String label,
     required bool selected,
     required VoidCallback onTap,
-  }) =>
-      InkWell(
-        onTap: onTap,
+  }) => InkWell(
+    onTap: onTap,
+    borderRadius: BorderRadius.circular(16),
+    child: Container(
+      width: (MediaQuery.of(ctx).size.width - 48) / 2,
+      height: 84,
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      decoration: BoxDecoration(
+        color: Colors.transparent,
+        border: Border.all(color: Colors.grey.shade400, width: 1.2),
         borderRadius: BorderRadius.circular(16),
-        child: Container(
-          width: (MediaQuery.of(ctx).size.width - 48) / 2,
-          height: 84,
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          decoration: BoxDecoration(
-            color: Colors.transparent,
-            border: Border.all(
-              color: Colors.grey.shade400,
-              width: 1.2,
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 24,
+            height: 24,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: selected ? ColorManager.primary : Colors.grey.shade400,
+                width: 2,
+              ),
             ),
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 24,
-                height: 24,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: selected
-                        ? ColorManager.primary
-                        : Colors.grey.shade400,
-                    width: 2,
-                  ),
-                ),
-                alignment: Alignment.center,
-                child: selected
+            alignment: Alignment.center,
+            child:
+                selected
                     ? Container(
-                        width: 12,
-                        height: 12,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: ColorManager.primary,
-                        ),
-                      )
+                      width: 12,
+                      height: 12,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: ColorManager.primary,
+                      ),
+                    )
                     : const SizedBox.shrink(),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Text(
-                  label,
-                  maxLines: 2,
-                  style: TextStyle(
-                    fontFamily: FontConstants.fontFamily,
-                    fontSize: FontSize.s16,
-                    fontWeight: FontWeightManager.medium,
-                    color: Colors.black,
-                  ),
-                ),
-              ),
-            ],
           ),
-        ),
-      );
+          const SizedBox(width: 16),
+          Expanded(
+            child: Text(
+              label,
+              maxLines: 2,
+              style: TextStyle(
+                fontFamily: FontConstants.fontFamily,
+                fontSize: FontSize.s16,
+                fontWeight: FontWeightManager.medium,
+                color: Colors.black,
+              ),
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
 
   void _openSidebar() {
     // Use the scaffold's built-in drawer instead of pushing a new route
     _scaffoldKey.currentState?.openDrawer();
   }
 
-  void _showImagePicker(BuildContext context, RestaurantProfileBloc bloc) async {
+  void _showImagePicker(
+    BuildContext context,
+    RestaurantProfileBloc bloc,
+  ) async {
     final ImagePicker picker = ImagePicker();
     final XFile? image = await picker.pickImage(source: ImageSource.gallery);
-    
+
     if (image != null) {
       // Navigate to crop screen
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (context) => ImageCropperWidget(
-            imagePath: image.path,
-            aspectRatio: 16.0 / 9.0, // Restaurant images typically use 16:9 aspect ratio
-            onCropComplete: (File croppedFile) {
-              // Update the state with the cropped image path
-              bloc.add(ImageCropped(croppedFile.path));
-              Navigator.pop(context);
-            },
-            onCancel: () {
-              Navigator.pop(context);
-            },
-          ),
+          builder:
+              (context) => ImageCropperWidget(
+                imagePath: image.path,
+                aspectRatio:
+                    16.0 /
+                    9.0, // Restaurant images typically use 16:9 aspect ratio
+                onCropComplete: (File croppedFile) {
+                  // Update the state with the cropped image path
+                  bloc.add(ImageCropped(croppedFile.path));
+                  Navigator.pop(context);
+                },
+                onCancel: () {
+                  Navigator.pop(context);
+                },
+              ),
         ),
       );
     }

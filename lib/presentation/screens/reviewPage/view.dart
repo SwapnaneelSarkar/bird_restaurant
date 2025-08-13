@@ -589,15 +589,22 @@ class _ReviewsViewState extends State<ReviewsView> {
                         width: 1,
                       ),
                     ),
-                    child: Text(
-                      'Order #${review.orderId.length > 8 ? review.orderId.substring(review.orderId.length - 8) : review.orderId}',
-                      style: TextStyle(
-                        color: ColorManager.textgrey2,
-                        fontSize: FontSize.s12,
-                        fontWeight: FontWeightManager.medium,
-                        fontFamily: FontFamily.Montserrat,
-                      ),
-                    ),
+                    child:SizedBox(
+  width: MediaQuery.of(context).size.width * 0.4,
+  child: Text(
+    'Order #${review.orderId}',
+    style: TextStyle(
+      color: ColorManager.textgrey2,
+      fontSize: FontSize.s12,
+      fontWeight: FontWeightManager.medium,
+      fontFamily: FontFamily.Montserrat,
+    ),
+    overflow: TextOverflow.ellipsis,
+    maxLines: 1,
+    softWrap: false,
+  ),
+)
+
                   ),
                   const SizedBox(width: 8),
                   Icon(

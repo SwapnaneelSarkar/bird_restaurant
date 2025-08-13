@@ -755,6 +755,21 @@ class _AddPartnerBottomSheetState extends State<_AddPartnerBottomSheet> {
     }
   }
 
+  // Function to check if all required fields are filled
+  bool _areAllFieldsFilled() {
+    return name.isNotEmpty &&
+        email.isNotEmpty &&
+        RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(email) &&
+        username.isNotEmpty &&
+        password.isNotEmpty &&
+        phone.isNotEmpty &&
+        phone.trim().length == 10 &&
+        RegExp(r'^\d{10}$').hasMatch(phone.trim()) &&
+        licensePhotoFile != null &&
+        vehicleDocumentFile != null &&
+        otpVerified;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -825,7 +840,7 @@ class _AddPartnerBottomSheetState extends State<_AddPartnerBottomSheet> {
                         value == null || value.isEmpty
                             ? 'Name is required'
                             : null,
-                onChanged: (value) => name = value,
+                onChanged: (value) => setState(() => name = value),
               ),
               const SizedBox(height: 20),
 
@@ -867,7 +882,7 @@ class _AddPartnerBottomSheetState extends State<_AddPartnerBottomSheet> {
                   }
                   return null;
                 },
-                onChanged: (value) => email = value.trim(),
+                onChanged: (value) => setState(() => email = value.trim()),
               ),
               const SizedBox(height: 20),
 
@@ -902,7 +917,7 @@ class _AddPartnerBottomSheetState extends State<_AddPartnerBottomSheet> {
                         value == null || value.isEmpty
                             ? 'Username is required'
                             : null,
-                onChanged: (value) => username = value,
+                onChanged: (value) => setState(() => username = value),
               ),
               const SizedBox(height: 20),
 
@@ -938,7 +953,7 @@ class _AddPartnerBottomSheetState extends State<_AddPartnerBottomSheet> {
                         value == null || value.isEmpty
                             ? 'Password is required'
                             : null,
-                onChanged: (value) => password = value,
+                onChanged: (value) => setState(() => password = value),
               ),
               const SizedBox(height: 20),
 
@@ -1019,7 +1034,7 @@ class _AddPartnerBottomSheetState extends State<_AddPartnerBottomSheet> {
                         }
                         return null;
                       },
-                      onChanged: (value) => phone = value.trim(),
+                      onChanged: (value) => setState(() => phone = value.trim()),
                     ),
                   ),
                 ],
@@ -1109,7 +1124,7 @@ class _AddPartnerBottomSheetState extends State<_AddPartnerBottomSheet> {
                 TextFormField(
                   keyboardType: TextInputType.number,
                   maxLength: 6,
-                  onChanged: (val) => otp = val,
+                  onChanged: (val) => setState(() => otp = val),
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: FontSize.s18,
@@ -1382,7 +1397,7 @@ class _AddPartnerBottomSheetState extends State<_AddPartnerBottomSheet> {
                 height: 50,
                 child: ElevatedButton(
                   onPressed:
-                      (isSubmitting || !otpVerified)
+                      (isSubmitting || !_areAllFieldsFilled())
                           ? null
                           : () async {
                             bool licenseValid = licensePhotoFile != null;
