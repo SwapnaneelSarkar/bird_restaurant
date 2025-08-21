@@ -24,6 +24,23 @@ class ChatView extends StatefulWidget {
     required this.isOrderActive,
   }) : super(key: key);
 
+  // Global method to force refresh the current chat
+  static void forceRefreshCurrentChat(BuildContext context, String orderId) {
+    debugPrint('ChatView: Force refreshing current chat for order: $orderId');
+    final chatBloc = context.read<ChatBloc>();
+    final partnerId = chatBloc.currentPartnerId;
+    
+    if (partnerId != null) {
+      chatBloc.add(chat_event.ForceRefreshOrderDetails(
+        orderId: orderId,
+        partnerId: partnerId,
+      ));
+      debugPrint('ChatView: Force refresh event dispatched');
+    } else {
+      debugPrint('ChatView: No partner ID available for force refresh');
+    }
+  }
+
   @override
   State<ChatView> createState() => _ChatViewState();
 }
@@ -382,19 +399,59 @@ class _ChatViewState extends State<ChatView> with WidgetsBindingObserver {
                   ),
                 );
                 
-                // Refresh the entire chat view
+                // Add a small delay to ensure the bottom sheet has closed before reloading
+                Future.delayed(const Duration(milliseconds: 200), () {
+                  if (mounted) {
+                    debugPrint('ChatView: Reloading chat data after successful status update');
+                    // Reload chat data to get updated order info and details
+                    context.read<ChatBloc>().add(chat_event.LoadChatData(widget.orderId));
+                    
+                    // Also reload order details if they exist
+                    final currentState = state;
+                    if (currentState.orderDetails != null) {
+                      context.read<ChatBloc>().add(chat_event.LoadOrderDetails(
+                        orderId: widget.orderId,
+                        partnerId: context.read<ChatBloc>().currentPartnerId ?? '',
+                      ));
+                    }
+                  }
+                });
                 
-                // Reload the chat data to get updated order info
-                context.read<ChatBloc>().add(chat_event.LoadChatData(widget.orderId));
+                // Additional reload after a longer delay to ensure server has processed
+                Future.delayed(const Duration(milliseconds: 1000), () {
+                  if (mounted) {
+                    debugPrint('ChatView: Additional reload after status update');
+                    context.read<ChatBloc>().add(chat_event.LoadChatData(widget.orderId));
+                  }
+                });
                 
-                // Also reload order details if they exist
-                final currentState = state;
-                if (currentState.orderDetails != null) {
-                  context.read<ChatBloc>().add(chat_event.LoadOrderDetails(
-                    orderId: widget.orderId,
-                    partnerId: context.read<ChatBloc>().currentPartnerId ?? '',
-                  ));
-                }
+                // Additional force refresh after a longer delay to ensure server has processed
+                Future.delayed(const Duration(milliseconds: 1500), () {
+                  if (mounted) {
+                    debugPrint('ChatView: Additional force refresh after status update');
+                    context.read<ChatBloc>().add(chat_event.ForceRefreshOrderDetails(
+                      orderId: widget.orderId,
+                      partnerId: context.read<ChatBloc>().currentPartnerId ?? '',
+                    ));
+                  }
+                });
+                
+                // Final complete reload as ultimate backup
+                Future.delayed(const Duration(milliseconds: 3000), () {
+                  if (mounted) {
+                    debugPrint('ChatView: Final complete chat reload after status update');
+                    context.read<ChatBloc>().add(chat_event.LoadChatData(widget.orderId));
+                  }
+                });
+                
+                // Force a complete rebuild of the chat page
+                Future.delayed(const Duration(milliseconds: 500), () {
+                  if (mounted) {
+                    debugPrint('ChatView: Force rebuilding chat page after status update');
+                    final chatBloc = context.read<ChatBloc>();
+                    chatBloc.emit(chatBloc.state);
+                  }
+                });
               }
             },
           ),
@@ -464,7 +521,7 @@ class _ChatViewState extends State<ChatView> with WidgetsBindingObserver {
     return const SafeArea(
       child: Column(
         children: [
-          AppBackHeader(title: 'Chat'),
+          // AppBackHeader(title: 'Chat'),
           Expanded(
             child: Center(
               child: Column(
@@ -587,22 +644,22 @@ class _ChatViewState extends State<ChatView> with WidgetsBindingObserver {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(
-                        'Chat',
-                        style: TextStyle(
-                          fontSize: FontSize.s20,
-                          fontWeight: FontWeightManager.bold,
-                          color: ColorManager.black,
-                        ),
-                      ),
+                      // Text(
+                      //   'Chat',
+                      //   style: TextStyle(
+                      //     fontSize: FontSize.s20,
+                      //     fontWeight: FontWeightManager.bold,
+                      //     color: ColorManager.black,
+                      //   ),
+                      // ),
                       // Customer details
                       if (state.userDetails != null) ...[
                         const SizedBox(height: 2),
                         Text(
                           state.userDetails!.username,
                           style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey.shade600,
+                            fontSize: 16,
+                            color: Colors.black,
                             fontWeight: FontWeightManager.medium,
                           ),
                           overflow: TextOverflow.ellipsis,
@@ -689,7 +746,7 @@ class _ChatViewState extends State<ChatView> with WidgetsBindingObserver {
               children: [
                 Expanded(
                   child: Text(
-                    'Order ${orderInfo.orderId}',
+                    'Order #${orderInfo.orderId}',
                     style: TextStyle(
                       fontSize: MediaQuery.of(context).size.width * 0.035,
                       fontWeight: FontWeightManager.bold,
@@ -737,15 +794,15 @@ class _ChatViewState extends State<ChatView> with WidgetsBindingObserver {
               ],
             ),
             SizedBox(height: MediaQuery.of(context).size.height * 0.004),
-            Text(
-              '${orderInfo.restaurantName} • Estimated delivery: ${orderInfo.estimatedDelivery}',
-              style: TextStyle(
-                fontSize: MediaQuery.of(context).size.width * 0.033,
-                fontWeight: FontWeightManager.regular,
-                color: Colors.grey.shade600,
-                fontFamily: FontFamily.Montserrat,
-              ),
-            ),
+            // Text(
+            //   '${orderInfo.restaurantName} • Estimated delivery: ${orderInfo.estimatedDelivery}',
+            //   style: TextStyle(
+            //     fontSize: MediaQuery.of(context).size.width * 0.033,
+            //     fontWeight: FontWeightManager.regular,
+            //     color: Colors.grey.shade600,
+            //     fontFamily: FontFamily.Montserrat,
+            //   ),
+            // ),
           ],
         ),
       ),
@@ -1603,7 +1660,7 @@ class _ChatViewState extends State<ChatView> with WidgetsBindingObserver {
     return SafeArea(
       child: Column(
         children: [
-          const AppBackHeader(title: 'Chat'),
+          // const AppBackHeader(title: 'Chat'),
           Expanded(
             child: Center(
               child: Padding(
@@ -1676,6 +1733,20 @@ class _ChatViewState extends State<ChatView> with WidgetsBindingObserver {
         builder: (context) => StatusChangeBottomSheet(
           orderId: widget.orderId,
           partnerId: partnerId,
+          onStatusUpdateSuccess: () {
+            debugPrint('ChatView: Status update success callback triggered');
+            // Force reload the entire chat page
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (context) => ChatView(
+                  orderId: widget.orderId,
+                  isOrderActive: widget.isOrderActive,
+                ),
+              ),
+            );
+            debugPrint('ChatView: Complete page reload triggered');
+          },
         ),
       );
     } else {

@@ -10,6 +10,7 @@ import 'package:flutter/foundation.dart';
 
 import 'event.dart';
 import 'state.dart';
+import '../../../../utils/build_config.dart';
 
 
 class DeliveryPartnerOtpBloc extends Bloc<DeliveryPartnerOtpEvent, DeliveryPartnerOtpState> {
@@ -98,10 +99,10 @@ class DeliveryPartnerOtpBloc extends Bloc<DeliveryPartnerOtpEvent, DeliveryPartn
           );
         }
       } else {
-        debugPrint('Real phone number - enabling reCAPTCHA fallback');
+        debugPrint('Real phone number - using build configuration');
         await _auth.setSettings(
           appVerificationDisabledForTesting: false,
-          forceRecaptchaFlow: true,
+          forceRecaptchaFlow: BuildConfig.shouldForceRecaptcha,
         );
       }
       

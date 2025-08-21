@@ -19,6 +19,13 @@ class DeliveryPartnersError extends DeliveryPartnersState {
   DeliveryPartnersError(this.message, {this.partners});
 }
 
+class DeliveryPartnersTimeout extends DeliveryPartnersState {
+  final String message;
+  final List<DeliveryPartner>? partners;
+
+  DeliveryPartnersTimeout(this.message, {this.partners});
+}
+
 class DeliveryPartnersRefreshing extends DeliveryPartnersState {
   final List<DeliveryPartner> partners;
 

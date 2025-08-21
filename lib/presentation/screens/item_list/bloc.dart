@@ -135,19 +135,19 @@ class MenuItemsBloc extends Bloc<MenuItemsEvent, MenuItemsState> {
       // OPTIMISTIC UPDATE: Immediately update the UI state
       final updatedItems = currentState.menuItems.map((item) {
         if (item.menuId == event.menuItem.menuId) {
-          return MenuItem(
-            menuId: item.menuId,
-            name: item.name,
-            price: item.price,
-            available: event.isAvailable, // Update immediately
-            imageUrl: item.imageUrl,
-            description: item.description,
-            category: item.category,
-            isVeg: item.isVeg,
-            isTaxIncluded: item.isTaxIncluded,
-            isCancellable: item.isCancellable,
-            tags: item.tags,
-          );
+                      return MenuItem(
+              menuId: item.menuId,
+              name: item.name,
+              price: item.price,
+              available: event.isAvailable, // Update immediately
+              imageUrl: item.imageUrl,
+              description: item.description,
+              category: item.category,
+              isVeg: item.isVeg,
+              isTaxIncluded: item.isTaxIncluded,
+              isCancellable: item.isCancellable,
+              tags: item.tags?.toString(),
+            );
         }
         return item;
       }).toList();
@@ -183,7 +183,7 @@ class MenuItemsBloc extends Bloc<MenuItemsEvent, MenuItemsState> {
                 isVeg: item.isVeg,
                 isTaxIncluded: item.isTaxIncluded,
                 isCancellable: item.isCancellable,
-                tags: item.tags,
+                tags: item.tags?.toString(),
               );
             }
             return item;
@@ -221,7 +221,7 @@ class MenuItemsBloc extends Bloc<MenuItemsEvent, MenuItemsState> {
               isVeg: item.isVeg,
               isTaxIncluded: item.isTaxIncluded,
               isCancellable: item.isCancellable,
-              tags: item.tags,
+              tags: item.tags?.toString(),
             );
           }
           return item;

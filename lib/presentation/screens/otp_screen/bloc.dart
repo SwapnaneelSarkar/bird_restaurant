@@ -14,6 +14,7 @@ import '../../../constants/enums.dart';
 import '../../../services/api_service.dart' show ApiServices, UnauthorizedException;
 import '../../../services/token_service.dart';
 import '../../../services/notification_service.dart'; // Add this import
+import '../../../utils/build_config.dart';
 import 'event.dart';
 import 'state.dart';
 
@@ -108,14 +109,14 @@ class OtpBloc extends Bloc<OtpEvent, OtpState> {
           forceRecaptchaFlow: false,
         );
       }
-    } else {
-      // ✅ FOR REAL PHONE NUMBERS - THIS IS THE KEY FIX
-      debugPrint('Real phone number - enabling reCAPTCHA fallback');
-      await _auth.setSettings(
-        appVerificationDisabledForTesting: false,  // ✅ Changed from true to false
-        forceRecaptchaFlow: true,                  // ✅ Changed from false to true
-      );
-    }
+          } else {
+        // For real phone numbers - use build configuration
+        debugPrint('Real phone number - using build configuration');
+        await _auth.setSettings(
+          appVerificationDisabledForTesting: false,
+          forceRecaptchaFlow: BuildConfig.shouldForceRecaptcha,
+        );
+      }
     
     // For all real phone numbers (including on iOS), use Firebase Phone Auth
     debugPrint('Starting Firebase phone verification');
@@ -416,20 +417,6 @@ class OtpBloc extends Bloc<OtpEvent, OtpState> {
                 userId = responseBody['id'];
                 debugPrint('Found id in response: $userId');
               }
-              
-              // NEW: Extract supercategory ID if present
-              if (responseBody.containsKey('supercategory')) {
-                final supercategory = responseBody['supercategory'] as Map<String, dynamic>?;
-                if (supercategory != null && supercategory.containsKey('id')) {
-                  final supercategoryId = supercategory['id'] as String;
-                  await TokenService.saveSupercategoryId(supercategoryId);
-                  
-                  final prefs = await SharedPreferences.getInstance();
-                  await prefs.setString('supercategory_id', supercategoryId);
-                  
-                  debugPrint('Supercategory ID saved for new user: $supercategoryId');
-                }
-              }
             }
             
             // Save token if available
@@ -579,21 +566,6 @@ class OtpBloc extends Bloc<OtpEvent, OtpState> {
                     
                     debugPrint('User ID extracted and saved using regex: $extractedId');
                   }
-                }
-              }
-              
-              // NEW: Extract supercategory ID using regex
-              final supercategoryIdPattern = RegExp(r'"supercategory":\s*\{[^}]*"id":\s*"([^"]+)"');
-              final supercategoryIdMatch = supercategoryIdPattern.firstMatch(responseStr);
-              if (supercategoryIdMatch != null && supercategoryIdMatch.groupCount >= 1) {
-                final extractedSupercategoryId = supercategoryIdMatch.group(1);
-                if (extractedSupercategoryId != null && extractedSupercategoryId.isNotEmpty) {
-                  await TokenService.saveSupercategoryId(extractedSupercategoryId);
-                  
-                  final prefs = await SharedPreferences.getInstance();
-                  await prefs.setString('supercategory_id', extractedSupercategoryId);
-                  
-                  debugPrint('Supercategory ID extracted and saved using regex: $extractedSupercategoryId');
                 }
               }
             } catch (e) {

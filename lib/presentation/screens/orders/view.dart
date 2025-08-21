@@ -5,14 +5,13 @@ import '../../../constants/enums.dart';
 import '../../../presentation/resources/colors.dart';
 import '../../../presentation/resources/font.dart';
 import '../../../ui_components/order_card.dart';
+import '../../../ui_components/order_summary_slider.dart';
 import '../homePage/sidebar/sidebar_drawer.dart';
 import 'bloc.dart';
 import 'event.dart';
 import 'state.dart';
 import '../../../services/restaurant_info_service.dart';
-import '../../../ui_components/order_options_bottom_sheet_for_orders_page.dart';
 import '../../../presentation/resources/router/router.dart';
-import '../../../services/order_service.dart';
 import '../../../services/delivery_partner_services/delivery_partner_orders_service.dart';
 
 // Wrapper widget that provides OrdersBloc
@@ -40,7 +39,6 @@ class _OrdersViewState extends State<OrdersView> {
   
   // Restaurant info state
   Map<String, String>? _restaurantInfo;
-  bool _isRestaurantInfoLoaded = false;
 
   @override
   void initState() {
@@ -54,7 +52,6 @@ class _OrdersViewState extends State<OrdersView> {
       if (mounted) {
         setState(() {
           _restaurantInfo = info;
-          _isRestaurantInfoLoaded = true;
         });
         debugPrint('🔄 OrdersPage: Loaded restaurant info - Name: ${info['name']}, Slogan: ${info['slogan']}, Image: ${info['imageUrl']}');
       }
@@ -321,117 +318,21 @@ class _OrdersViewState extends State<OrdersView> {
 
   Widget _buildOrdersContent(BuildContext context, OrdersLoaded state) {
     final bloc = context.read<OrdersBloc>();
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isTablet = screenWidth > 600;
     
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      padding: EdgeInsets.symmetric(horizontal: isTablet ? 24.0 : 16.0),
       child: CustomScrollView(
         slivers: [
-          const SliverToBoxAdapter(child: SizedBox(height: 16)),
+          const SliverToBoxAdapter(child: SizedBox(height: 20)),
           
-          // First Row - 3 Cards (Total Orders, Pending, Confirmed)
+          // Order Summary Slider
           SliverToBoxAdapter(
-            child: Row(
-              children: [
-                Expanded(
-                  child: _buildStatsCard(
-                    title: 'Total Orders',
-                    count: state.stats.total,
-                    iconColor: Colors.indigo,
-                    icon: Icons.shopping_bag_outlined,
-                    onTap: () => bloc.add(const FilterOrdersEvent(OrderStatus.all)),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _buildStatsCard(
-                    title: 'Pending',
-                    count: state.stats.pending,
-                    iconColor: Colors.orange,
-                    icon: Icons.access_time,
-                    onTap: () => bloc.add(const FilterOrdersEvent(OrderStatus.pending)),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _buildStatsCard(
-                    title: 'Confirmed',
-                    count: state.stats.confirmed,
-                    iconColor: Colors.blue,
-                    icon: Icons.check_circle_outline,
-                    onTap: () => bloc.add(const FilterOrdersEvent(OrderStatus.confirmed)),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          
-          const SliverToBoxAdapter(child: SizedBox(height: 16)),
-          
-          // Second Row - 3 Cards (Preparing, Ready, Out for Delivery)
-          SliverToBoxAdapter(
-            child: Row(
-              children: [
-                Expanded(
-                  child: _buildStatsCard(
-                    title: 'Preparing',
-                    count: state.stats.preparing,
-                    iconColor: Colors.purple,
-                    icon: Icons.restaurant,
-                    onTap: () => bloc.add(const FilterOrdersEvent(OrderStatus.preparing)),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _buildStatsCard(
-                    title: 'Ready',
-                    count: state.stats.readyForDelivery,
-                    iconColor: Colors.green,
-                    icon: Icons.done_all,
-                    onTap: () => bloc.add(const FilterOrdersEvent(OrderStatus.readyForDelivery)),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _buildStatsCard(
-                    title: 'Out for Delivery',
-                    count: state.stats.outForDelivery,
-                    iconColor: Colors.cyan,
-                    icon: Icons.delivery_dining,
-                    onTap: () => bloc.add(const FilterOrdersEvent(OrderStatus.outForDelivery)),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          
-          const SliverToBoxAdapter(child: SizedBox(height: 16)),
-          
-          // Third Row - 2 Cards (Delivered, Cancelled)
-          SliverToBoxAdapter(
-            child: Row(
-              children: [
-                Expanded(
-                  flex: 1,
-                  child: _buildStatsCard(
-                    title: 'Delivered',
-                    count: state.stats.delivered,
-                    iconColor: Colors.teal,
-                    icon: Icons.check_circle,
-                    onTap: () => bloc.add(const FilterOrdersEvent(OrderStatus.delivered)),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  flex: 1,
-                  child: _buildStatsCard(
-                    title: 'Cancelled',
-                    count: state.stats.cancelled,
-                    iconColor: Colors.red,
-                    icon: Icons.cancel_outlined,
-                    onTap: () => bloc.add(const FilterOrdersEvent(OrderStatus.cancelled)),
-                  ),
-                ),
-              ],
+            child: OrderSummarySlider(
+              allTimeStats: state.stats,
+              todayStats: state.todaySummary,
+              onFilterTap: (status, {filterByToday = false}) => bloc.add(FilterOrdersEvent(status, filterByToday: filterByToday)),
             ),
           ),
           
@@ -518,13 +419,14 @@ class _OrdersViewState extends State<OrdersView> {
                       customerPhone: order.customerPhone,
                       deliveryAddress: order.deliveryAddress,
                       onTap: () {
-                        // final ordersBloc = context.read<OrdersBloc>();
-                        // showModalBottomSheet(
-                        //   context: context,
-                        //   isScrollControlled: true,
-                        //   backgroundColor: Colors.transparent,
-                        //   builder: (context) => OrderOptionsBottomSheetForOrdersPage(order: order, ordersBloc: ordersBloc),
-                        // );
+                        final isActive = order.orderStatus != OrderStatus.delivered && order.orderStatus != OrderStatus.cancelled;
+                        Navigator.of(context).pushNamed(
+                          Routes.chat,
+                          arguments: {
+                            'orderId': order.id,
+                            'isOrderActive': isActive,
+                          },
+                        );
                       },
                     );
                   } else {
@@ -542,19 +444,20 @@ class _OrdersViewState extends State<OrdersView> {
                             customerPhone: order.customerPhone,
                             deliveryAddress: order.deliveryAddress,
                             onTap: () {
-                              // final ordersBloc = context.read<OrdersBloc>();
-                              // showModalBottomSheet(
-                              //   context: context,
-                              //   isScrollControlled: true,
-                              //   backgroundColor: Colors.transparent,
-                              //   builder: (context) => OrderOptionsBottomSheetForOrdersPage(order: order, ordersBloc: ordersBloc),
-                              // );
+                              final isActive = order.orderStatus != OrderStatus.delivered && order.orderStatus != OrderStatus.cancelled;
+                              Navigator.of(context).pushNamed(
+                                Routes.chat,
+                                arguments: {
+                                  'orderId': order.id,
+                                  'isOrderActive': isActive,
+                                },
+                              );
                             },
                           );
                         }
-                        String displayName = '';
+                        // Username fetched if needed later
                         if (snapshot.hasData && snapshot.data != null && (snapshot.data!['status'] == true || snapshot.data!['success'] == true)) {
-                          displayName = snapshot.data!['data']['username'] ?? '';
+                          final _ = snapshot.data!['data']['username'] ?? '';
                         }
                         if (snapshot.hasError) {
                           print('FutureBuilder error for userId: ${order.userId}: ${snapshot.error}');
@@ -567,13 +470,14 @@ class _OrdersViewState extends State<OrdersView> {
                           customerPhone: order.customerPhone,
                           deliveryAddress: order.deliveryAddress,
                           onTap: () {
-                            // final ordersBloc = context.read<OrdersBloc>();
-                            // showModalBottomSheet(
-                            //   context: context,
-                            //   isScrollControlled: true,
-                            //   backgroundColor: Colors.transparent,
-                            //   builder: (context) => OrderOptionsBottomSheetForOrdersPage(order: order, ordersBloc: ordersBloc),
-                            // );
+                            final isActive = order.orderStatus != OrderStatus.delivered && order.orderStatus != OrderStatus.cancelled;
+                            Navigator.of(context).pushNamed(
+                              Routes.chat,
+                              arguments: {
+                                'orderId': order.id,
+                                'isOrderActive': isActive,
+                              },
+                            );
                           },
                         );
                       },
@@ -590,76 +494,7 @@ class _OrdersViewState extends State<OrdersView> {
     );
   }
 
-  Widget _buildStatsCard({
-    required String title,
-    required int count,
-    required Color iconColor,
-    required IconData icon,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: Colors.grey.withOpacity(0.2),
-            width: 1,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.04),
-              blurRadius: 6,
-              offset: const Offset(0, 2),
-              spreadRadius: 0,
-            ),
-          ],
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(
-                color: iconColor.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: Icon(
-                icon,
-                color: iconColor,
-                size: 20,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              count.toString(),
-              style: TextStyle(
-                fontSize: FontSize.s18,
-                fontWeight: FontWeightManager.bold,
-                color: ColorManager.black,
-              ),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              title,
-              style: TextStyle(
-                fontSize: FontSize.s10,
-                fontWeight: FontWeightManager.medium,
-                color: Colors.grey[600],
-              ),
-              textAlign: TextAlign.center,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+
 
   String _getFilterTitle(OrderStatus status) {
     switch (status) {

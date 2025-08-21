@@ -307,9 +307,9 @@ class DeliveryPartnerChatBloc extends Bloc<DeliveryPartnerChatEvent, DeliveryPar
       // Sort messages by timestamp - use string comparison for safety
       chatMessages.sort((a, b) => a.id.compareTo(b.id));
 
-      // Load order details
-      OrderDetails? orderDetails;
-      Map<String, MenuItem> menuItems = {};
+              // Load order details
+        OrderDetails? orderDetails;
+        Map<String, MenuItem> menuItems = {};
       
       try {
         // Fetch order details from the delivery partner orders service

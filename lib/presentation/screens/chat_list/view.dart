@@ -10,12 +10,9 @@ import '../../resources/colors.dart';
 import '../../resources/font.dart';
 import '../chat/view.dart';
 import '../homePage/view.dart';
-import '../homePage/sidebar/side_bar_opener.dart';
-import '../homePage/sidebar/sidebar_drawer.dart';
 import 'bloc.dart';
 import 'event.dart';
 import 'state.dart';
-import '../../../services/restaurant_info_service.dart';
 
 class ChatListView extends StatefulWidget {
   const ChatListView({Key? key}) : super(key: key);
@@ -97,11 +94,6 @@ class _ChatListViewState extends State<ChatListView> with TickerProviderStateMix
             appBar: AppBar(
               backgroundColor: Colors.white,
               elevation: 0,
-              leading: SidebarOpener(
-                scaffoldKey: _scaffoldKey,
-                iconColor: Colors.black87,
-                padding: const EdgeInsets.all(12),
-              ),
               title: Padding(
                 padding: const EdgeInsets.only(left: 0.0),
                 child: Image.asset(
@@ -109,18 +101,6 @@ class _ChatListViewState extends State<ChatListView> with TickerProviderStateMix
                   height: 80,
                 ),
               ),
-            ),
-            drawer: FutureBuilder<Map<String, String>>(
-              future: RestaurantInfoService.getRestaurantInfo(),
-              builder: (context, snapshot) {
-                final info = snapshot.data ?? {};
-                return SidebarDrawer(
-                  activePage: 'chats',
-                  restaurantName: info['name'],
-                  restaurantSlogan: info['slogan'],
-                  restaurantImageUrl: info['imageUrl'],
-                );
-              },
             ),
             body: Stack(
               children: [

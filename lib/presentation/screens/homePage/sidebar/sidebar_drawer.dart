@@ -60,13 +60,15 @@ class _SidebarDrawerState extends State<SidebarDrawer> with SingleTickerProvider
   
   // For menu item staggered animation
   late List<Animation<double>> _menuItemAnimations;
-  final int _menuItemCount = 14; // Total number of menu items including logout and accepting orders toggle
+  final int _menuItemCount = 16; // Total number of menu items including logout and accepting orders toggle
 
   // Minimal subscription check utility
   static const List<String> _protectedRoutes = [
     '/orders',
     '/editMenu',
     '/addProduct',
+    '/addProductFromCatalog',
+    '/updateProductFromCatalog',
     '/attributes',
   ];
 
@@ -254,23 +256,27 @@ class _SidebarDrawerState extends State<SidebarDrawer> with SingleTickerProvider
       if (!mounted) return;
       
       try {
+        final navigator = Navigator.of(context);
         if (routeName == '/home') {
-          Navigator.of(context).pushNamedAndRemoveUntil(
+          navigator.pushNamedAndRemoveUntil(
             Routes.homePage,
             (route) => false,
           );
         } else {
-          Navigator.of(context).pushReplacementNamed(routeName);
+          navigator.pushReplacementNamed(routeName);
         }
         debugPrint('✅ Navigation successful to: $routeName');
       } catch (e) {
         debugPrint('❌ Navigation error: $e');
         // Fallback to home
         try {
-          Navigator.of(context).pushNamedAndRemoveUntil(
-            Routes.homePage,
-            (route) => false,
-          );
+          if (mounted) {
+            final navigator = Navigator.of(context);
+            navigator.pushNamedAndRemoveUntil(
+              Routes.homePage,
+              (route) => false,
+            );
+          }
         } catch (fallbackError) {
           debugPrint('❌ Fallback navigation failed: $fallbackError');
         }
@@ -438,6 +444,20 @@ class AnimatedSidebarContent extends StatelessWidget {
                       title: 'Add Product',
                       isActive: activePage == 'addProduct',
                       onTap: () => onNavigate('/addProduct'),
+                    ),
+                    _buildAnimatedMenuItem(
+                      animations[4],
+                      icon: Icons.inventory_outlined,
+                      title: 'Add From Catalog',
+                      isActive: activePage == 'addProductFromCatalog',
+                      onTap: () => onNavigate('/addProductFromCatalog'),
+                    ),
+                    _buildAnimatedMenuItem(
+                      animations[4],
+                      icon: Icons.edit_outlined,
+                      title: 'Update From Catalog',
+                      isActive: activePage == 'updateProductFromCatalog',
+                      onTap: () => onNavigate('/updateProductFromCatalog'),
                     ),
                     _buildAnimatedMenuItem(
                       animations[5],

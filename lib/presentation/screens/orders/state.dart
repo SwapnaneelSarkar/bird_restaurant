@@ -13,27 +13,52 @@ class OrdersLoaded extends OrdersState {
   final List<Order> orders;
   final OrderStats stats;
   final OrderStatus filterStatus;
+  final TodayOrderSummaryData? todaySummary;
+  final bool filterByToday;
 
   OrdersLoaded({
     required this.orders,
     required this.stats,
     this.filterStatus = OrderStatus.all,
+    this.todaySummary,
+    this.filterByToday = false,
   });
 
   List<Order> get filteredOrders {
-    if (filterStatus == OrderStatus.all) return orders;
-    return orders.where((order) => order.orderStatus == filterStatus).toList();
+    List<Order> filteredList = orders;
+    
+    // Filter by today's date if filterByToday is true
+    if (filterByToday) {
+      final today = DateTime.now();
+      final todayStart = DateTime(today.year, today.month, today.day);
+      final todayEnd = todayStart.add(const Duration(days: 1));
+      
+      filteredList = filteredList.where((order) {
+        return order.date.isAfter(todayStart) && order.date.isBefore(todayEnd);
+      }).toList();
+    }
+    
+    // Filter by status if not showing all
+    if (filterStatus != OrderStatus.all) {
+      filteredList = filteredList.where((order) => order.orderStatus == filterStatus).toList();
+    }
+    
+    return filteredList;
   }
 
   OrdersLoaded copyWith({
     List<Order>? orders,
     OrderStats? stats,
     OrderStatus? filterStatus,
+    TodayOrderSummaryData? todaySummary,
+    bool? filterByToday,
   }) {
     return OrdersLoaded(
       orders: orders ?? this.orders,
       stats: stats ?? this.stats,
       filterStatus: filterStatus ?? this.filterStatus,
+      todaySummary: todaySummary ?? this.todaySummary,
+      filterByToday: filterByToday ?? this.filterByToday,
     );
   }
 }

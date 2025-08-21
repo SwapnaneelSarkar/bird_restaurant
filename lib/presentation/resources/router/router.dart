@@ -5,6 +5,8 @@ import 'package:bird_restaurant/presentation/partner_selection/view.dart';
 import 'package:bird_restaurant/presentation/screens/delivery_partner_pages/otp/view.dart';
 import 'package:bird_restaurant/presentation/screens/delivery_partner_pages/signin/view.dart';
 import 'package:bird_restaurant/presentation/screens/add_product/view.dart';
+import 'package:bird_restaurant/presentation/screens/add_product_from_catalog/view.dart';
+import 'package:bird_restaurant/presentation/screens/update_product_from_catalog/view.dart';
 import 'package:bird_restaurant/presentation/screens/add_resturant_info/view.dart';
 import 'package:bird_restaurant/presentation/screens/attributes/view.dart';
 import 'package:bird_restaurant/presentation/screens/chat/view.dart';
@@ -57,6 +59,8 @@ class Routes {
   static const String homePage = '/home';
   static const String attributes = '/attributes';
   static const String addProduct = '/addProduct';
+  static const String addProductFromCatalog = '/addProductFromCatalog';
+  static const String updateProductFromCatalog = '/updateProductFromCatalog';
   static const String orders = '/orders';
   static const String editMenu = '/editMenu';
   static const String plan = '/plan';
@@ -142,6 +146,18 @@ class RouteGenerator {
         case Routes.addProduct:
           return MaterialPageRoute(
             builder: (_) => const AddProductScreen(),
+            settings: routeSettings,
+          );
+
+        case Routes.addProductFromCatalog:
+          return MaterialPageRoute(
+            builder: (_) => const AddProductFromCatalogScreen(),
+            settings: routeSettings,
+          );
+
+        case Routes.updateProductFromCatalog:
+          return MaterialPageRoute(
+            builder: (_) => const UpdateProductFromCatalogScreen(),
             settings: routeSettings,
           );
 

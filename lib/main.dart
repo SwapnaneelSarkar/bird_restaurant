@@ -193,6 +193,8 @@ class _MyAppState extends State<MyApp> {
     // Check for stored notification actions when app starts
     WidgetsBinding.instance.addPostFrameCallback((_) {
       NotificationService().checkForStoredNotificationAction();
+      // Ensure notification permissions are granted on cold start
+      NotificationService().checkAndRequestPermissions();
     });
   }
 

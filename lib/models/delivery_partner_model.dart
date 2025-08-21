@@ -51,13 +51,30 @@ class DeliveryPartner {
       currentLongitude: json['current_longitude'] != null 
           ? double.tryParse(json['current_longitude'].toString()) 
           : null,
-      isAvailable: json['is_available'] ?? 0,
+      isAvailable: _convertToInt(json['is_available'] ?? 0),
       createdAt: json['created_at'] ?? '',
       updatedAt: json['updated_at'] ?? '',
       licensePhoto: json['license_photo'],
       vehicleDocument: json['vehicle_document'],
       partnerId: json['partner_id'] ?? '',
     );
+  }
+
+  // Helper method to safely convert various types to int
+  static int _convertToInt(dynamic value) {
+    if (value == null) return 0;
+    if (value is int) return value;
+    if (value is bool) return value ? 1 : 0;
+    if (value is String) {
+      // Try parsing as int first
+      final intValue = int.tryParse(value);
+      if (intValue != null) return intValue;
+      
+      // Try parsing as bool string
+      final lowerValue = value.toLowerCase().trim();
+      return (lowerValue == 'true' || lowerValue == '1') ? 1 : 0;
+    }
+    return 0; // Default to 0 for unexpected types
   }
 
   Map<String, dynamic> toJson() {

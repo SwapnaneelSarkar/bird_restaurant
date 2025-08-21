@@ -5,8 +5,11 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../resources/colors.dart';
 import '../../resources/font.dart';
 import '../../resources/router/router.dart';
+import '../chat/state.dart' show OrderDetails; // reuse shared model
+import '../../../services/order_service.dart';
+import '../../../utils/time_utils.dart';
 
-class OrderActionResultView extends StatelessWidget {
+class OrderActionResultView extends StatefulWidget {
   final String orderId;
   final String action; // 'accepted' or 'cancelled'
   final bool isSuccess;
@@ -17,6 +20,47 @@ class OrderActionResultView extends StatelessWidget {
     required this.action,
     required this.isSuccess,
   }) : super(key: key);
+
+  @override
+  State<OrderActionResultView> createState() => _OrderActionResultViewState();
+}
+
+class _OrderActionResultViewState extends State<OrderActionResultView> {
+  bool _loading = true;
+  String? _error;
+  OrderDetails? _details;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+      final partnerId = await OrderService.getPartnerId();
+      if (partnerId == null || partnerId.isEmpty) {
+        throw Exception('Partner ID not found');
+      }
+      final res = await OrderService.getOrderDetails(
+        partnerId: partnerId,
+        orderId: widget.orderId,
+      );
+      setState(() {
+        _details = res;
+        _loading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _error = e.toString();
+        _loading = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -43,7 +87,25 @@ class OrderActionResultView extends StatelessWidget {
       body: Center(
         child: Padding(
           padding: const EdgeInsets.all(24.0),
-          child: Column(
+          child: _loading
+              ? const Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    CircularProgressIndicator(),
+                    SizedBox(height: 12),
+                    Text('Fetching order details...'),
+                  ],
+                )
+              : _error != null
+                  ? Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.error, color: Colors.red, size: 48),
+                        const SizedBox(height: 12),
+                        Text(_error!, textAlign: TextAlign.center),
+                      ],
+                    )
+                  : Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               // Icon
@@ -51,18 +113,18 @@ class OrderActionResultView extends StatelessWidget {
                 width: 120,
                 height: 120,
                 decoration: BoxDecoration(
-                  color: isSuccess 
-                      ? (action == 'accepted' ? Colors.green[50] : Colors.red[50])
+                  color: widget.isSuccess 
+                      ? (widget.action == 'accepted' ? Colors.green[50] : Colors.red[50])
                       : Colors.grey[50],
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
-                  isSuccess 
-                      ? (action == 'accepted' ? Icons.check_circle : Icons.cancel)
+                  widget.isSuccess 
+                      ? (widget.action == 'accepted' ? Icons.check_circle : Icons.cancel)
                       : Icons.error,
                   size: 60,
-                  color: isSuccess 
-                      ? (action == 'accepted' ? Colors.green[600] : Colors.red[600])
+                  color: widget.isSuccess 
+                      ? (widget.action == 'accepted' ? Colors.green[600] : Colors.red[600])
                       : Colors.grey[600],
                 ),
               ),
@@ -71,14 +133,14 @@ class OrderActionResultView extends StatelessWidget {
               
               // Title
               Text(
-                isSuccess 
-                    ? (action == 'accepted' ? 'Order Accepted!' : 'Order Cancelled!')
+                widget.isSuccess 
+                    ? (widget.action == 'accepted' ? 'Order Accepted!' : 'Order Cancelled!')
                     : 'Action Failed',
                 style: GoogleFonts.poppins(
                   fontSize: 28,
                   fontWeight: FontWeightManager.bold,
-                  color: isSuccess 
-                      ? (action == 'accepted' ? Colors.green[700] : Colors.red[700])
+                  color: widget.isSuccess 
+                      ? (widget.action == 'accepted' ? Colors.green[700] : Colors.red[700])
                       : Colors.grey[700],
                 ),
                 textAlign: TextAlign.center,
@@ -88,10 +150,10 @@ class OrderActionResultView extends StatelessWidget {
               
               // Subtitle
               Text(
-                isSuccess 
-                    ? (action == 'accepted' 
-                        ? 'Order #$orderId has been accepted and confirmed'
-                        : 'Order #$orderId has been cancelled')
+                widget.isSuccess 
+                    ? (widget.action == 'accepted' 
+                        ? 'Order #${widget.orderId} has been accepted and confirmed'
+                        : 'Order #${widget.orderId} has been cancelled')
                     : 'Failed to process order action. Please try again.',
                 style: GoogleFonts.poppins(
                   fontSize: 16,
@@ -118,16 +180,21 @@ class OrderActionResultView extends StatelessWidget {
                   ],
                 ),
                 child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    _buildInfoRow('Order ID', '#$orderId'),
+                    _buildInfoRow('Order ID', '#${_details?.orderId ?? widget.orderId}'),
                     const SizedBox(height: 8),
-                    _buildInfoRow('Action', action.toUpperCase()),
+                    _buildInfoRow('Customer', _details?.userName ?? '-'),
                     const SizedBox(height: 8),
-                    _buildInfoRow('Status', isSuccess 
-                        ? (action == 'accepted' ? 'CONFIRMED' : 'CANCELLED')
-                        : 'FAILED'),
+                    _buildInfoRow('Status', _details != null ? OrderService.formatOrderStatus(_details!.orderStatus) : (widget.isSuccess ? (widget.action == 'accepted' ? 'CONFIRMED' : 'CANCELLED') : 'FAILED')),
                     const SizedBox(height: 8),
-                    _buildInfoRow('Time', DateTime.now().toString().split('.')[0]),
+                    _buildInfoRow('Total', _details?.totalAmount ?? '-'),
+                    const SizedBox(height: 8),
+                    _buildInfoRow('Delivery Fees', _details?.deliveryFees ?? '0.00'),
+                    const SizedBox(height: 8),
+                    _buildInfoRow('Address', _details?.deliveryAddress ?? '-'),
+                    const SizedBox(height: 8),
+                    _buildInfoRow('Date & Time', _details?.datetime != null ? TimeUtils.formatStatusTimelineDate(_details!.datetime!) : '-'),
                   ],
                 ),
               ),

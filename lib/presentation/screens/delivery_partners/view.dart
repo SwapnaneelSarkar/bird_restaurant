@@ -16,6 +16,7 @@ import 'package:flutter/services.dart';
 import '../../../models/country.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../../presentation/resources/router/router.dart';
+import '../../../utils/build_config.dart';
 
 class DeliveryPartnersView extends StatefulWidget {
   const DeliveryPartnersView({super.key});
@@ -111,23 +112,86 @@ class _DeliveryPartnersViewState extends State<DeliveryPartnersView> {
                     } else if (state is DeliveryPartnersError) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
-                          content: Text(state.message),
+                          content: Row(
+                            children: [
+                              const Icon(Icons.error_outline, color: Colors.white, size: 20),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  state.message,
+                                  style: const TextStyle(fontSize: 14),
+                                ),
+                              ),
+                            ],
+                          ),
                           backgroundColor: Colors.red,
-                          duration: const Duration(seconds: 4),
+                          duration: const Duration(seconds: 6),
+                          behavior: SnackBarBehavior.floating,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
                         ),
                       );
                       if (Navigator.canPop(context)) {
                         Navigator.pop(context); // Close modal on error
+                      }
+                    } else if (state is DeliveryPartnersTimeout) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Row(
+                            children: [
+                              const Icon(Icons.timer_off, color: Colors.white, size: 20),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  state.message,
+                                  style: const TextStyle(fontSize: 14),
+                                ),
+                              ),
+                            ],
+                          ),
+                          backgroundColor: Colors.orange,
+                          duration: const Duration(seconds: 8),
+                          behavior: SnackBarBehavior.floating,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          action: SnackBarAction(
+                            label: 'Retry',
+                            textColor: Colors.white,
+                            onPressed: () {
+                              // Retry the last operation
+                              context.read<DeliveryPartnersBloc>().add(LoadDeliveryPartners());
+                            },
+                          ),
+                        ),
+                      );
+                      if (Navigator.canPop(context)) {
+                        Navigator.pop(context); // Close modal on timeout
                       }
                     }
                   },
                   builder: (context, state) {
                     if (state is DeliveryPartnersLoading) {
                       return Center(
-                        child: CircularProgressIndicator(
-                          valueColor: AlwaysStoppedAnimation<Color>(
-                            ColorManager.primary,
-                          ),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            CircularProgressIndicator(
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                ColorManager.primary,
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              'Loading delivery partners...',
+                              style: TextStyle(
+                                fontFamily: FontConstants.fontFamily,
+                                fontSize: FontSize.s14,
+                                color: Colors.grey[600],
+                              ),
+                            ),
+                          ],
                         ),
                       );
                     } else if (state is DeliveryPartnersLoaded) {
@@ -140,13 +204,79 @@ class _DeliveryPartnersViewState extends State<DeliveryPartnersView> {
                           state.partners!.isNotEmpty) {
                         return _buildPartnersList(state.partners!);
                       } else {
-                        return const Center(
-                          child: Text(
-                            'No data available',
-                            style: TextStyle(
-                              fontFamily: FontConstants.fontFamily,
-                              fontSize: FontSize.s16,
-                            ),
+                        return Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.error_outline, size: 64, color: Colors.grey[400]),
+                              const SizedBox(height: 16),
+                              Text(
+                                'Error Loading Data',
+                                style: TextStyle(
+                                  fontFamily: FontConstants.fontFamily,
+                                  fontSize: FontSize.s16,
+                                  fontWeight: FontWeightManager.semiBold,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                state.message,
+                                style: TextStyle(
+                                  fontFamily: FontConstants.fontFamily,
+                                  fontSize: FontSize.s14,
+                                  color: Colors.grey[600],
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                              const SizedBox(height: 16),
+                              ElevatedButton(
+                                onPressed: () {
+                                  context.read<DeliveryPartnersBloc>().add(LoadDeliveryPartners());
+                                },
+                                child: const Text('Retry'),
+                              ),
+                            ],
+                          ),
+                        );
+                      }
+                    } else if (state is DeliveryPartnersTimeout) {
+                      // Show partners list if available, otherwise show timeout state
+                      if (state.partners != null &&
+                          state.partners!.isNotEmpty) {
+                        return _buildPartnersList(state.partners!);
+                      } else {
+                        return Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.timer_off, size: 64, color: Colors.orange[400]),
+                              const SizedBox(height: 16),
+                              Text(
+                                'Request Timed Out',
+                                style: TextStyle(
+                                  fontFamily: FontConstants.fontFamily,
+                                  fontSize: FontSize.s16,
+                                  fontWeight: FontWeightManager.semiBold,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                state.message,
+                                style: TextStyle(
+                                  fontFamily: FontConstants.fontFamily,
+                                  fontSize: FontSize.s14,
+                                  color: Colors.grey[600],
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                              const SizedBox(height: 16),
+                              ElevatedButton(
+                                onPressed: () {
+                                  context.read<DeliveryPartnersBloc>().add(LoadDeliveryPartners());
+                                },
+                                child: const Text('Retry'),
+                              ),
+                            ],
                           ),
                         );
                       }
@@ -289,142 +419,148 @@ class _DeliveryPartnersViewState extends State<DeliveryPartnersView> {
                   ),
                 ),
                 Expanded(
-                  child: ListTile(
-                    contentPadding: const EdgeInsets.symmetric(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
                       horizontal: 16,
                       vertical: 12,
                     ),
-                    leading: CircleAvatar(
-                      radius: 25,
-                      backgroundColor: ColorManager.primary,
-                      child: Text(
-                        partner.name.isNotEmpty
-                            ? partner.name[0].toUpperCase()
-                            : '?',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 18,
-                        ),
-                      ),
-                    ),
-                    title: Text(
-                      partner.name,
-                      style: const TextStyle(
-                        fontFamily: FontConstants.fontFamily,
-                        fontSize: FontSize.s16,
-                        fontWeight: FontWeightManager.semiBold,
-                      ),
-                    ),
-                    subtitle: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                    child: Row(
                       children: [
-                        const SizedBox(height: 4),
-                        Text(
-                          'Phone: ${partner.phone}',
-                          style: TextStyle(
-                            fontFamily: FontConstants.fontFamily,
-                            fontSize: FontSize.s14,
-                            color: Colors.grey[600],
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          'ID: ${partner.deliveryPartnerId}',
-                          style: TextStyle(
-                            fontFamily: FontConstants.fontFamily,
-                            fontSize: 13.0,
-                            color: Colors.grey[500],
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          'Status: ${partner.status}',
-                          style: TextStyle(
-                            fontFamily: FontConstants.fontFamily,
-                            fontSize: FontSize.s14,
-                            color: Colors.grey[600],
-                          ),
-                        ),
-                      ],
-                    ),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 6,
-                          ),
-                          decoration: BoxDecoration(
-                            color:
-                                partner.status == 'ACTIVE'
-                                    ? ColorManager.primary
-                                    : Colors.grey,
-                            borderRadius: BorderRadius.circular(20),
-                          ),
+                        // Avatar
+                        CircleAvatar(
+                          radius: 25,
+                          backgroundColor: ColorManager.primary,
                           child: Text(
-                            partner.status,
+                            partner.name.isNotEmpty
+                                ? partner.name[0].toUpperCase()
+                                : '?',
                             style: const TextStyle(
                               color: Colors.white,
-                              fontSize: 12,
                               fontWeight: FontWeight.bold,
+                              fontSize: 18,
                             ),
                           ),
                         ),
-                        const SizedBox(width: 8),
-                        IconButton(
-                          icon: Icon(Icons.edit, color: ColorManager.primary),
-                          tooltip: 'Edit Partner',
-                          onPressed: () {
-                            _showEditPartnerModal(
-                              context,
-                              partner,
-                              context.read<DeliveryPartnersBloc>(),
-                            );
-                          },
-                        ),
-                        IconButton(
-                          icon: Icon(
-                            Icons.delete_outline,
-                            color: ColorManager.primary,
-                          ),
-                          tooltip: 'Delete Partner',
-                          onPressed: () async {
-                            final confirm = await showDialog<bool>(
-                              context: context,
-                              builder:
-                                  (context) => AlertDialog(
-                                    title: const Text(
-                                      'Delete Delivery Partner',
+                        const SizedBox(width: 16),
+                        // Partner details
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              // Partner name with overflow handling
+                              Text(
+                                partner.name,
+                                style: const TextStyle(
+                                  fontFamily: FontConstants.fontFamily,
+                                  fontSize: FontSize.s16,
+                                  fontWeight: FontWeightManager.semiBold,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                                maxLines: 1,
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'Phone: ${partner.phone}',
+                                style: TextStyle(
+                                  fontFamily: FontConstants.fontFamily,
+                                  fontSize: FontSize.s14,
+                                  color: Colors.grey[600],
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                                maxLines: 1,
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                'ID: ${partner.deliveryPartnerId}',
+                                style: TextStyle(
+                                  fontFamily: FontConstants.fontFamily,
+                                  fontSize: 13.0,
+                                  color: Colors.grey[500],
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                                maxLines: 1,
+                              ),
+                              const SizedBox(height: 8),
+                              // Status badge and action buttons moved under details
+                              Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 6,
                                     ),
-                                    content: Text(
-                                      'Are you sure you want to delete ${partner.name}?',
+                                    decoration: BoxDecoration(
+                                      color: partner.status == 'ACTIVE'
+                                          ? ColorManager.primary
+                                          : Colors.grey,
+                                      borderRadius: BorderRadius.circular(20),
                                     ),
-                                    actions: [
-                                      TextButton(
-                                        onPressed:
-                                            () => Navigator.pop(context, false),
-                                        child: const Text('Cancel'),
+                                    child: Text(
+                                      partner.status,
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold,
                                       ),
-                                      ElevatedButton(
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: ColorManager.primary,
-                                        ),
-                                        onPressed:
-                                            () => Navigator.pop(context, true),
-                                        child: const Text('Delete'),
-                                      ),
-                                    ],
+                                    ),
                                   ),
-                            );
-                            if (confirm == true) {
-                              _deleteDeliveryPartner(
-                                context,
-                                partner.deliveryPartnerId,
-                              );
-                            }
-                          },
+                                  const SizedBox(width: 12),
+                                  IconButton(
+                                    icon: Icon(Icons.edit, color: ColorManager.primary, size: 20),
+                                    tooltip: 'Edit Partner',
+                                    onPressed: () {
+                                      _showEditPartnerModal(
+                                        context,
+                                        partner,
+                                        context.read<DeliveryPartnersBloc>(),
+                                      );
+                                    },
+                                  ),
+                                  IconButton(
+                                    icon: Icon(
+                                      Icons.delete_outline,
+                                      color: ColorManager.primary,
+                                      size: 20,
+                                    ),
+                                    tooltip: 'Delete Partner',
+                                    onPressed: () async {
+                                      final confirm = await showDialog<bool>(
+                                        context: context,
+                                        builder: (context) => AlertDialog(
+                                          title: const Text(
+                                            'Delete Delivery Partner',
+                                          ),
+                                          content: Text(
+                                            'Are you sure you want to delete ${partner.name}?',
+                                          ),
+                                          actions: [
+                                            TextButton(
+                                              onPressed: () => Navigator.pop(context, false),
+                                              child: const Text('Cancel'),
+                                            ),
+                                            ElevatedButton(
+                                              style: ElevatedButton.styleFrom(
+                                                backgroundColor: ColorManager.primary,
+                                              ),
+                                              onPressed: () => Navigator.pop(context, true),
+                                              child: const Text('Delete'),
+                                            ),
+                                          ],
+                                        ),
+                                      );
+                                      if (confirm == true) {
+                                        _deleteDeliveryPartner(
+                                          context,
+                                          partner.deliveryPartnerId,
+                                        );
+                                      }
+                                    },
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
                         ),
                       ],
                     ),
@@ -564,6 +700,33 @@ class _AddPartnerBottomSheetState extends State<_AddPartnerBottomSheet> {
     otpVerified = false;
     otpLoading = false;
     otpError = '';
+    
+    // Auto-detect country based on locale
+    _autoDetectCountry();
+  }
+
+  @override
+  void dispose() {
+    // Cancel any ongoing operations to prevent setState after dispose
+    otpLoading = false;
+    super.dispose();
+  }
+  
+  void _autoDetectCountry() {
+    try {
+      final locale = WidgetsBinding.instance.platformDispatcher.locale;
+      if (locale.countryCode != null) {
+        final fromLocale = CountryData.findByCode(locale.countryCode!.toUpperCase());
+        if (fromLocale != null) {
+          setState(() {
+            selectedCountry = fromLocale;
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('Auto-detect country failed: $e');
+      // Keep existing default on failure
+    }
   }
 
   // Function to send OTP
@@ -595,11 +758,11 @@ class _AddPartnerBottomSheetState extends State<_AddPartnerBottomSheet> {
           );
         }
       } else {
-        // ✅ FOR REAL PHONE NUMBERS - SAME AS RESTAURANT PARTNER
-        debugPrint('Real phone number - enabling reCAPTCHA fallback');
+        // For real phone numbers - use build configuration
+        debugPrint('Real phone number - using build configuration');
         await FirebaseAuth.instance.setSettings(
           appVerificationDisabledForTesting: false,
-          forceRecaptchaFlow: true, // Same as restaurant partner
+          forceRecaptchaFlow: BuildConfig.shouldForceRecaptcha,
         );
       }
 
@@ -634,32 +797,40 @@ class _AddPartnerBottomSheetState extends State<_AddPartnerBottomSheet> {
         },
         codeSent: (String vId, int? resendToken) {
           debugPrint('✅ Code sent! Verification ID: $vId');
-          setState(() {
-            verificationId = vId;
-            otpSent = true;
-            otpLoading = false;
-          });
+          if (mounted) {
+            setState(() {
+              verificationId = vId;
+              otpSent = true;
+              otpLoading = false;
+            });
+          }
         },
         codeAutoRetrievalTimeout: (String vId) {
           debugPrint('⏰ Auto retrieval timeout. Verification ID: $vId');
-          setState(() {
-            verificationId = vId;
-            otpLoading = false;
-            // Don't show error for timeout, just let user enter manually
-          });
+          if (mounted) {
+            setState(() {
+              verificationId = vId;
+              otpLoading = false;
+              // Don't show error for timeout, just let user enter manually
+            });
+          }
         },
       );
     } catch (e) {
       debugPrint('❌ Error sending OTP: $e');
-      setState(() {
-        otpError = 'Failed to send OTP: $e';
-        otpLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          otpError = 'Failed to send OTP: $e';
+          otpLoading = false;
+        });
+      }
     }
   }
 
   // Function to verify OTP
   Future<void> verifyOtp() async {
+    if (!mounted) return;
+    
     setState(() {
       otpLoading = true;
       otpError = '';
@@ -673,27 +844,33 @@ class _AddPartnerBottomSheetState extends State<_AddPartnerBottomSheet> {
         debugPrint('Test phone number - checking for test OTP');
         if (otp == '000000' || otp == '123456') {
           debugPrint('Test OTP verified successfully');
-          setState(() {
-            otpVerified = true;
-            otpLoading = false;
-          });
+          if (mounted) {
+            setState(() {
+              otpVerified = true;
+              otpLoading = false;
+            });
+          }
           return;
         } else {
-          setState(() {
-            otpError = 'Invalid test OTP. Use 000000 or 123456';
-            otpLoading = false;
-          });
+          if (mounted) {
+            setState(() {
+              otpError = 'Invalid test OTP. Use 000000 or 123456';
+              otpLoading = false;
+            });
+          }
           return;
         }
       }
 
       // For real phone numbers, use Firebase verification
       if (verificationId.isEmpty) {
-        setState(() {
-          otpError =
-              'Verification ID not available. Please try sending OTP again.';
-          otpLoading = false;
-        });
+        if (mounted) {
+          setState(() {
+            otpError =
+                'Verification ID not available. Please try sending OTP again.';
+            otpLoading = false;
+          });
+        }
         return;
       }
 
@@ -715,15 +892,19 @@ class _AddPartnerBottomSheetState extends State<_AddPartnerBottomSheet> {
         await FirebaseAuth.instance.signOut();
         debugPrint('Signed out from Firebase after OTP verification');
 
-        setState(() {
-          otpVerified = true;
-          otpLoading = false;
-        });
+        if (mounted) {
+          setState(() {
+            otpVerified = true;
+            otpLoading = false;
+          });
+        }
       } else {
-        setState(() {
-          otpError = 'Failed to verify OTP. Please try again.';
-          otpLoading = false;
-        });
+        if (mounted) {
+          setState(() {
+            otpError = 'Failed to verify OTP. Please try again.';
+            otpLoading = false;
+          });
+        }
       }
     } on FirebaseAuthException catch (e) {
       debugPrint('Firebase Auth error: ${e.code} - ${e.message}');
@@ -742,32 +923,21 @@ class _AddPartnerBottomSheetState extends State<_AddPartnerBottomSheet> {
         default:
           errorMessage = e.message ?? 'OTP verification failed';
       }
-      setState(() {
-        otpError = errorMessage;
-        otpLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          otpError = errorMessage;
+          otpLoading = false;
+        });
+      }
     } catch (e) {
       debugPrint('General error verifying OTP: $e');
-      setState(() {
-        otpError = 'Error verifying OTP: $e';
-        otpLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          otpError = 'Error verifying OTP: $e';
+          otpLoading = false;
+        });
+      }
     }
-  }
-
-  // Function to check if all required fields are filled
-  bool _areAllFieldsFilled() {
-    return name.isNotEmpty &&
-        email.isNotEmpty &&
-        RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(email) &&
-        username.isNotEmpty &&
-        password.isNotEmpty &&
-        phone.isNotEmpty &&
-        phone.trim().length == 10 &&
-        RegExp(r'^\d{10}$').hasMatch(phone.trim()) &&
-        licensePhotoFile != null &&
-        vehicleDocumentFile != null &&
-        otpVerified;
   }
 
   @override
@@ -840,7 +1010,7 @@ class _AddPartnerBottomSheetState extends State<_AddPartnerBottomSheet> {
                         value == null || value.isEmpty
                             ? 'Name is required'
                             : null,
-                onChanged: (value) => setState(() => name = value),
+                onChanged: (value) => name = value,
               ),
               const SizedBox(height: 20),
 
@@ -882,7 +1052,7 @@ class _AddPartnerBottomSheetState extends State<_AddPartnerBottomSheet> {
                   }
                   return null;
                 },
-                onChanged: (value) => setState(() => email = value.trim()),
+                onChanged: (value) => email = value.trim(),
               ),
               const SizedBox(height: 20),
 
@@ -917,7 +1087,7 @@ class _AddPartnerBottomSheetState extends State<_AddPartnerBottomSheet> {
                         value == null || value.isEmpty
                             ? 'Username is required'
                             : null,
-                onChanged: (value) => setState(() => username = value),
+                onChanged: (value) => username = value,
               ),
               const SizedBox(height: 20),
 
@@ -953,7 +1123,7 @@ class _AddPartnerBottomSheetState extends State<_AddPartnerBottomSheet> {
                         value == null || value.isEmpty
                             ? 'Password is required'
                             : null,
-                onChanged: (value) => setState(() => password = value),
+                onChanged: (value) => password = value,
               ),
               const SizedBox(height: 20),
 
@@ -1034,7 +1204,7 @@ class _AddPartnerBottomSheetState extends State<_AddPartnerBottomSheet> {
                         }
                         return null;
                       },
-                      onChanged: (value) => setState(() => phone = value.trim()),
+                      onChanged: (value) => phone = value.trim(),
                     ),
                   ),
                 ],
@@ -1124,7 +1294,7 @@ class _AddPartnerBottomSheetState extends State<_AddPartnerBottomSheet> {
                 TextFormField(
                   keyboardType: TextInputType.number,
                   maxLength: 6,
-                  onChanged: (val) => setState(() => otp = val),
+                  onChanged: (val) => otp = val,
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: FontSize.s18,
@@ -1246,7 +1416,7 @@ class _AddPartnerBottomSheetState extends State<_AddPartnerBottomSheet> {
 
               // License Photo
               Text(
-                'License Photo *',
+                'License Photo',
                 style: TextStyle(
                   fontFamily: FontConstants.fontFamily,
                   fontSize: FontSize.s14,
@@ -1289,16 +1459,16 @@ class _AddPartnerBottomSheetState extends State<_AddPartnerBottomSheet> {
                       Icon(Icons.upload_file, color: ColorManager.primary),
                       const SizedBox(width: 14),
                       Expanded(
-                                                  child: Text(
-                            licensePhotoFile != null
-                                ? licensePhotoFile!.path.split('/').last
-                                : 'Select License Photo (Required)',
-                            style: TextStyle(
-                              fontFamily: FontConstants.fontFamily,
-                              fontSize: FontSize.s14,
-                              color: Colors.grey[700],
-                            ),
+                        child: Text(
+                          licensePhotoFile != null
+                              ? licensePhotoFile!.path.split('/').last
+                              : 'Select License Photo',
+                          style: TextStyle(
+                            fontFamily: FontConstants.fontFamily,
+                            fontSize: FontSize.s14,
+                            color: Colors.grey[700],
                           ),
+                        ),
                       ),
                       if (licensePhotoFile != null)
                         const Icon(Icons.check_circle, color: Colors.green),
@@ -1320,7 +1490,7 @@ class _AddPartnerBottomSheetState extends State<_AddPartnerBottomSheet> {
 
               // Vehicle Document
               Text(
-                'Vehicle Document *',
+                'Vehicle Document',
                 style: TextStyle(
                   fontFamily: FontConstants.fontFamily,
                   fontSize: FontSize.s14,
@@ -1365,7 +1535,7 @@ class _AddPartnerBottomSheetState extends State<_AddPartnerBottomSheet> {
                         child: Text(
                           vehicleDocumentFile != null
                               ? vehicleDocumentFile!.path.split('/').last
-                              : 'Select Vehicle Document (Required)',
+                              : 'Select Vehicle Document',
                           style: TextStyle(
                             fontFamily: FontConstants.fontFamily,
                             fontSize: FontSize.s14,
@@ -1397,7 +1567,7 @@ class _AddPartnerBottomSheetState extends State<_AddPartnerBottomSheet> {
                 height: 50,
                 child: ElevatedButton(
                   onPressed:
-                      (isSubmitting || !_areAllFieldsFilled())
+                      (isSubmitting || !otpVerified)
                           ? null
                           : () async {
                             bool licenseValid = licensePhotoFile != null;
@@ -1486,8 +1656,6 @@ class _EditPartnerBottomSheetState extends State<_EditPartnerBottomSheet> {
   File? licensePhotoFile;
   File? vehicleDocumentFile;
   bool isSubmitting = false;
-  bool isLicensePhotoValid = true;
-  bool isVehicleDocValid = true;
 
   @override
   void initState() {
@@ -1502,20 +1670,28 @@ class _EditPartnerBottomSheetState extends State<_EditPartnerBottomSheet> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom,
-        left: 16,
-        right: 16,
-        top: 24,
-      ),
-      child: Form(
-        key: formKey,
-        child: SingleChildScrollView(
+    return BlocListener<DeliveryPartnersBloc, DeliveryPartnersState>(
+      listener: (context, state) {
+        if (mounted && (state is DeliveryPartnersError || state is DeliveryPartnersTimeout)) {
+          setState(() {
+            isSubmitting = false;
+          });
+        }
+      },
+      child: Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom,
+          left: 16,
+          right: 16,
+          top: 24,
+        ),
+        child: Form(
+          key: formKey,
+          child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1721,7 +1897,7 @@ class _EditPartnerBottomSheetState extends State<_EditPartnerBottomSheet> {
               const SizedBox(height: 20),
               // License Photo
               Text(
-                'License Photo *',
+                'License Photo',
                 style: TextStyle(
                   fontFamily: FontConstants.fontFamily,
                   fontSize: FontSize.s14,
@@ -1739,7 +1915,6 @@ class _EditPartnerBottomSheetState extends State<_EditPartnerBottomSheet> {
                   if (pickedFile != null) {
                     setState(() {
                       licensePhotoFile = File(pickedFile.path);
-                      isLicensePhotoValid = true;
                     });
                   }
                 },
@@ -1763,18 +1938,18 @@ class _EditPartnerBottomSheetState extends State<_EditPartnerBottomSheet> {
                       Icon(Icons.upload_file, color: ColorManager.primary),
                       const SizedBox(width: 14),
                       Expanded(
-                                                  child: Text(
-                            licensePhotoFile != null
-                                ? licensePhotoFile!.path.split('/').last
-                                : (widget.partner.licensePhoto != null
-                                    ? 'Current: ${widget.partner.licensePhoto!.split('/').last}'
-                                    : 'Select License Photo (Required)'),
-                            style: TextStyle(
-                              fontFamily: FontConstants.fontFamily,
-                              fontSize: FontSize.s14,
-                              color: Colors.grey[700],
-                            ),
+                        child: Text(
+                          licensePhotoFile != null
+                              ? licensePhotoFile!.path.split('/').last
+                              : (widget.partner.licensePhoto != null
+                                  ? 'Current: ${widget.partner.licensePhoto!.split('/').last}'
+                                  : 'Select License Photo'),
+                          style: TextStyle(
+                            fontFamily: FontConstants.fontFamily,
+                            fontSize: FontSize.s14,
+                            color: Colors.grey[700],
                           ),
+                        ),
                       ),
                       if (licensePhotoFile != null ||
                           widget.partner.licensePhoto != null)
@@ -1784,19 +1959,10 @@ class _EditPartnerBottomSheetState extends State<_EditPartnerBottomSheet> {
                   ),
                 ),
               ),
-              SizedBox(height: 5),
-              if (!isLicensePhotoValid)
-                Padding(
-                  padding: const EdgeInsets.only(top: 4, left: 8),
-                  child: Text(
-                    'This field is mandatory',
-                    style: TextStyle(color: Colors.red, fontSize: 12),
-                  ),
-                ),
               const SizedBox(height: 20),
               // Vehicle Document
               Text(
-                'Vehicle Document *',
+                'Vehicle Document',
                 style: TextStyle(
                   fontFamily: FontConstants.fontFamily,
                   fontSize: FontSize.s14,
@@ -1814,7 +1980,6 @@ class _EditPartnerBottomSheetState extends State<_EditPartnerBottomSheet> {
                   if (pickedFile != null) {
                     setState(() {
                       vehicleDocumentFile = File(pickedFile.path);
-                      isVehicleDocValid = true;
                     });
                   }
                 },
@@ -1843,7 +2008,7 @@ class _EditPartnerBottomSheetState extends State<_EditPartnerBottomSheet> {
                               ? vehicleDocumentFile!.path.split('/').last
                               : (widget.partner.vehicleDocument != null
                                   ? 'Current: ${widget.partner.vehicleDocument!.split('/').last}'
-                                  : 'Select Vehicle Document (Required)'),
+                                  : 'Select Vehicle Document (Optional)'),
                           style: TextStyle(
                             fontFamily: FontConstants.fontFamily,
                             fontSize: FontSize.s14,
@@ -1859,15 +2024,6 @@ class _EditPartnerBottomSheetState extends State<_EditPartnerBottomSheet> {
                   ),
                 ),
               ),
-              SizedBox(height: 5),
-              if (!isVehicleDocValid)
-                Padding(
-                  padding: const EdgeInsets.only(top: 4, left: 8),
-                  child: Text(
-                    'This field is mandatory',
-                    style: TextStyle(color: Colors.red, fontSize: 12),
-                  ),
-                ),
               const SizedBox(height: 30),
               // Submit Button
               SizedBox(
@@ -1878,17 +2034,7 @@ class _EditPartnerBottomSheetState extends State<_EditPartnerBottomSheet> {
                       isSubmitting
                           ? null
                           : () async {
-                            bool licenseValid = licensePhotoFile != null || widget.partner.licensePhoto != null;
-                            bool vehicleValid = vehicleDocumentFile != null || widget.partner.vehicleDocument != null;
-
-                            setState(() {
-                              isLicensePhotoValid = licenseValid;
-                              isVehicleDocValid = vehicleValid;
-                            });
-
-                            if (formKey.currentState!.validate() &&
-                                licenseValid &&
-                                vehicleValid) {
+                            if (formKey.currentState!.validate()) {
                               setState(() => isSubmitting = true);
                               widget.bloc.add(
                                 EditDeliveryPartner(
@@ -1937,6 +2083,7 @@ class _EditPartnerBottomSheetState extends State<_EditPartnerBottomSheet> {
               const SizedBox(height: 20),
             ],
           ),
+        ),
         ),
       ),
     );

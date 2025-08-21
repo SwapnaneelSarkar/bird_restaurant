@@ -32,12 +32,6 @@ class _AddProductScreenState extends State<AddProductScreen> {
   final TextEditingController _priceController = TextEditingController();
   final TextEditingController _tagsController = TextEditingController();
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
-  
-  // Validation error text
-  String? _nameError;
-  String? _descriptionError;
-  String? _priceError;
-  String? _tagsError;
 
   // Character limits
   final int _nameMaxLength = 30;
@@ -190,49 +184,70 @@ class _AddProductScreenState extends State<AddProductScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Required fields note
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.orange.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.orange.withOpacity(0.3)),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.info_outline, color: Colors.orange[700], size: 20),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Fields marked with * are required',
+                    style: TextStyle(
+                      color: Colors.orange[700],
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          
           // Product Name
-          _buildFormLabel('Product Name'),
+          _buildFormLabel('Product Name *'),
           const SizedBox(height: 8),
           CustomTextField(
-            hintText: 'Enter product name (upto 30 characters)',
+            hintText: 'Enter product name (required, upto 30 characters)',
             controller: _nameController,
             maxLength: _nameMaxLength,
-            errorText: _nameError,
+            errorText: state.nameError,
             counterText: '${_nameController.text.length}/$_nameMaxLength',
             onChanged: (value) {
-              setState(() {
-                if (value.isEmpty) {
-                  _nameError = 'Product name is required';
-                } else if (value.length > _nameMaxLength) {
-                  _nameError = 'Maximum $_nameMaxLength characters allowed';
-                } else {
-                  _nameError = null;
-                }
-              });
               context.read<AddProductBloc>().add(ProductNameChangedEvent(value));
+              // Also validate on change for immediate feedback
+              context.read<AddProductBloc>().add(ValidateNameEvent(value));
+            },
+            onEditingComplete: () {
+              context.read<AddProductBloc>().add(ValidateNameEvent(_nameController.text));
             },
           ),
           const SizedBox(height: 16),
           
           // Short Description
-          _buildFormLabel('Short Description'),
+          _buildFormLabel('Short Description *'),
           const SizedBox(height: 8),
           CustomTextField(
-            hintText: 'Enter product description (upto 100 characters)',
+            hintText: 'Enter product description (required, upto 100 characters)',
             controller: _descriptionController,
             maxLines: 3,
             maxLength: _descriptionMaxLength,
-            errorText: _descriptionError,
+            errorText: state.descriptionError,
             counterText: '${_descriptionController.text.length}/$_descriptionMaxLength',
             onChanged: (value) {
-              setState(() {
-                if (value.length > _descriptionMaxLength) {
-                  _descriptionError = 'Maximum $_descriptionMaxLength characters allowed';
-                } else {
-                  _descriptionError = null;
-                }
-              });
               context.read<AddProductBloc>().add(ProductDescriptionChangedEvent(value));
+              // Also validate on change for immediate feedback
+              context.read<AddProductBloc>().add(ValidateDescriptionEvent(value));
+            },
+            onEditingComplete: () {
+              context.read<AddProductBloc>().add(ValidateDescriptionEvent(_descriptionController.text));
             },
           ),
           const SizedBox(height: 16),
@@ -318,30 +333,28 @@ class _AddProductScreenState extends State<AddProductScreen> {
             hintText: 'Enter tags separated by commas',
             controller: _tagsController,
             maxLength: _tagsMaxLength,
-            errorText: _tagsError,
+            errorText: state.tagsError,
             counterText: '${_tagsController.text.length}/$_tagsMaxLength',
             onChanged: (value) {
-              setState(() {
-                if (value.length > _tagsMaxLength) {
-                  _tagsError = 'Maximum $_tagsMaxLength characters allowed';
-                } else {
-                  _tagsError = null;
-                }
-              });
               context.read<AddProductBloc>().add(ProductTagsChangedEvent(value));
+              // Also validate on change for immediate feedback
+              context.read<AddProductBloc>().add(ValidateTagsEvent(value));
+            },
+            onEditingComplete: () {
+              context.read<AddProductBloc>().add(ValidateTagsEvent(_tagsController.text));
             },
           ),
           const SizedBox(height: 16),
           
           // Product Price
-          _buildFormLabel('Product Price'),
+          _buildFormLabel('Product Price *'),
           const SizedBox(height: 8),
           _buildPriceField(context),
-          if (_priceError != null)
+          if (state.priceError != null)
             Padding(
               padding: const EdgeInsets.only(top: 6, left: 16),
               child: Text(
-                _priceError!,
+                state.priceError!,
                 style: TextStyle(
                   color: Colors.red[700],
                   fontSize: 12,
@@ -355,9 +368,23 @@ class _AddProductScreenState extends State<AddProductScreen> {
             children: [
               Expanded(
                 child: ElevatedButton(
-                  onPressed: state.isSubmitting || !_isFormValid()
+                  onPressed: state.isSubmitting
                       ? null
-                      : () => context.read<AddProductBloc>().add(const SubmitProductEvent()),
+                      : () {
+                          // Validate all fields before submission
+                          context.read<AddProductBloc>().add(const ValidateAllFieldsEvent());
+                          if (_isFormValid(state)) {
+                            context.read<AddProductBloc>().add(const SubmitProductEvent());
+                          } else {
+                            // Show error message for validation failures
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Please fill in all required fields'),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
+                          }
+                        },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFFCD6E32),
                     foregroundColor: Colors.white,
@@ -405,12 +432,14 @@ class _AddProductScreenState extends State<AddProductScreen> {
   }
 
   // Check if the entire form is valid
-  bool _isFormValid() {
-    return _nameError == null && 
-           _descriptionError == null && 
-           _priceError == null &&
-           _tagsError == null &&
-           _nameController.text.isNotEmpty;
+  bool _isFormValid(AddProductFormState state) {
+    return state.nameError == null && 
+           state.descriptionError == null && 
+           state.priceError == null &&
+           state.tagsError == null &&
+           _nameController.text.isNotEmpty &&
+           _descriptionController.text.isNotEmpty &&
+           _priceController.text.isNotEmpty;
   }
 
   Widget _buildFormLabel(String label) {
@@ -570,7 +599,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
               controller: _priceController,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
               decoration: const InputDecoration(
-                hintText: '0.00',
+                hintText: '0.00 (required)',
                 border: InputBorder.none,
                 contentPadding: EdgeInsets.symmetric(horizontal: 16),
               ),
@@ -579,18 +608,12 @@ class _AddProductScreenState extends State<AddProductScreen> {
               ],
               onChanged: (value) {
                 final price = double.tryParse(value) ?? 0.0;
-                setState(() {
-                  if (value.isEmpty) {
-                    _priceError = 'Price is required';
-                  } else if (price <= 0) {
-                    _priceError = 'Price must be greater than 0';
-                  } else if (price > _maxPrice) {
-                    _priceError = 'Price cannot exceed \$$_maxPrice';
-                  } else {
-                    _priceError = null;
-                  }
-                });
                 context.read<AddProductBloc>().add(ProductPriceChangedEvent(price));
+                // Also validate on change for immediate feedback
+                context.read<AddProductBloc>().add(ValidatePriceEvent(value));
+              },
+              onEditingComplete: () {
+                context.read<AddProductBloc>().add(ValidatePriceEvent(_priceController.text));
               },
             ),
           ),
@@ -604,11 +627,5 @@ class _AddProductScreenState extends State<AddProductScreen> {
     _descriptionController.clear();
     _priceController.clear();
     _tagsController.clear();
-    setState(() {
-      _nameError = null;
-      _descriptionError = null;
-      _priceError = null;
-      _tagsError = null;
-    });
   }
 }

@@ -1,9 +1,11 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../services/delivery_partners_service.dart';
+import '../../../services/api_responses.dart';
 import '../../../models/delivery_partner_model.dart';
 import 'event.dart';
 import 'state.dart';
 import '../../../services/token_service.dart';
+import 'package:flutter/foundation.dart';
 
 class DeliveryPartnersBloc extends Bloc<DeliveryPartnersEvent, DeliveryPartnersState> {
   final DeliveryPartnersService _deliveryPartnersService;
@@ -78,25 +80,105 @@ class DeliveryPartnersBloc extends Bloc<DeliveryPartnersEvent, DeliveryPartnersS
         emit(DeliveryPartnersError('No token found. Please login again.', partners: currentPartners));
         return;
       }
-      final response = await _deliveryPartnersService.onboardDeliveryPartner(
-        partnerId: event.partnerId,
-        phone: event.phone,
-        name: event.name,
-        email: event.email,
-        username: event.username,
-        password: event.password,
-        licensePhotoPath: event.licensePhotoPath,
-        vehicleDocumentPath: event.vehicleDocumentPath,
-        token: token,
-      );
+      
+      debugPrint('DeliveryPartnersBloc: Starting onboarding process...');
+      debugPrint('DeliveryPartnersBloc: Partner ID: ${event.partnerId}');
+      debugPrint('DeliveryPartnersBloc: Phone: ${event.phone}');
+      debugPrint('DeliveryPartnersBloc: Name: ${event.name}');
+      debugPrint('DeliveryPartnersBloc: Email: ${event.email}');
+      debugPrint('DeliveryPartnersBloc: Username: ${event.username}');
+      debugPrint('DeliveryPartnersBloc: License Photo: ${event.licensePhotoPath ?? 'Not provided'}');
+      debugPrint('DeliveryPartnersBloc: Vehicle Document: ${event.vehicleDocumentPath ?? 'Not provided'}');
+      
+      // Try the onboarding with retry mechanism
+      ApiResponse? response;
+      int retryCount = 0;
+      const maxRetries = 2;
+      
+      while (retryCount <= maxRetries) {
+        try {
+          debugPrint('DeliveryPartnersBloc: Attempt ${retryCount + 1} of ${maxRetries + 1}');
+          
+          response = await _deliveryPartnersService.onboardDeliveryPartner(
+            partnerId: event.partnerId,
+            phone: event.phone,
+            name: event.name,
+            email: event.email,
+            username: event.username,
+            password: event.password,
+            licensePhotoPath: event.licensePhotoPath,
+            vehicleDocumentPath: event.vehicleDocumentPath,
+            token: token,
+          );
+          
+          // If we get a response, break out of retry loop
+          break;
+        } catch (e) {
+          retryCount++;
+          debugPrint('DeliveryPartnersBloc: Attempt $retryCount failed: $e');
+          
+          if (retryCount > maxRetries) {
+            debugPrint('DeliveryPartnersBloc: Max retries reached, throwing error');
+            rethrow;
+          }
+          
+          // Wait before retrying (exponential backoff)
+          await Future.delayed(Duration(seconds: retryCount * 2));
+        }
+      }
+      
+      debugPrint('DeliveryPartnersBloc: Onboarding response received');
+      debugPrint('DeliveryPartnersBloc: Success: ${response?.success}');
+      debugPrint('DeliveryPartnersBloc: Status: ${response?.status}');
+      debugPrint('DeliveryPartnersBloc: Message: ${response?.message}');
+      
+      if (response == null) {
+        debugPrint('DeliveryPartnersBloc: No response received');
+        emit(DeliveryPartnersError('No response received from server. Please try again.', partners: currentPartners));
+        return;
+      }
+      
       if (response.success) {
+        debugPrint('DeliveryPartnersBloc: Onboarding successful, refreshing partners list');
         add(RefreshDeliveryPartners());
         emit(DeliveryPartnerAdded());
       } else {
-        emit(DeliveryPartnersError(response.message ?? 'Failed to add delivery partner', partners: currentPartners));
-      }
+          String errorMessage = response.message ?? 'Failed to add delivery partner';
+          
+          // Provide more specific error messages based on status
+          if (response.status == 'TIMEOUT') {
+            errorMessage = 'Request timed out. The server is taking too long to respond. Please try again in a few moments.';
+            debugPrint('DeliveryPartnersBloc: Onboarding timed out - $errorMessage');
+            emit(DeliveryPartnersTimeout(errorMessage, partners: currentPartners));
+          } else if (response.status == 'ERROR' && errorMessage.contains('504')) {
+            errorMessage = 'Server is temporarily unavailable. Please try again in a few minutes.';
+            debugPrint('DeliveryPartnersBloc: Onboarding failed with 504 - $errorMessage');
+            emit(DeliveryPartnersTimeout(errorMessage, partners: currentPartners));
+          } else if (response.status == 'ERROR' && errorMessage.contains('413')) {
+            errorMessage = 'File size too large. Please compress your images and try again.';
+            debugPrint('DeliveryPartnersBloc: Onboarding failed with 413 - $errorMessage');
+            emit(DeliveryPartnersError(errorMessage, partners: currentPartners));
+          } else {
+            debugPrint('DeliveryPartnersBloc: Onboarding failed - $errorMessage');
+            emit(DeliveryPartnersError(errorMessage, partners: currentPartners));
+          }
+        }
     } catch (e) {
-      emit(DeliveryPartnersError(e.toString(), partners: currentPartners));
+      debugPrint('DeliveryPartnersBloc: Exception during onboarding: $e');
+      String errorMessage = 'Failed to add delivery partner. Please try again.';
+      
+      if (e.toString().contains('TimeoutException')) {
+        errorMessage = 'Request timed out. Please check your connection and try again.';
+        emit(DeliveryPartnersTimeout(errorMessage, partners: currentPartners));
+      } else if (e.toString().contains('SocketException')) {
+        errorMessage = 'Network error. Please check your internet connection and try again.';
+        emit(DeliveryPartnersError(errorMessage, partners: currentPartners));
+      } else if (e.toString().contains('FormatException')) {
+        errorMessage = 'Invalid response from server. Please try again.';
+        emit(DeliveryPartnersError(errorMessage, partners: currentPartners));
+      } else {
+        emit(DeliveryPartnersError(errorMessage, partners: currentPartners));
+      }
     }
   }
 

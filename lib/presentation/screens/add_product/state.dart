@@ -38,10 +38,27 @@ class DaySchedule {
 
   factory DaySchedule.fromJson(Map<String, dynamic> json) {
     return DaySchedule(
-      enabled: json['enabled'] ?? false,
+      enabled: _convertToBool(json['enabled']),
       start: json['start'] ?? '09:00',
       end: json['end'] ?? '22:00',
     );
+  }
+
+  // Helper method to safely convert various types to bool
+  static bool _convertToBool(dynamic value) {
+    if (value == null) return false;
+    if (value is bool) return value;
+    if (value is int) return value != 0; // 0 = false, any other int = true
+    if (value is String) {
+      // Try parsing as int first
+      final intValue = int.tryParse(value);
+      if (intValue != null) return intValue != 0;
+      
+      // Try parsing as bool string
+      final lowerValue = value.toLowerCase().trim();
+      return lowerValue == 'true' || lowerValue == '1';
+    }
+    return false; // Default to false for unexpected types
   }
 }
 
@@ -223,6 +240,11 @@ class AddProductFormState extends AddProductState {
   final bool isSubmitting;
   final bool isSuccess;
   final String? errorMessage;
+  // Validation error fields
+  final String? nameError;
+  final String? descriptionError;
+  final String? priceError;
+  final String? tagsError;
   
   const AddProductFormState({
     required this.product,
@@ -233,10 +255,14 @@ class AddProductFormState extends AddProductState {
     this.isSubmitting = false,
     this.isSuccess = false,
     this.errorMessage,
+    this.nameError,
+    this.descriptionError,
+    this.priceError,
+    this.tagsError,
   });
   
   @override
-  List<Object?> get props => [product, categories, foodTypes, selectedFoodType, isLoadingFoodTypes, isSubmitting, isSuccess, errorMessage];
+  List<Object?> get props => [product, categories, foodTypes, selectedFoodType, isLoadingFoodTypes, isSubmitting, isSuccess, errorMessage, nameError, descriptionError, priceError, tagsError];
   
   AddProductFormState copyWith({
     ProductModel? product,
@@ -247,6 +273,10 @@ class AddProductFormState extends AddProductState {
     bool? isSubmitting,
     bool? isSuccess,
     String? errorMessage,
+    String? nameError,
+    String? descriptionError,
+    String? priceError,
+    String? tagsError,
   }) {
     return AddProductFormState(
       product: product ?? this.product,
@@ -257,6 +287,10 @@ class AddProductFormState extends AddProductState {
       isSubmitting: isSubmitting ?? this.isSubmitting,
       isSuccess: isSuccess ?? this.isSuccess,
       errorMessage: errorMessage,
+      nameError: nameError,
+      descriptionError: descriptionError,
+      priceError: priceError,
+      tagsError: tagsError,
     );
   }
 }

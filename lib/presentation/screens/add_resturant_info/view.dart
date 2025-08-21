@@ -160,7 +160,7 @@ class _RestaurantDetailsBodyState extends State<_RestaurantDetailsBody> {
                   onChanged: (v) => bloc.add(RestaurantNameChanged(v)),
                 ),
                 BlocBuilder<RestaurantDetailsBloc, RestaurantDetailsState>(
-                  buildWhen: (p, c) => p.name != c.name || p.isAttemptedSubmit != c.isAttemptedSubmit,
+                  buildWhen: (p, c) => p.isAttemptedSubmit != c.isAttemptedSubmit,
                   builder: (context, state) {
                     return state.name.isEmpty && state.isAttemptedSubmit
                         ? Padding(
@@ -203,7 +203,7 @@ class _RestaurantDetailsBodyState extends State<_RestaurantDetailsBody> {
                   onChanged: (v) => bloc.add(AddressChanged(v)),
                 ),
                 BlocBuilder<RestaurantDetailsBloc, RestaurantDetailsState>(
-                  buildWhen: (p, c) => p.address != c.address || p.isAttemptedSubmit != c.isAttemptedSubmit,
+                  buildWhen: (p, c) => p.isAttemptedSubmit != c.isAttemptedSubmit,
                   builder: (context, state) {
                     return state.address.isEmpty && state.isAttemptedSubmit
                         ? Padding(
@@ -274,7 +274,7 @@ class _RestaurantDetailsBodyState extends State<_RestaurantDetailsBody> {
                   onChanged: (v) => bloc.add(EmailChanged(v)),
                 ),
                 BlocBuilder<RestaurantDetailsBloc, RestaurantDetailsState>(
-                  buildWhen: (p, c) => p.email != c.email || p.isAttemptedSubmit != c.isAttemptedSubmit,
+                  buildWhen: (p, c) => p.isAttemptedSubmit != c.isAttemptedSubmit,
                   builder: (context, state) {
                     if (state.email.isEmpty && state.isAttemptedSubmit) {
                       return Padding(
@@ -392,9 +392,7 @@ class _RestaurantDetailsBodyState extends State<_RestaurantDetailsBody> {
                   },
                 ),
                 BlocBuilder<RestaurantDetailsBloc, RestaurantDetailsState>(
-                  buildWhen: (p, c) => 
-                    p.selectedSupercategory != c.selectedSupercategory || 
-                    p.isAttemptedSubmit != c.isAttemptedSubmit,
+                  buildWhen: (p, c) => p.isAttemptedSubmit != c.isAttemptedSubmit,
                   builder: (context, state) {
                     return state.selectedSupercategory == null && state.isAttemptedSubmit
                         ? Padding(
@@ -499,9 +497,7 @@ class _RestaurantDetailsBodyState extends State<_RestaurantDetailsBody> {
                   },
                 ),
                 BlocBuilder<RestaurantDetailsBloc, RestaurantDetailsState>(
-                  buildWhen: (p, c) => 
-                    p.selectedRestaurantType != c.selectedRestaurantType || 
-                    p.isAttemptedSubmit != c.isAttemptedSubmit,
+                  buildWhen: (p, c) => p.isAttemptedSubmit != c.isAttemptedSubmit,
                   builder: (context, state) {
                     return state.selectedRestaurantType == null && state.isAttemptedSubmit
                         ? Padding(

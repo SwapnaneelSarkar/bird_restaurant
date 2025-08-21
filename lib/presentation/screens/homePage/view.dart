@@ -682,7 +682,7 @@ class _HomeViewState extends State<HomeView> with TickerProviderStateMixin {
             ],
             
             // Extra bottom padding for navigation bar
-            const SizedBox(height: 120),
+            const SizedBox(height: 130),
           ],
         ),
       ),

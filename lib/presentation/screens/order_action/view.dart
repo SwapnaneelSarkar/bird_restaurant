@@ -4,7 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../services/order_service.dart';
 import '../../../services/token_service.dart';
-import '../../../models/order_model.dart';
+import '../../../services/menu_item_service.dart';
+import '../chat/state.dart' show OrderDetails, OrderItem; // Use partner order details model
+import '../../../utils/time_utils.dart';
 import '../../resources/colors.dart';
 import '../../resources/font.dart';
 import '../../resources/router/router.dart';
@@ -21,8 +23,9 @@ class OrderActionView extends StatefulWidget {
 class _OrderActionViewState extends State<OrderActionView> {
   bool _isLoading = true;
   bool _isUpdating = false;
-  Order? _order;
+  OrderDetails? _order;
   String? _errorMessage;
+  Map<String, MenuItem> _menuItems = {};
 
   @override
   void initState() {
@@ -36,16 +39,35 @@ class _OrderActionViewState extends State<OrderActionView> {
         _isLoading = true;
         _errorMessage = null;
       });
-
-      final order = await OrderService.fetchOrderDetailsById(widget.orderId);
+      final partnerId = await OrderService.getPartnerId();
+      if (partnerId == null || partnerId.isEmpty) {
+        throw Exception('Partner ID not found');
+      }
+      final order = await OrderService.getOrderDetails(
+        partnerId: partnerId,
+        orderId: widget.orderId,
+      );
+      
+      // Load menu items if order has items
+      Map<String, MenuItem> menuItems = {};
+      if (order != null && order.items.isNotEmpty) {
+        try {
+          final menuIds = order.items.map((item) => item.menuId).toList();
+          menuItems = await MenuItemService.getMenuItems(menuIds);
+        } catch (e) {
+          debugPrint('OrderActionView: ❌ Error loading menu items: $e');
+          // Continue without menu items - will fall back to menu IDs
+        }
+      }
       
       setState(() {
         _order = order;
+        _menuItems = menuItems;
         _isLoading = false;
       });
 
       // If order is already accepted (preparing) or cancelled, navigate to order details
-      if (order != null && (order.status.toUpperCase() == 'PREPARING' || order.status.toUpperCase() == 'CANCELLED')) {
+      if (order != null && (order.orderStatus.toUpperCase() == 'PREPARING' || order.orderStatus.toUpperCase() == 'CANCELLED')) {
         _navigateToOrderDetails();
       }
     } catch (e) {
@@ -250,7 +272,7 @@ class _OrderActionViewState extends State<OrderActionView> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        'Order #${order.id}',
+                        'Order #${order.orderId}',
                         style: GoogleFonts.poppins(
                           fontSize: 18,
                           fontWeight: FontWeightManager.semiBold,
@@ -260,11 +282,11 @@ class _OrderActionViewState extends State<OrderActionView> {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                         decoration: BoxDecoration(
-                          color: _getStatusColor(order.status),
+                          color: _getStatusColor(order.orderStatus),
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Text(
-                          order.status,
+                          OrderService.formatOrderStatus(order.orderStatus),
                           style: GoogleFonts.poppins(
                             color: Colors.white,
                             fontSize: 12,
@@ -275,14 +297,13 @@ class _OrderActionViewState extends State<OrderActionView> {
                     ],
                   ),
                   const SizedBox(height: 12),
-                  _buildInfoRow('Customer', order.customerName),
+                  _buildInfoRow('Customer', order.userName),
                   const SizedBox(height: 8),
-                  _buildInfoRow('Phone', order.customerPhone?.toString() ?? 'N/A'),
+                  _buildInfoRow('Total Amount', '₹${order.totalAmount}'),
                   const SizedBox(height: 8),
-                  _buildInfoRow('Total Amount', '₹${order.amount.toStringAsFixed(2)}'),
-                  const SizedBox(height: 8),
-                  _buildInfoRow('Order Date', order.date.toString().split('.')[0]),
-                  if (order.deliveryAddress != null) ...[
+                  _buildInfoRow('Order Date & Time',
+                      order.datetime != null ? TimeUtils.formatStatusTimelineDate(order.datetime!) : '-'),
+                  if (order.deliveryAddress != null && order.deliveryAddress!.isNotEmpty) ...[
                     const SizedBox(height: 8),
                     _buildInfoRow('Delivery Address', order.deliveryAddress!),
                   ],
@@ -294,7 +315,7 @@ class _OrderActionViewState extends State<OrderActionView> {
           const SizedBox(height: 24),
 
           // Order Items
-          if (order.items != null && order.items!.isNotEmpty) ...[
+          if (order.items.isNotEmpty) ...[
             Text(
               'Order Items',
               style: GoogleFonts.poppins(
@@ -303,7 +324,7 @@ class _OrderActionViewState extends State<OrderActionView> {
               ),
             ),
             const SizedBox(height: 12),
-            ...order.items!.map((item) => Card(
+            ...order.items.map((item) => Card(
               elevation: 1,
               margin: const EdgeInsets.only(bottom: 8),
               child: Padding(
@@ -315,7 +336,7 @@ class _OrderActionViewState extends State<OrderActionView> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            item.name ?? 'Unknown Item',
+                            _getItemDisplayName(item),
                             style: GoogleFonts.poppins(
                               fontWeight: FontWeightManager.medium,
                             ),
@@ -331,7 +352,7 @@ class _OrderActionViewState extends State<OrderActionView> {
                       ),
                     ),
                     Text(
-                      '₹${item.price.toStringAsFixed(2)}',
+                      '₹${item.itemPrice.toStringAsFixed(2)}',
                       style: GoogleFonts.poppins(
                         fontWeight: FontWeightManager.medium,
                         color: ColorManager.primary,
@@ -345,7 +366,7 @@ class _OrderActionViewState extends State<OrderActionView> {
           ],
 
           // Action Buttons
-          if (order.status.toUpperCase() == 'PENDING' || order.status.toUpperCase() == 'CONFIRMED') ...[
+          if (order.orderStatus.toUpperCase() == 'PENDING' || order.orderStatus.toUpperCase() == 'CONFIRMED') ...[
             Text(
               'Action Required',
               style: GoogleFonts.poppins(
@@ -428,7 +449,7 @@ class _OrderActionViewState extends State<OrderActionView> {
                     const SizedBox(width: 12),
                     Expanded(
                       child: Text(
-                        'This order has already been ${order.status.toLowerCase()}. You will be redirected to order details.',
+                        'This order has already been ${order.orderStatus.toLowerCase()}. You will be redirected to order details.',
                         style: GoogleFonts.poppins(
                           color: Colors.blue[800],
                         ),
@@ -505,5 +526,13 @@ class _OrderActionViewState extends State<OrderActionView> {
       default:
         return Colors.grey;
     }
+  }
+
+  String _getItemDisplayName(OrderItem item) {
+    final menuItem = _menuItems[item.menuId];
+    if (menuItem != null) {
+      return menuItem.name;
+    }
+    return item.itemName ?? 'Item: ${item.menuId}';
   }
 }

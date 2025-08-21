@@ -2,7 +2,6 @@
 // COMPLETELY FIXED VERSION
 
 import 'dart:async';
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -11,11 +10,13 @@ import '../../presentation/resources/font.dart';
 import '../../presentation/screens/chat/bloc.dart';
 import '../../presentation/screens/chat/event.dart';
 import '../../presentation/screens/chat/state.dart';
+import '../../presentation/screens/chat/view.dart';
 import '../../services/menu_item_service.dart';
 import '../../services/order_service.dart';
 import '../../services/currency_service.dart';
 import '../../services/attribute_service.dart';
 import '../../models/attribute_model.dart';
+import '../../utils/time_utils.dart';
 
 class OrderDetailsWidget extends StatelessWidget {
   const OrderDetailsWidget({Key? key}) : super(key: key);
@@ -118,8 +119,6 @@ class OrderDetailsWidget extends StatelessWidget {
           _buildOrderItemsAndSummary(orderDetails, menuItems),
           const SizedBox(height: 18),
           _buildOrderStatus(orderDetails),
-          const SizedBox(height: 18),
-          _buildDeliveryInfo(orderDetails),
         ],
       ),
     );
@@ -762,85 +761,42 @@ class OrderDetailsWidget extends StatelessWidget {
               ],
             ),
           ),
+          if (orderDetails.datetime != null) ...[
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: ColorManager.primary.withOpacity(0.08),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: ColorManager.primary.withOpacity(0.2)),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.event, color: ColorManager.primary, size: 18),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Placed on: ${TimeUtils.formatStatusTimelineDate(orderDetails.datetime!)} IST',
+                      style: TextStyle(
+                        color: ColorManager.primary,
+                        fontSize: 14,
+                        fontWeight: FontWeightManager.semiBold,
+                        fontFamily: FontFamily.Montserrat,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ],
       ),
     );
   }
 
-
-
-  Widget _buildDeliveryInfo(OrderDetails orderDetails) {
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-        border: Border.all(color: ColorManager.primary.withOpacity(0.08)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.local_shipping, color: ColorManager.primary, size: 22),
-              const SizedBox(width: 12),
-              Text(
-                'Delivery Information',
-                style: TextStyle(
-                  color: ColorManager.primary,
-                  fontSize: 18,
-                  fontWeight: FontWeightManager.bold,
-                  fontFamily: FontFamily.Montserrat,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          Row(
-            children: [
-              Icon(Icons.calendar_today, color: Colors.grey[600], size: 20),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  'Delivery Date: ${orderDetails.deliveryDate ?? 'N/A'}',
-                  style: TextStyle(
-                    color: Colors.grey[700],
-                    fontSize: 15,
-                    fontFamily: FontFamily.Montserrat,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Icon(Icons.access_time, color: Colors.grey[600], size: 20),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  'Delivery Time: ${orderDetails.deliveryTime ?? 'N/A'}',
-                  style: TextStyle(
-                    color: Colors.grey[700],
-                    fontSize: 15,
-                    fontFamily: FontFamily.Montserrat,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          
-        ],
-      ),
-    );
-  }
+  
 }
 
 
@@ -849,11 +805,13 @@ class OrderDetailsWidget extends StatelessWidget {
 class StatusChangeBottomSheet extends StatefulWidget {
   final String orderId;
   final String partnerId;
+  final VoidCallback? onStatusUpdateSuccess;
 
   const StatusChangeBottomSheet({
     Key? key,
     required this.orderId,
     required this.partnerId,
+    this.onStatusUpdateSuccess,
   }) : super(key: key);
 
   @override
@@ -863,6 +821,8 @@ class StatusChangeBottomSheet extends StatefulWidget {
 class _StatusChangeBottomSheetState extends State<StatusChangeBottomSheet> {
   bool _isUpdating = false;
   late StreamSubscription<ChatState> _stateSubscription;
+  Timer? _fallbackTimer;
+  Timer? _stateCheckTimer;
 
   @override
   void initState() {
@@ -875,8 +835,10 @@ class _StatusChangeBottomSheetState extends State<StatusChangeBottomSheet> {
       debugPrint('StatusChangeBottomSheet: Stream listener - State: ${state.runtimeType}');
       
       if (state is ChatLoaded) {
-        // Check if this is a status update response
-        if (state.lastUpdateTimestamp != null) {
+        debugPrint('StatusChangeBottomSheet: ChatLoaded state - isUpdatingOrderStatus: ${state.isUpdatingOrderStatus}, lastUpdateSuccess: ${state.lastUpdateSuccess}, lastUpdateTimestamp: ${state.lastUpdateTimestamp}');
+        
+        // Check if this is a status update response - either success or error
+        if (state.lastUpdateTimestamp != null && state.isUpdatingOrderStatus == false) {
           if (state.lastUpdateSuccess == true) {
             debugPrint('StatusChangeBottomSheet: Success detected');
             _handleSuccess();
@@ -885,6 +847,12 @@ class _StatusChangeBottomSheetState extends State<StatusChangeBottomSheet> {
             _handleError(state.lastUpdateMessage ?? 'Failed to update order status');
           }
         }
+        
+        // Additional check: if we've been updating for too long and the state shows not updating, handle it
+        if (_isUpdating && state.isUpdatingOrderStatus == false && state.lastUpdateTimestamp == null) {
+          debugPrint('StatusChangeBottomSheet: Detected state reset without timestamp, treating as success');
+          _handleSuccess();
+        }
       }
     });
   }
@@ -892,35 +860,119 @@ class _StatusChangeBottomSheetState extends State<StatusChangeBottomSheet> {
   @override
   void dispose() {
     _stateSubscription.cancel();
+    _fallbackTimer?.cancel();
+    _stateCheckTimer?.cancel();
     super.dispose();
   }
 
   void _handleSuccess() {
-    if (!mounted || !_isUpdating) return;
+    debugPrint('StatusChangeBottomSheet: _handleSuccess called');
+    if (!mounted || !_isUpdating) {
+      debugPrint('StatusChangeBottomSheet: _handleSuccess - not mounted or not updating');
+      return;
+    }
     
+    debugPrint('StatusChangeBottomSheet: _handleSuccess - cancelling timers');
+    _fallbackTimer?.cancel();
+    _stateCheckTimer?.cancel();
+    
+    debugPrint('StatusChangeBottomSheet: _handleSuccess - setting isUpdating to false');
     setState(() {
       _isUpdating = false;
     });
 
+    debugPrint('StatusChangeBottomSheet: _handleSuccess - closing bottom sheet');
     Navigator.of(context).pop();
+    debugPrint('StatusChangeBottomSheet: _handleSuccess - bottom sheet closed');
+    
+    // Call the success callback if provided
+    if (widget.onStatusUpdateSuccess != null) {
+      debugPrint('StatusChangeBottomSheet: Calling success callback');
+      widget.onStatusUpdateSuccess!();
+    }
   }
 
   void _handleError(String message) {
-    if (!mounted || !_isUpdating) return;
+    debugPrint('StatusChangeBottomSheet: _handleError called with message: $message');
+    if (!mounted || !_isUpdating) {
+      debugPrint('StatusChangeBottomSheet: _handleError - not mounted or not updating');
+      return;
+    }
     
+    _fallbackTimer?.cancel();
+    _stateCheckTimer?.cancel();
     setState(() {
       _isUpdating = false;
     });
 
+    debugPrint('StatusChangeBottomSheet: _handleError - closing bottom sheet');
     Navigator.of(context).pop();
+  }
+
+  Future<void> _fetchAndUpdateOrderDetails() async {
+    try {
+      debugPrint('StatusChangeBottomSheet: Fetching order details directly...');
+      debugPrint('StatusChangeBottomSheet: Partner ID: ${widget.partnerId}, Order ID: ${widget.orderId}');
+      
+      final orderDetails = await OrderService.getOrderDetails(
+        partnerId: widget.partnerId,
+        orderId: widget.orderId,
+      );
+      
+      debugPrint('StatusChangeBottomSheet: Order details fetch completed');
+      
+      if (orderDetails != null) {
+        debugPrint('StatusChangeBottomSheet: Direct order details fetch successful - Status: ${orderDetails.orderStatus}');
+        
+        // Update the ChatBloc state directly
+        final chatBloc = context.read<ChatBloc>();
+        final currentState = chatBloc.state;
+        
+        debugPrint('StatusChangeBottomSheet: Current ChatBloc state: ${currentState.runtimeType}');
+        
+        if (currentState is ChatLoaded) {
+          final actualOrderStatus = OrderService.formatOrderStatus(orderDetails.orderStatus);
+          debugPrint('StatusChangeBottomSheet: Formatted status: $actualOrderStatus');
+          
+          // Update the order info with new status
+          final updatedOrderInfo = currentState.orderInfo.copyWith(
+            status: actualOrderStatus,
+          );
+          
+          debugPrint('StatusChangeBottomSheet: About to emit updated state');
+          
+          // Emit updated state
+          chatBloc.emit(currentState.copyWith(
+            orderInfo: updatedOrderInfo,
+            orderDetails: orderDetails,
+          ));
+          
+          debugPrint('StatusChangeBottomSheet: Direct state update completed - New status: $actualOrderStatus');
+        } else {
+          debugPrint('StatusChangeBottomSheet: ChatBloc not in ChatLoaded state, cannot update');
+        }
+      } else {
+        debugPrint('StatusChangeBottomSheet: Direct order details fetch returned null');
+      }
+    } catch (e) {
+      debugPrint('StatusChangeBottomSheet: Direct order details fetch error: $e');
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    // Get partner-specific status options (excluding PENDING and delivery-related statuses)
-    final partnerStatuses = OrderService.getPartnerValidStatuses()
-        .where((status) => status != 'PENDING') // Remove PENDING since it's default
-        .toList();
+    // Determine current status from ChatBloc to compute allowed next statuses
+    final chatState = context.read<ChatBloc>().state;
+    String currentStatus = 'PENDING';
+    if (chatState is ChatLoaded) {
+      final rawStatus = chatState.orderDetails?.orderStatus ?? chatState.orderInfo.status;
+      if (rawStatus != null) {
+        currentStatus = rawStatus.toUpperCase().replaceAll(' ', '_');
+      }
+    }
+
+    // Compute allowed next statuses for partner (removes previous statuses automatically)
+    final availableStatuses = OrderService.getPartnerAvailableStatusOptions(currentStatus);
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -968,8 +1020,8 @@ class _StatusChangeBottomSheetState extends State<StatusChangeBottomSheet> {
           
           const SizedBox(height: 12),
           
-          // Show partner-specific status options
-          ...partnerStatuses.map((status) => _buildStatusOption(
+          // Show partner-specific allowed status options based on current status
+          ...availableStatuses.map((status) => _buildStatusOption(
             status: status,
             onTap: () => _updateOrderStatus(status),
           )),
@@ -1079,9 +1131,174 @@ class _StatusChangeBottomSheetState extends State<StatusChangeBottomSheet> {
   }
 
   Future<void> _updateOrderStatus(String newStatus) async {
+    debugPrint('StatusChangeBottomSheet: Starting status update to: $newStatus');
+    
     setState(() {
       _isUpdating = true;
     });
+
+    // Try direct API call first as a fallback
+    try {
+      debugPrint('StatusChangeBottomSheet: Attempting direct API call...');
+      
+      final success = await OrderService.updateOrderStatus(
+        partnerId: widget.partnerId,
+        orderId: widget.orderId,
+        newStatus: newStatus,
+      );
+      
+      if (success) {
+        debugPrint('StatusChangeBottomSheet: Direct API call successful');
+        
+        // Show success message to user
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.check_circle, color: Colors.white, size: 20),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'Order status updated to ${OrderService.formatOrderStatus(newStatus)}',
+                    style: const TextStyle(
+                      fontWeight: FontWeightManager.medium,
+                      fontSize: 14,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            backgroundColor: Colors.green,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+            duration: const Duration(seconds: 3),
+          ),
+        );
+        
+        // SIMPLE SOLUTION: Just reload the chat data immediately after successful status update
+        debugPrint('StatusChangeBottomSheet: Status update successful, reloading chat data...');
+        
+        // Store the context and bloc reference
+        final chatBloc = context.read<ChatBloc>();
+        final orderId = widget.orderId;
+        
+        // Immediately reload the entire chat data to get fresh order details
+        debugPrint('StatusChangeBottomSheet: Triggering immediate chat reload...');
+        debugPrint('StatusChangeBottomSheet: ChatBloc state before reload: ${chatBloc.state.runtimeType}');
+        
+        // Try multiple approaches to ensure the reload happens
+        try {
+          chatBloc.add(LoadChatData(orderId));
+          debugPrint('StatusChangeBottomSheet: Chat reload event dispatched');
+        } catch (e) {
+          debugPrint('StatusChangeBottomSheet: Error dispatching LoadChatData: $e');
+        }
+        
+        // Also try using the global method
+        try {
+          ChatView.forceRefreshCurrentChat(context, orderId);
+          debugPrint('StatusChangeBottomSheet: Global force refresh called');
+        } catch (e) {
+          debugPrint('StatusChangeBottomSheet: Error calling global force refresh: $e');
+        }
+        
+        debugPrint('StatusChangeBottomSheet: ChatBloc state after reload: ${chatBloc.state.runtimeType}');
+        
+        // Also show a success message to the user
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.check_circle, color: Colors.white, size: 20),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'Order status updated to ${OrderService.formatOrderStatus(newStatus)}',
+                    style: const TextStyle(
+                      fontWeight: FontWeightManager.medium,
+                      fontSize: 14,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            backgroundColor: Colors.green,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+            duration: const Duration(seconds: 3),
+          ),
+        );
+        
+        _handleSuccess();
+        return;
+      } else {
+        debugPrint('StatusChangeBottomSheet: Direct API call failed');
+      }
+    } catch (e) {
+      debugPrint('StatusChangeBottomSheet: Direct API call error: $e');
+    }
+
+    // Fallback to ChatBloc approach
+    debugPrint('StatusChangeBottomSheet: Falling back to ChatBloc approach...');
+    
+    // Check if ChatBloc is in the correct state before proceeding
+    final chatBloc = context.read<ChatBloc>();
+    final currentState = chatBloc.state;
+    
+    debugPrint('StatusChangeBottomSheet: Current ChatBloc state: ${currentState.runtimeType}');
+    
+    if (currentState is! ChatLoaded) {
+      debugPrint('StatusChangeBottomSheet: ChatBloc not in ChatLoaded state, triggering chat load first...');
+      
+      // Trigger chat loading first
+      chatBloc.add(LoadChatData(widget.orderId));
+      
+      // Wait for ChatLoaded state with timeout
+      bool stateReady = false;
+      
+      _stateCheckTimer = Timer.periodic(const Duration(milliseconds: 500), (timer) {
+        if (!mounted || !_isUpdating) {
+          timer.cancel();
+          return;
+        }
+        
+        final currentState = chatBloc.state;
+        debugPrint('StatusChangeBottomSheet: Checking state: ${currentState.runtimeType}');
+        
+        if (currentState is ChatLoaded) {
+          debugPrint('StatusChangeBottomSheet: ChatBloc now in ChatLoaded state, proceeding with update');
+          stateReady = true;
+          timer.cancel();
+          
+          // Now proceed with the status update
+          chatBloc.add(UpdateOrderStatus(
+            orderId: widget.orderId,
+            partnerId: widget.partnerId,
+            newStatus: newStatus,
+          ));
+          
+          debugPrint('StatusChangeBottomSheet: UpdateOrderStatus event added to ChatBloc');
+        }
+      });
+      
+      // Timeout after 15 seconds (increased for chat loading)
+      Timer(const Duration(seconds: 15), () {
+        if (!stateReady && mounted && _isUpdating) {
+          debugPrint('StatusChangeBottomSheet: Timeout waiting for ChatLoaded state');
+          _stateCheckTimer?.cancel();
+          setState(() {
+            _isUpdating = false;
+          });
+          Navigator.of(context).pop();
+        }
+      });
+      
+      return;
+    }
 
     // Use ChatBloc to update status - the stream listener will handle the response
     context.read<ChatBloc>().add(UpdateOrderStatus(
@@ -1089,6 +1306,45 @@ class _StatusChangeBottomSheetState extends State<StatusChangeBottomSheet> {
       partnerId: widget.partnerId,
       newStatus: newStatus,
     ));
+
+    debugPrint('StatusChangeBottomSheet: UpdateOrderStatus event added to ChatBloc');
+
+    // Add a timeout to prevent infinite loading
+    Timer(const Duration(seconds: 10), () {
+      if (mounted && _isUpdating) {
+        debugPrint('StatusChangeBottomSheet: Timeout reached, resetting loading state');
+        setState(() {
+          _isUpdating = false;
+        });
+        Navigator.of(context).pop();
+      }
+    });
+
+    // Add a fallback timer that checks the ChatBloc state every 2 seconds
+    _fallbackTimer = Timer.periodic(const Duration(seconds: 2), (timer) {
+      if (!mounted || !_isUpdating) {
+        timer.cancel();
+        return;
+      }
+      
+      final chatBloc = context.read<ChatBloc>();
+      final currentState = chatBloc.state;
+      
+      if (currentState is ChatLoaded) {
+        debugPrint('StatusChangeBottomSheet: Fallback check - isUpdatingOrderStatus: ${currentState.isUpdatingOrderStatus}, lastUpdateSuccess: ${currentState.lastUpdateSuccess}');
+        
+        if (currentState.isUpdatingOrderStatus == false && currentState.lastUpdateTimestamp != null) {
+          debugPrint('StatusChangeBottomSheet: Fallback detected completion');
+          timer.cancel();
+          
+          if (currentState.lastUpdateSuccess == true) {
+            _handleSuccess();
+          } else {
+            _handleError(currentState.lastUpdateMessage ?? 'Failed to update order status');
+          }
+        }
+      }
+    });
   }
 }
 

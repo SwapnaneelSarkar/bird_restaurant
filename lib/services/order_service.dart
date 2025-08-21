@@ -46,8 +46,11 @@ class OrderService {
       );
       if (response.statusCode == 200) {
         final Map<String, dynamic> responseBody = json.decode(response.body);
+        debugPrint('OrderService: 📋 getOrderDetails response: ${response.body}');
         if (responseBody['status'] == 'SUCCESS' && responseBody['data'] != null) {
-          return OrderDetails.fromJson(responseBody['data']);
+          final orderDetails = OrderDetails.fromJson(responseBody['data']);
+          debugPrint('OrderService: ✅ getOrderDetails success - Status: ${orderDetails.orderStatus}');
+          return orderDetails;
         } else {
           throw Exception(responseBody['message'] ?? 'Failed to get order details');
         }

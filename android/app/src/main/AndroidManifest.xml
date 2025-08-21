@@ -18,25 +18,20 @@
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         
-        <!-- Enable Firebase App Check for production -->
+        <!-- Enable Firebase App Check for development devices -->
         <meta-data
             android:name="firebase_appcheck_debug_token"
             android:value="true" />
             
-        <!-- *** IMPORTANT: Add this to prevent automatic notification display *** -->
+        <!-- Enable Firebase messaging auto-init for real devices -->
         <meta-data
             android:name="firebase_messaging_auto_init_enabled"
-            android:value="false" />
-            
-        <!-- *** IMPORTANT: Add this to disable default notification handling *** -->
-        <meta-data
-            android:name="com.google.firebase.messaging.default_notification_handled"
-            android:value="false" />
+            android:value="true" />
             
         <!-- FCM Default notification channel ID -->
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"
-            android:value="bird_partner_channel" />
+            android:value="bird_partner_default_channel" />
             
         <!-- FCM Default notification icon -->
         <meta-data

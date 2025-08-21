@@ -1,6 +1,5 @@
 // lib/presentation/screens/signin/view.dart
 
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -9,7 +8,6 @@ import 'package:flutter/gestures.dart';
 
 import '../../../ui_components/custom_button.dart';
 import '../../../ui_components/country_picker.dart';
-import '../../../models/country.dart';
 import '../../resources/colors.dart';
 import '../../resources/font.dart';
 import '../../resources/router/router.dart';
@@ -18,7 +16,7 @@ import 'event.dart';
 import 'state.dart';
 
 class LoginView extends StatelessWidget {
-  const LoginView({Key? key}) : super(key: key);
+  const LoginView({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -26,7 +24,7 @@ class LoginView extends StatelessWidget {
     final h = MediaQuery.of(context).size.height;
 
     return BlocProvider<LoginBloc>(
-      create: (_) => LoginBloc(),
+      create: (_) => LoginBloc()..add(AutoDetectCountryRequested()),
       child: Scaffold(
         backgroundColor: ColorManager.background,
         body: SafeArea(
@@ -168,7 +166,7 @@ class LoginView extends StatelessWidget {
 }
 
 class MobileInputField extends StatefulWidget {
-  const MobileInputField({Key? key}) : super(key: key);
+  const MobileInputField({super.key});
 
   @override
   State<MobileInputField> createState() => _MobileInputFieldState();

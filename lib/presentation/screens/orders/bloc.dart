@@ -19,7 +19,7 @@ class OrdersBloc extends Bloc<OrdersEvent, OrdersState> {
     on<RefreshOrdersEvent>(_onRefreshOrders);
   }
 
-  void _onLoadOrders(LoadOrdersEvent event, Emitter<OrdersState> emit) async {
+  Future<void> _onLoadOrders(LoadOrdersEvent event, Emitter<OrdersState> emit) async {
     emit(OrdersLoading());
     
     try {
@@ -59,9 +59,22 @@ class OrdersBloc extends Bloc<OrdersEvent, OrdersState> {
         debugPrint('OrdersBloc: 📊 Calculated order stats from order list (fallback)');
       }
       
+      // Try to load today's summary
+      TodayOrderSummaryData? todaySummary;
+      try {
+        final todaySummaryResponse = await OrdersApiService.fetchTodayOrderSummary();
+        if (todaySummaryResponse.data != null) {
+          todaySummary = todaySummaryResponse.data;
+          debugPrint('OrdersBloc: 📊 Loaded today\'s summary from API');
+        }
+      } catch (e) {
+        debugPrint('OrdersBloc: ⚠️ Failed to load today\'s summary from API: $e');
+      }
+      
       emit(OrdersLoaded(
         orders: historyResponse.data,
         stats: stats,
+        todaySummary: todaySummary,
       ));
       
       debugPrint('OrdersBloc: ✅ Orders loaded successfully');
@@ -104,23 +117,37 @@ class OrdersBloc extends Bloc<OrdersEvent, OrdersState> {
         stats = _calculateStatsFromOrders(historyResponse.data);
       }
       
-      // Preserve the current filter status if orders are loaded
+      // Try to load today's summary
+      TodayOrderSummaryData? todaySummary;
+      try {
+        final todaySummaryResponse = await OrdersApiService.fetchTodayOrderSummary();
+        if (todaySummaryResponse.data != null) {
+          todaySummary = todaySummaryResponse.data;
+        }
+      } catch (e) {
+        debugPrint('OrdersBloc: ⚠️ Failed to load today\'s summary from API: $e');
+      }
+      
+      // Preserve the current filter status and today's filter if orders are loaded
       OrderStatus currentFilter = OrderStatus.all;
+      bool currentFilterByToday = false;
       if (state is OrdersLoaded) {
         currentFilter = (state as OrdersLoaded).filterStatus;
+        currentFilterByToday = (state as OrdersLoaded).filterByToday;
       }
       
       emit(OrdersLoaded(
         orders: historyResponse.data,
         stats: stats,
         filterStatus: currentFilter,
+        todaySummary: todaySummary,
+        filterByToday: currentFilterByToday,
       ));
       
       debugPrint('OrdersBloc: ✅ Orders refreshed successfully');
     } catch (e) {
       debugPrint('OrdersBloc: ❌ Error refreshing orders: $e');
-      // Don't emit error state on refresh failure, just log it
-      // This prevents disrupting the user experience
+      // Don't emit error state for refresh, just log the error
     }
   }
 
@@ -140,8 +167,11 @@ class OrdersBloc extends Bloc<OrdersEvent, OrdersState> {
   void _onFilterOrders(FilterOrdersEvent event, Emitter<OrdersState> emit) {
     if (state is OrdersLoaded) {
       final currentState = state as OrdersLoaded;
-      emit(currentState.copyWith(filterStatus: event.status));
-      debugPrint('OrdersBloc: 🔍 Filtered orders by ${event.status}');
+      emit(currentState.copyWith(
+        filterStatus: event.status,
+        filterByToday: event.filterByToday,
+      ));
+      debugPrint('OrdersBloc: 🔍 Filtered orders by ${event.status}${event.filterByToday ? ' (Today only)' : ''}');
     }
   }
 

@@ -1,21 +1,9 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:geolocator/geolocator.dart';
-import 'package:geocoding/geocoding.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:file_picker/file_picker.dart';
-import 'package:flutter_image_compress/flutter_image_compress.dart';
-import 'dart:typed_data';
-import 'dart:convert';
-import 'dart:math' as math;
 
-import '../../../services/api_service.dart';
 import '../../../services/token_service.dart';
-import '../../../constants/enums.dart';
 import '../../resources/colors.dart';
 import '../../resources/font.dart';
 import '../../resources/router/router.dart';
@@ -30,17 +18,14 @@ import '../../../ui_components/custom_textField.dart';
 import '../../../ui_components/operations_card.dart';
 import '../../../ui_components/profile_button.dart';
 import '../address bottomSheet/view.dart';
-import '../../resources/colors.dart';
-import '../../resources/font.dart';
 // Remove this import
 import '../homePage/sidebar/sidebar_drawer.dart';
 
-import 'bloc.dart';
-import 'event.dart';
-import 'state.dart';
-import '../../../services/restaurant_info_service.dart';
 import '../../../constants/enums.dart';
 import '../../../ui_components/cuisine_card.dart';
+import '../../../ui_components/cuisine_grid.dart';
+import '../../../models/cuisine_model.dart';
+import '../../../services/cuisine_service.dart';
 
 class RestaurantProfileView extends StatelessWidget {
   const RestaurantProfileView({Key? key}) : super(key: key);
@@ -78,7 +63,7 @@ class _BodyState extends State<_Body> {
 
   // Restaurant info state
   Map<String, String>? _restaurantInfo;
-  bool _isRestaurantInfoLoaded = false;
+  late Future<List<Cuisine>> _cuisinesFuture;
 
   @override
   void initState() {
@@ -98,6 +83,8 @@ class _BodyState extends State<_Body> {
 
     // Load restaurant info
     _loadRestaurantInfo();
+
+    _cuisinesFuture = CuisineService.fetchCuisines();
   }
 
   Future<void> _loadRestaurantInfo() async {
@@ -107,7 +94,6 @@ class _BodyState extends State<_Body> {
       if (mounted) {
         setState(() {
           _restaurantInfo = info;
-          _isRestaurantInfoLoaded = true;
         });
         debugPrint(
           '🔄 RestaurantProfilePage: Loaded restaurant info - Name: ${info['name']}, Slogan: ${info['slogan']}, Image: ${info['imageUrl']}',
@@ -615,23 +601,39 @@ class _BodyState extends State<_Body> {
 
                         _sectionHeader('Cuisine Types', Icons.fastfood),
                         SizedBox(height: vert * 0.5),
-                        GridView.count(
-                          crossAxisCount: (w > 600) ? 4 : 3,
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          mainAxisSpacing: h * 0.015,
-                          crossAxisSpacing: w * 0.03,
-                          childAspectRatio: 1,
-                          children: [
-                            for (final ct in CuisineType.values)
-                              CuisineCard(
-                                cuisine: ct,
-                                selected: st.selectedCuisines.contains(ct),
-                                onTap: () {
-                                  bloc.add(ToggleCuisineType(ct));
-                                },
-                              ),
-                          ],
+                        FutureBuilder<List<Cuisine>>(
+                          future: _cuisinesFuture,
+                          builder: (context, snapshot) {
+                            final cuisines = snapshot.data ?? const <Cuisine>[];
+                            if (snapshot.connectionState == ConnectionState.waiting) {
+                              return const Center(child: CircularProgressIndicator());
+                            }
+                            if (cuisines.isNotEmpty) {
+                              return CuisineGrid(
+                                width: w,
+                                height: h,
+                                cuisines: cuisines,
+                                selected: st.selectedCuisines.toSet(),
+                                onTap: (ct) => bloc.add(ToggleCuisineType(ct)),
+                              );
+                            }
+                            return GridView.count(
+                              crossAxisCount: (w > 600) ? 4 : 3,
+                              shrinkWrap: true,
+                              physics: const NeverScrollableScrollPhysics(),
+                              mainAxisSpacing: h * 0.015,
+                              crossAxisSpacing: w * 0.03,
+                              childAspectRatio: 1,
+                              children: [
+                                for (final ct in CuisineType.values)
+                                  CuisineCard(
+                                    cuisine: ct,
+                                    selected: st.selectedCuisines.contains(ct),
+                                    onTap: () => bloc.add(ToggleCuisineType(ct)),
+                                  ),
+                              ],
+                            );
+                          },
                         ),
                         SizedBox(height: vert * 1.2),
 

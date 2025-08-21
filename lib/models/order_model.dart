@@ -146,7 +146,7 @@ class Order {
       customerName: (json['user_name'] ?? json['customer_name'] ?? json['customerName'] ?? json['user_id'] ?? '').toString(),
       amount: double.tryParse(json['total_price']?.toString() ?? '0') ?? 
               double.tryParse(json['amount']?.toString() ?? '0') ?? 0.0,
-      date: TimeUtils.parseToIST(json['created_at'] ?? json['date'] ?? ''),
+      date: TimeUtils.parseToIST(json['datetime'] ?? json['created_at'] ?? json['date'] ?? ''),
       status: orderStatus,
       customerPhone: json['customer_phone'] ?? json['phone'],
       deliveryAddress: json['delivery_address'] ?? json['address'],
@@ -236,7 +236,7 @@ class OrderItem {
       menuId: json['menu_id'] ?? json['id'] ?? json['item_id'] ?? '',
       quantity: int.tryParse(json['quantity']?.toString() ?? '1') ?? 1,
       price: double.tryParse(json['item_price']?.toString() ?? json['price']?.toString() ?? '0') ?? 0.0,
-      name: json['name'],
+      name: json['name'] ?? json['item_name'],
       description: json['description'],
       imageUrl: json['image_url'] ?? json['imageUrl'],
     );
@@ -321,6 +321,117 @@ class DeliveryPartnerOrderListResponse {
               .map((item) => DeliveryPartnerOrder.fromJson(item))
               .toList()
           : [],
+    );
+  }
+}
+
+// Today's Order Summary Response Model
+class TodayOrderSummaryResponse {
+  final String status;
+  final String message;
+  final TodayOrderSummaryData? data;
+
+  TodayOrderSummaryResponse({
+    required this.status,
+    required this.message,
+    this.data,
+  });
+
+  factory TodayOrderSummaryResponse.fromJson(Map<String, dynamic> json) {
+    return TodayOrderSummaryResponse(
+      status: json['status'] ?? '',
+      message: json['message'] ?? '',
+      data: json['data'] != null ? TodayOrderSummaryData.fromJson(json['data']) : null,
+    );
+  }
+}
+
+class TodayOrderSummaryData {
+  final String partnerId;
+  final String date;
+  final TodaySummary summary;
+  final List<dynamic> ordersByStatus;
+  final List<dynamic> hourlyDistribution;
+  final List<dynamic> topSellingItems;
+  final List<dynamic> deliveryPerformance;
+
+  TodayOrderSummaryData({
+    required this.partnerId,
+    required this.date,
+    required this.summary,
+    required this.ordersByStatus,
+    required this.hourlyDistribution,
+    required this.topSellingItems,
+    required this.deliveryPerformance,
+  });
+
+  factory TodayOrderSummaryData.fromJson(Map<String, dynamic> json) {
+    return TodayOrderSummaryData(
+      partnerId: json['partner_id'] ?? '',
+      date: json['date'] ?? '',
+      summary: TodaySummary.fromJson(json['summary'] ?? {}),
+      ordersByStatus: json['orders_by_status'] ?? [],
+      hourlyDistribution: json['hourly_distribution'] ?? [],
+      topSellingItems: json['top_selling_items'] ?? [],
+      deliveryPerformance: json['delivery_performance'] ?? [],
+    );
+  }
+}
+
+class TodaySummary {
+  final int totalOrders;
+  final double totalRevenue;
+  final double averageOrderValue;
+  final double completionRate;
+  final double cancellationRate;
+  final StatusBreakdown statusBreakdown;
+
+  TodaySummary({
+    required this.totalOrders,
+    required this.totalRevenue,
+    required this.averageOrderValue,
+    required this.completionRate,
+    required this.cancellationRate,
+    required this.statusBreakdown,
+  });
+
+  factory TodaySummary.fromJson(Map<String, dynamic> json) {
+    return TodaySummary(
+      totalOrders: json['total_orders'] ?? 0,
+      totalRevenue: (json['total_revenue'] ?? 0).toDouble(),
+      averageOrderValue: (json['average_order_value'] ?? 0).toDouble(),
+      completionRate: (json['completion_rate'] ?? 0).toDouble(),
+      cancellationRate: (json['cancellation_rate'] ?? 0).toDouble(),
+      statusBreakdown: StatusBreakdown.fromJson(json['status_breakdown'] ?? {}),
+    );
+  }
+}
+
+class StatusBreakdown {
+  final int confirmed;
+  final int preparing;
+  final int readyForDelivery;
+  final int outForDelivery;
+  final int delivered;
+  final int cancelled;
+
+  StatusBreakdown({
+    required this.confirmed,
+    required this.preparing,
+    required this.readyForDelivery,
+    required this.outForDelivery,
+    required this.delivered,
+    required this.cancelled,
+  });
+
+  factory StatusBreakdown.fromJson(Map<String, dynamic> json) {
+    return StatusBreakdown(
+      confirmed: json['confirmed'] ?? 0,
+      preparing: json['preparing'] ?? 0,
+      readyForDelivery: json['ready_for_delivery'] ?? 0,
+      outForDelivery: json['out_for_delivery'] ?? 0,
+      delivered: json['delivered'] ?? 0,
+      cancelled: json['cancelled'] ?? 0,
     );
   }
 }

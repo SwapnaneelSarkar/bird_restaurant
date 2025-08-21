@@ -45,6 +45,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     on<LoadUserDetails>(_onLoadUserDetails);
     on<ChangeOrderStatus>(_onChangeOrderStatus);
     on<UpdateOrderStatus>(_onUpdateOrderStatus);
+    on<ForceRefreshOrderDetails>(_onForceRefreshOrderDetails);
     on<ForceRefreshMenuItems>(_onForceRefreshMenuItems);
     on<_UpdateMessages>(_onUpdateMessages);
     on<_UpdateConnectionStatus>(_onUpdateConnectionStatus);
@@ -164,11 +165,65 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
   String? get currentPartnerId => _currentPartnerId;
   String? get currentRoomId => _currentRoomId;
 
-  Future<void> _onUpdateOrderStatus(UpdateOrderStatus event, Emitter<ChatState> emit) async {
-    // Emit loading state
+  Future<void> _onForceRefreshOrderDetails(ForceRefreshOrderDetails event, Emitter<ChatState> emit) async {
+    debugPrint('ChatBloc: 🔄 Force refreshing order details for order: ${event.orderId}');
+    debugPrint('ChatBloc: 🔄 Partner ID: ${event.partnerId}');
+    debugPrint('ChatBloc: 🔄 Current state: ${state.runtimeType}');
+    
     if (state is ChatLoaded) {
       final currentState = state as ChatLoaded;
-      emit(currentState.copyWith(isUpdatingOrderStatus: true));
+      debugPrint('ChatBloc: 🔄 Current order status: ${currentState.orderInfo.status}');
+      
+      try {
+        debugPrint('ChatBloc: 🔄 Starting order details fetch...');
+        final orderDetails = await OrderService.getOrderDetails(
+          partnerId: event.partnerId,
+          orderId: event.orderId,
+        );
+        debugPrint('ChatBloc: 🔄 Order details fetch completed');
+        
+        if (orderDetails != null) {
+          final actualOrderStatus = OrderService.formatOrderStatus(orderDetails.orderStatus);
+          debugPrint('ChatBloc: ✅ Force refresh - New status: ${orderDetails.orderStatus}, Formatted: $actualOrderStatus');
+          
+          // Update the order info with new status
+          final updatedOrderInfo = currentState.orderInfo.copyWith(
+            status: actualOrderStatus,
+          );
+          
+          debugPrint('ChatBloc: 🔄 About to emit updated state');
+          emit(currentState.copyWith(
+            orderInfo: updatedOrderInfo,
+            orderDetails: orderDetails,
+          ));
+          
+          debugPrint('ChatBloc: ✅ Force refresh completed - Updated order status');
+        } else {
+          debugPrint('ChatBloc: ⚠️ Force refresh - Order details returned null');
+        }
+      } catch (e) {
+        debugPrint('ChatBloc: ❌ Force refresh error: $e');
+      }
+    } else {
+      debugPrint('ChatBloc: ❌ Cannot force refresh - not in ChatLoaded state');
+    }
+  }
+
+  Future<void> _onUpdateOrderStatus(UpdateOrderStatus event, Emitter<ChatState> emit) async {
+    debugPrint('ChatBloc: 🚀 _onUpdateOrderStatus started');
+    debugPrint('ChatBloc: 📊 Current state: ${state.runtimeType}');
+    
+    // Store the current state before async operation
+    ChatLoaded? initialState;
+    if (state is ChatLoaded) {
+      initialState = state as ChatLoaded;
+      debugPrint('ChatBloc: 📊 Initial state - isUpdatingOrderStatus: ${initialState.isUpdatingOrderStatus}');
+      emit(initialState.copyWith(isUpdatingOrderStatus: true));
+      debugPrint('ChatBloc: ✅ Set isUpdatingOrderStatus to true');
+    } else {
+      debugPrint('ChatBloc: ❌ Cannot update order status - not in ChatLoaded state');
+      debugPrint('ChatBloc: 📊 Current state type: ${state.runtimeType}');
+      return;
     }
 
     try {
@@ -188,32 +243,35 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       if (success) {
         debugPrint('ChatBloc: ✅ Order status updated successfully');
         
-        if (state is ChatLoaded) {
-          final currentState = state as ChatLoaded;
-          
+        // Use the stored initial state to avoid race conditions
+        if (initialState != null) {
           // Update the order info in the current state
-          final updatedOrderInfo = currentState.orderInfo.copyWith(
+          final updatedOrderInfo = initialState.orderInfo.copyWith(
             status: OrderService.formatOrderStatus(event.newStatus),
           );
           
           // Update order details if they exist
           OrderDetails? updatedOrderDetails;
-          if (currentState.orderDetails != null) {
-            updatedOrderDetails = currentState.orderDetails!.copyWith(
+          if (initialState.orderDetails != null) {
+            updatedOrderDetails = initialState.orderDetails!.copyWith(
               orderStatus: event.newStatus.toUpperCase(),
             );
           }
           
-          emit(currentState.copyWith(
+          final newState = initialState.copyWith(
             orderInfo: updatedOrderInfo,
             orderDetails: updatedOrderDetails,
             isUpdatingOrderStatus: false,
             lastUpdateSuccess: true,
             lastUpdateMessage: 'Order status updated successfully!',
             lastUpdateTimestamp: DateTime.now(),
-          ));
+          );
           
+          debugPrint('ChatBloc: 📤 About to emit success state');
+          emit(newState);
           debugPrint('ChatBloc: 🎯 Emitted success state with updated status: ${event.newStatus}');
+          debugPrint('ChatBloc: 🎯 New state - isUpdatingOrderStatus: ${newState.isUpdatingOrderStatus}, lastUpdateSuccess: ${newState.lastUpdateSuccess}');
+          debugPrint('ChatBloc: 🎯 New state - lastUpdateTimestamp: ${newState.lastUpdateTimestamp}');
         }
       } else {
         throw Exception('Failed to update order status');
@@ -236,16 +294,20 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
         debugPrint('ChatBloc: Could not parse error details: $parseError');
       }
       
-      if (state is ChatLoaded) {
-        final currentState = state as ChatLoaded;
-        emit(currentState.copyWith(
+      // Use the stored initial state to avoid race conditions
+      if (initialState != null) {
+        final newState = initialState.copyWith(
           isUpdatingOrderStatus: false,
           lastUpdateSuccess: false,
           lastUpdateMessage: errorMessage,
           lastUpdateTimestamp: DateTime.now(),
-        ));
+        );
         
+        debugPrint('ChatBloc: 📤 About to emit error state');
+        emit(newState);
         debugPrint('ChatBloc: 🎯 Emitted error state within ChatLoaded: $errorMessage');
+        debugPrint('ChatBloc: 🎯 New state - isUpdatingOrderStatus: ${newState.isUpdatingOrderStatus}, lastUpdateSuccess: ${newState.lastUpdateSuccess}');
+        debugPrint('ChatBloc: 🎯 New state - lastUpdateTimestamp: ${newState.lastUpdateTimestamp}');
       }
     }
   }  
@@ -310,53 +372,76 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
   }
 
   Future<void> _onLoadChatData(LoadChatData event, Emitter<ChatState> emit) async {
+    debugPrint('ChatBloc: 🚀 _onLoadChatData started for order: ${event.orderId}');
+    debugPrint('ChatBloc: 📊 Current state before loading: ${state.runtimeType}');
     emit(ChatLoading());
     
     try {
       // Store the FULL order ID without any formatting
       _fullOrderId = event.orderId;
+      debugPrint('ChatBloc: 📊 Stored full order ID: $_fullOrderId');
       
       // Get current user ID and partner ID
       _currentUserId = await TokenService.getUserId();
       _currentPartnerId = await OrderService.getPartnerId();
       
+      debugPrint('ChatBloc: 👤 User ID: $_currentUserId, Partner ID: $_currentPartnerId');
+      
       if (_currentUserId == null) {
+        debugPrint('ChatBloc: ❌ User not authenticated');
         emit(const ChatError('User not authenticated'));
         return;
       }
 
       // Set the room ID (use full order ID for chat room)
       _currentRoomId = event.orderId.isNotEmpty ? event.orderId : 'default_room';
+      debugPrint('ChatBloc: 🏠 Room ID: $_currentRoomId');
       
       // Connect to socket and join the chat room (includes auto mark as read)
+      debugPrint('ChatBloc: 🔌 Connecting to socket...');
       await _chatService.connect();
+      debugPrint('ChatBloc: 🏠 Joining room...');
       await _chatService.joinRoom(_currentRoomId!);
+      debugPrint('ChatBloc: ✅ Connected and joined room');
       
       // FETCH ORDER DETAILS ONCE AND USE FOR BOTH STATUS AND FULL DETAILS
       OrderDetails? orderDetails;
       String actualOrderStatus = 'Preparing'; // Default fallback
       
+      debugPrint('ChatBloc: 📋 Fetching order details for order: $_fullOrderId');
+      debugPrint('ChatBloc: 📋 Partner ID: $_currentPartnerId');
+      
       if (_currentPartnerId != null) {
+        debugPrint('ChatBloc: 📋 Starting order details fetch...');
         try {
           orderDetails = await OrderService.getOrderDetails(
             partnerId: _currentPartnerId!,
             orderId: _fullOrderId!,
           );
+          debugPrint('ChatBloc: 📋 Order details fetch completed');
           if (orderDetails != null) {
             actualOrderStatus = OrderService.formatOrderStatus(orderDetails.orderStatus);
+            debugPrint('ChatBloc: ✅ Order details fetched - Status: ${orderDetails.orderStatus}, Formatted: $actualOrderStatus');
+          } else {
+            debugPrint('ChatBloc: ⚠️ Order details returned null');
           }
         } catch (e) {
+          debugPrint('ChatBloc: ❌ Error fetching order details: $e');
           // Use default status if order details fetch fails
         }
+      } else {
+        debugPrint('ChatBloc: ❌ No partner ID available for order details fetch');
       }
       
       // Create order info with REAL status and FORMATTED display ID (for UI only)
       final orderInfo = ChatOrderInfo(
         orderId: _formatOrderIdForDisplay(event.orderId),
         restaurantName: 'Your Restaurant',
-        estimatedDelivery: '30 mins',
+        // estimatedDelivery: '30 mins',
         status: actualOrderStatus, // Use real status from API
       );
+      
+      debugPrint('ChatBloc: 📊 Created order info - ID: ${orderInfo.orderId}, Status: ${orderInfo.status}');
 
       // Convert chat service messages to UI messages WITH READ STATUS
       final messages = _chatService.messages.map((apiMsg) {
@@ -387,12 +472,14 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       // Initialize the last emitted messages
       _lastEmittedMessages = List.from(messages);
       
+      debugPrint('ChatBloc: 📤 Emitting ChatLoaded state with ${messages.length} messages');
       emit(initialState);
+      debugPrint('ChatBloc: ✅ ChatLoaded state emitted successfully');
       
       // Load additional data if order details are available
       if (orderDetails != null) {
         // Load menu items in parallel for better performance
-        _loadMenuItemsForOrder(orderDetails, emit);
+        await _loadMenuItemsForOrder(orderDetails, emit);
         
         // Load user details if we have a userId
         if (orderDetails.userId.isNotEmpty) {
@@ -400,12 +487,14 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
         }
       } else {
         // Fallback: Try to get user details from chat room if order details failed
-        _loadUserDetailsFromChatRoom(event.orderId, emit);
+        await _loadUserDetailsFromChatRoom(event.orderId, emit);
       }
       
       // Small delay to prevent immediate update cycle
       await Future.delayed(const Duration(milliseconds: 100));
+      debugPrint('ChatBloc: ✅ _onLoadChatData completed successfully');
     } catch (e) {
+      debugPrint('ChatBloc: ❌ Error in _onLoadChatData: $e');
       emit(const ChatError('Failed to load chat. Please try again.'));
     }
   }

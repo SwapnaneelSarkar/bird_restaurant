@@ -22,6 +22,14 @@
           }
         },
         {
+          "client_id": "230772297916-lihtoae84jknn9qksttp0lndh5qvunua.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.birdpartner.app",
+            "certificate_hash": "c87527ddc350978a8194e42dd7f8e39ab7e4ef1f"
+          }
+        },
+        {
           "client_id": "230772297916-n9itcm25ii1l46fatmfqk6s0dmbakb6g.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {

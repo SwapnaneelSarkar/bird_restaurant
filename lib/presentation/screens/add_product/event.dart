@@ -164,3 +164,40 @@ class SubmitProductEvent extends AddProductEvent {
 class ResetFormEvent extends AddProductEvent {
   const ResetFormEvent();
 }
+
+// Validation events
+class ValidateNameEvent extends AddProductEvent {
+  final String name;
+  const ValidateNameEvent(this.name);
+  
+  @override
+  List<Object?> get props => [name];
+}
+
+class ValidateDescriptionEvent extends AddProductEvent {
+  final String description;
+  const ValidateDescriptionEvent(this.description);
+  
+  @override
+  List<Object?> get props => [description];
+}
+
+class ValidatePriceEvent extends AddProductEvent {
+  final String price;
+  const ValidatePriceEvent(this.price);
+  
+  @override
+  List<Object?> get props => [price];
+}
+
+class ValidateTagsEvent extends AddProductEvent {
+  final String tags;
+  const ValidateTagsEvent(this.tags);
+  
+  @override
+  List<Object?> get props => [tags];
+}
+
+class ValidateAllFieldsEvent extends AddProductEvent {
+  const ValidateAllFieldsEvent();
+}

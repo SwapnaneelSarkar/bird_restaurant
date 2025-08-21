@@ -8,6 +8,9 @@ abstract class LoginEvent extends Equatable {
   List<Object?> get props => [];
 }
 
+/// fired when view loads to auto-detect country from location/locale
+class AutoDetectCountryRequested extends LoginEvent {}
+
 /// fired on each change in the text field
 class MobileNumberChanged extends LoginEvent {
   final String mobileNumber;

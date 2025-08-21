@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:bird_restaurant/constants/api_constants.dart';
 import 'package:http/http.dart' as http;
 import 'token_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class MenuItemService {
   static const String baseUrl = ApiConstants.baseUrl;
@@ -57,6 +58,20 @@ class MenuItemService {
     
     print('MenuItemService: Fetching ${menuIds.length} menu items: $menuIds');
     
+    // First, try to get all menu items from restaurant menu API (more reliable)
+    try {
+      final restaurantMenuItems = await _getMenuItemsFromRestaurantMenu(menuIds);
+      if (restaurantMenuItems.isNotEmpty) {
+        print('MenuItemService: ✅ Found ${restaurantMenuItems.length} items from restaurant menu');
+        return restaurantMenuItems;
+      }
+    } catch (e) {
+      print('MenuItemService: ⚠️ Failed to get from restaurant menu: $e');
+    }
+    
+    // Fallback to individual API calls
+    print('MenuItemService: 🔄 Falling back to individual API calls');
+    
     // Use Future.wait to make concurrent API calls for better performance
     final futures = menuIds.map((menuId) async {
       try {
@@ -76,6 +91,85 @@ class MenuItemService {
     
     print('MenuItemService: 📊 Loaded ${menuItems.length} out of ${menuIds.length} menu items');
     return menuItems;
+  }
+
+  // Helper method to get menu items from restaurant menu API
+  static Future<Map<String, MenuItem>> _getMenuItemsFromRestaurantMenu(List<String> menuIds) async {
+    try {
+      final token = await TokenService.getToken();
+      if (token == null) {
+        throw Exception('No authentication token found');
+      }
+
+      // Get partner ID from token or shared preferences
+      final prefs = await SharedPreferences.getInstance();
+      final partnerId = prefs.getString('user_id');
+      
+      if (partnerId == null) {
+        throw Exception('No partner ID found');
+      }
+
+      final url = Uri.parse('$baseUrl/partner/restaurant/$partnerId');
+      
+      final response = await http.get(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      print('MenuItemService: GET restaurant menu from $url');
+      print('MenuItemService: Response status: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> responseBody = json.decode(response.body);
+        
+        if (responseBody['status'] == 'SUCCESS' && responseBody['data'] != null) {
+          final restaurantData = responseBody['data'];
+          final menuData = restaurantData['menu'] ?? restaurantData['menu_items'] ?? [];
+          
+          if (menuData is List) {
+            final Map<String, MenuItem> foundItems = {};
+            
+            for (final menuItemData in menuData) {
+              final menuId = menuItemData['menu_id'] ?? menuItemData['_id'] ?? '';
+              if (menuIds.contains(menuId)) {
+                try {
+                  // Convert restaurant menu item format to MenuItem format
+                  final menuItem = MenuItem(
+                    id: menuId,
+                    name: menuItemData['name'] ?? 'Unknown Item',
+                    description: menuItemData['description'] ?? '',
+                    price: MenuItem._parsePrice(menuItemData['price']),
+                    imageUrl: menuItemData['image_url'] ?? menuItemData['image'] ?? '',
+                    isAvailable: MenuItem._convertToBool(menuItemData['available'] ?? menuItemData['isAvailable'] ?? '1'),
+                    category: menuItemData['category'] ?? '',
+                    tags: menuItemData['tags'] != null 
+                        ? (menuItemData['tags'] is String 
+                            ? menuItemData['tags'].split(',').map((e) => e.trim()).toList()
+                            : List<String>.from(menuItemData['tags']))
+                        : [],
+                  );
+                  foundItems[menuId] = menuItem;
+                  print('MenuItemService: ✅ Found in restaurant menu: ${menuItem.name} (ID: $menuId)');
+                } catch (e) {
+                  print('MenuItemService: ❌ Error parsing menu item $menuId: $e');
+                }
+              }
+            }
+            
+            print('MenuItemService: 📊 Found ${foundItems.length} items in restaurant menu');
+            return foundItems;
+          }
+        }
+      }
+      
+      throw Exception('Failed to get restaurant menu data');
+    } catch (e) {
+      print('MenuItemService: Error getting menu items from restaurant menu: $e');
+      rethrow;
+    }
   }
 }
 
@@ -107,10 +201,27 @@ class MenuItem {
       description: json['description'] ?? '',
       price: _parsePrice(json['price']), // FIXED: Handle string prices
       imageUrl: json['image'] ?? json['imageUrl'] ?? '',
-      isAvailable: json['isAvailable'] ?? json['available'] ?? true,
+      isAvailable: _convertToBool(json['isAvailable'] ?? json['available'] ?? '1'),
       category: json['category'] ?? '',
       tags: List<String>.from(json['tags'] ?? []),
     );
+  }
+
+  // Helper method to safely convert various types to bool
+  static bool _convertToBool(dynamic value) {
+    if (value == null) return false;
+    if (value is bool) return value;
+    if (value is int) return value != 0; // 0 = false, any other int = true
+    if (value is String) {
+      // Try parsing as int first
+      final intValue = int.tryParse(value);
+      if (intValue != null) return intValue != 0;
+      
+      // Try parsing as bool string
+      final lowerValue = value.toLowerCase().trim();
+      return lowerValue == 'true' || lowerValue == '1';
+    }
+    return false; // Default to false for unexpected types
   }
 
   // FIXED: Helper method to parse price from string or number

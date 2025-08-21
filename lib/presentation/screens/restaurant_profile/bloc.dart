@@ -53,10 +53,6 @@ class RestaurantProfileBloc
     on<OwnerMobileChanged>((e, emit) => emit(state.copyWith(ownerMobile: e.v)));
     on<OwnerEmailChanged>((e, emit) => emit(state.copyWith(ownerEmail: e.v)));
     on<OwnerAddressChanged>((e, emit) => emit(state.copyWith(ownerAddress: e.v)));
-    on<RestaurantNameChanged>((e, emit) => emit(state.copyWith(restaurantName: e.value)));
-    on<DescriptionChanged>((e, emit) => emit(state.copyWith(description: e.v)));
-    on<CookingTimeChanged>((e, emit) => emit(state.copyWith(cookingTime: e.v)));
-    on<DeliveryRadiusChanged>((e, emit) => emit(state.copyWith(deliveryRadius: e.v)));
 
     // Restaurant fields
     on<RestaurantNameChanged>((e, emit) => emit(state.copyWith(restaurantName: e.value, submissionMessage: null)));

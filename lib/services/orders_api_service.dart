@@ -244,4 +244,47 @@ class OrdersApiService {
       rethrow;
     }
   }
+
+  // Fetch today's order summary
+  static Future<TodayOrderSummaryResponse> fetchTodayOrderSummary() async {
+    try {
+      final token = await TokenService.getToken();
+      
+      if (token == null) {
+        throw Exception('No authentication found. Please login again.');
+      }
+
+      final partnerId = await TokenService.getUserId();
+      if (partnerId == null) {
+        throw Exception('Partner ID not found. Please login again.');
+      }
+
+      final url = Uri.parse('${ApiConstants.baseUrl}/partner/orders/today-summary/$partnerId');
+      
+      debugPrint('OrdersApiService: 📊 Fetching today\'s order summary: $url');
+
+      final response = await http.post(
+        url,
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      ).timeout(const Duration(seconds: timeoutSeconds));
+
+      debugPrint('OrdersApiService: 📊 Today\'s summary response status: ${response.statusCode}');
+      debugPrint('OrdersApiService: 📋 Today\'s summary response body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final responseData = json.decode(response.body);
+        return TodayOrderSummaryResponse.fromJson(responseData);
+      } else if (response.statusCode == 401) {
+        throw Exception('Unauthorized. Please login again.');
+      } else {
+        throw Exception('Failed to fetch today\'s order summary. Status: ${response.statusCode}');
+      }
+    } catch (e) {
+      debugPrint('OrdersApiService: ❌ Error fetching today\'s order summary: $e');
+      rethrow;
+    }
+  }
 }

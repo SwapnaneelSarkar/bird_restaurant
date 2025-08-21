@@ -12,6 +12,8 @@ class CustomTextField extends StatelessWidget {
   final int maxLines;
   final TextInputType keyboardType;
   final ValueChanged<String>? onChanged;
+  final VoidCallback? onEditingComplete;  // ← NEW: For on blur validation
+  final ValueChanged<String>? onFieldSubmitted; // ← NEW: For on submit validation
   final bool enabled;
   final String? errorText;             // ← NEW: For validation errors
   final int? maxLength;                // ← NEW: For character limit
@@ -26,6 +28,8 @@ class CustomTextField extends StatelessWidget {
     this.maxLines = 1,
     this.keyboardType = TextInputType.text,
     this.onChanged,
+    this.onEditingComplete,            // ← NEW
+    this.onFieldSubmitted,             // ← NEW
     this.enabled = true,
     this.errorText,                     // ← NEW
     this.maxLength,                     // ← NEW
@@ -61,6 +65,8 @@ class CustomTextField extends StatelessWidget {
       maxLines: maxLines,
       keyboardType: keyboardType,
       onChanged: onChanged,
+      onEditingComplete: onEditingComplete,    // ← NEW
+      onSubmitted: onFieldSubmitted,           // ← NEW
       maxLength: maxLength,
       buildCounter: counterText != null ? buildCounter : null,
       inputFormatters: inputFormatters,

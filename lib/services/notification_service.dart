@@ -291,16 +291,16 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
     
     // Create notification channels for Android
     const androidDefaultChannel = AndroidNotificationChannel(
-      'bird_partner_channel',
-      'Bird Partner Notifications',
+      'bird_partner_default_channel',
+      'Bird Partner Default Notifications',
       description: 'Default notifications for Bird Partner app',
       importance: Importance.high,
-      playSound: true,
-      // DO NOT set sound property here! This uses system default sound
+      playSound: false,
+      // Default channel is silent; only new_order will ring
     );
 
     const androidOrderChannel = AndroidNotificationChannel(
-      'bird_partner_order_channel',
+      'bird_partner_order_channel_v2',
       'Bird Partner Order Notifications',
       description: 'Order notifications with custom ringtone',
       importance: Importance.high,
@@ -363,7 +363,7 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 
       // Use custom sound for new order notifications with action buttons
       const androidDetails = AndroidNotificationDetails(
-        'bird_partner_order_channel',
+        'bird_partner_order_channel_v2',
         'Bird Partner Order Notifications',
         channelDescription: 'Order notifications with custom ringtone',
         importance: Importance.high,
@@ -378,6 +378,7 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
         presentBadge: true,
         presentSound: true,
         sound: 'notification_ringtone.ogg',
+        categoryIdentifier: 'new_order_category',
       );
       notificationDetails = const NotificationDetails(
         android: androidDetails,
@@ -403,15 +404,15 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
         iOS: iosDetails,
       );
     } else {
-      // Use system default sound for other notifications
+      // Use default silent channel for other notifications
       const androidDetails = AndroidNotificationDetails(
-        'bird_partner_channel',
-        'Bird Partner Notifications',
+        'bird_partner_default_channel',
+        'Bird Partner Default Notifications',
         channelDescription: 'Default notifications for Bird Partner app',
         importance: Importance.high,
         priority: Priority.high,
         icon: '@mipmap/ic_launcher',
-        playSound: true,
+        playSound: false,
       );
       const iosDetails = DarwinNotificationDetails(
         presentAlert: true,
@@ -431,7 +432,7 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
     debugPrint('🔔 Notification title: $title');
     debugPrint('🔔 Notification body: $body');
     debugPrint('🔔 Notification channel: '
-      '${notificationType == 'new_order' ? 'bird_partner_order_channel' : (notificationType == 'chat_message' ? 'bird_partner_chat_channel' : 'bird_partner_channel')}');
+      '${notificationType == 'new_order' ? 'bird_partner_order_channel_v2' : (notificationType == 'chat_message' ? 'bird_partner_chat_channel' : 'bird_partner_default_channel')}');
 
     // Generate unique notification ID to prevent duplicates
     final notificationId = message.messageId != null 
@@ -481,13 +482,13 @@ class NotificationService {
     try {
       debugPrint('🔔 Initializing NotificationService...');
 
-      // Initialize local notifications
+      // Initialize local notifications first
       await _initializeLocalNotifications();
 
-      // Request permissions
+      // Request permissions with better error handling
       await _requestPermissions();
 
-      // Set up background message handler
+      // Set up background message handler BEFORE setting up foreground handlers
       FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
       // Set up foreground message handlers
@@ -495,6 +496,22 @@ class NotificationService {
 
       // Generate and get FCM token
       await _generateFCMToken();
+
+      // Enable auto-init for Firebase messaging on real devices
+      await _messaging.setAutoInitEnabled(true);
+
+      // Ensure iOS shows notifications in foreground
+      if (Platform.isIOS) {
+        await FirebaseMessaging.instance.setForegroundNotificationPresentationOptions(
+          alert: true,
+          badge: true,
+          sound: true,
+        );
+      }
+
+      // Try to register token with server if user is already logged in
+      // This keeps device registered across app restarts/days
+      await registerTokenWithServer();
 
       _isInitialized = true;
       debugPrint('✅ NotificationService initialized successfully');
@@ -507,13 +524,39 @@ class NotificationService {
   /// Initialize local notifications
   Future<void> _initializeLocalNotifications() async {
     const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
-    const iosSettings = DarwinInitializationSettings(
+    final iosSettings = DarwinInitializationSettings(
       requestSoundPermission: true,
       requestBadgePermission: true,
       requestAlertPermission: true,
+      notificationCategories: <DarwinNotificationCategory>[
+        DarwinNotificationCategory(
+          'new_order_category',
+          actions: <DarwinNotificationAction>[
+            DarwinNotificationAction.plain(
+              'accept_order',
+              'Accept',
+              options: <DarwinNotificationActionOption>{
+                DarwinNotificationActionOption.foreground,
+              },
+            ),
+            DarwinNotificationAction.plain(
+              'reject_order',
+              'Reject',
+              options: <DarwinNotificationActionOption>{
+                DarwinNotificationActionOption.destructive,
+                DarwinNotificationActionOption.foreground,
+              },
+            ),
+          ],
+          options: <DarwinNotificationCategoryOption>{
+            DarwinNotificationCategoryOption.hiddenPreviewShowTitle,
+            DarwinNotificationCategoryOption.hiddenPreviewShowSubtitle,
+          },
+        ),
+      ],
     );
 
-    const initSettings = InitializationSettings(
+    final initSettings = InitializationSettings(
       android: androidSettings,
       iOS: iosSettings,
     );
@@ -527,7 +570,7 @@ class NotificationService {
     // Create notification channels for Android
     if (Platform.isAndroid) {
       const androidOrderChannel = AndroidNotificationChannel(
-        'bird_partner_order_channel',
+        'bird_partner_order_channel_v2',
         'Bird Partner Order Notifications',
         description: 'Order notifications with custom ringtone',
         importance: Importance.high,
@@ -548,7 +591,7 @@ class NotificationService {
         'Bird Partner Default Notifications',
         description: 'Default notifications for Bird Partner app',
         importance: Importance.high,
-        playSound: true,
+        playSound: false,
       );
 
       const androidFeedbackChannel = AndroidNotificationChannel(
@@ -578,24 +621,47 @@ class NotificationService {
 
   /// Request notification permissions
   Future<void> _requestPermissions() async {
-    // Request FCM permissions
-    final settings = await _messaging.requestPermission(
-      alert: true,
-      announcement: false,
-      badge: true,
-      carPlay: false,
-      criticalAlert: false,
-      provisional: false,
-      sound: true,
-    );
+    try {
+      // Request FCM permissions
+      final settings = await _messaging.requestPermission(
+        alert: true,
+        announcement: false,
+        badge: true,
+        carPlay: false,
+        criticalAlert: false,
+        provisional: false,
+        sound: true,
+      );
 
-    debugPrint('🔔 FCM Permission status: ${settings.authorizationStatus}');
+      debugPrint('🔔 FCM Permission status: ${settings.authorizationStatus}');
 
-    // Request local notification permissions for Android 13+
-    if (Platform.isAndroid) {
-      await _localNotifications
-          .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
-          ?.requestNotificationsPermission();
+      // Request local notification permissions for Android 13+
+      if (Platform.isAndroid) {
+        await _localNotifications
+            .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
+            ?.requestNotificationsPermission();
+        
+        // If permission is not granted, try to request it again
+        if (settings.authorizationStatus != AuthorizationStatus.authorized) {
+          debugPrint('⚠️ Android notification permission not granted, requesting again...');
+          
+          // Wait a bit and try again
+          await Future.delayed(const Duration(seconds: 2));
+          
+          final retrySettings = await _messaging.requestPermission(
+            alert: true,
+            announcement: false,
+            badge: true,
+            carPlay: false,
+            criticalAlert: false,
+            provisional: false,
+            sound: true,
+          );
+          debugPrint('🔔 Android retry permission status: ${retrySettings.authorizationStatus}');
+        }
+      }
+    } catch (e) {
+      debugPrint('❌ Error requesting notification permissions: $e');
     }
   }
 
@@ -634,12 +700,11 @@ class NotificationService {
       }
 
       // Show local notification when app is in foreground
-      // Only show custom notification for new_order type, skip others to prevent duplicates
-      if (message.data['type'] == 'new_order') {
-        debugPrint('🔔 New order notification - showing custom notification with actions');
+      if (type == 'new_order' || type == 'chat_message') {
+        debugPrint('🔔 Foreground $type notification - showing local notification');
         _showLocalNotification(message);
       } else {
-        debugPrint('🔔 Non-new_order notification - skipping to prevent duplicates');
+        debugPrint('🔔 Foreground other notification type - skipping local show');
         // Still handle the data for navigation purposes
         _handleNotificationData(message.data);
       }
@@ -742,6 +807,8 @@ class NotificationService {
   /// Handle notification tap
   void _handleNotificationTap(NotificationResponse response) async {
     try {
+      // Stop any ongoing custom ringtone on user interaction
+      await _stopCustomRingtone();
       debugPrint('🔔 FOREGROUND Notification response received: ${response.actionId}');
       debugPrint('🔔 FOREGROUND Notification payload: ${response.payload}');
       debugPrint('🔔 FOREGROUND Notification response type: ${response.notificationResponseType}');
@@ -772,6 +839,8 @@ class NotificationService {
   /// Handle foreground notification actions
   Future<void> _handleForegroundNotificationAction(String actionId, Map<String, dynamic> data) async {
     try {
+      // Stop any ongoing custom ringtone when action is taken
+      await _stopCustomRingtone();
       debugPrint('🔔 FOREGROUND Processing action: $actionId');
       debugPrint('🔔 FOREGROUND Action data: $data');
       
@@ -1434,7 +1503,7 @@ class NotificationService {
       
       // Test 5: Test notification channels
       debugPrint('🔍 Channel Test:');
-      debugPrint('   • Order Channel: bird_partner_order_channel');
+      debugPrint('   • Order Channel: bird_partner_order_channel_v2');
       debugPrint('   • Chat Channel: bird_partner_chat_channel');
       debugPrint('   • Default Channel: bird_partner_default_channel');
       debugPrint('   • Feedback Channel: bird_partner_feedback_channel');
@@ -1706,6 +1775,43 @@ class NotificationService {
     }
   }
 
+  /// Check and request notification permissions on app startup
+  Future<void> checkAndRequestPermissions() async {
+    try {
+      debugPrint('🔔 Checking notification permissions on app startup...');
+      
+      // Check current permission status
+      final settings = await _messaging.getNotificationSettings();
+      debugPrint('🔔 Current notification settings: ${settings.authorizationStatus}');
+      
+      // If permission is not granted, request it
+      if (settings.authorizationStatus != AuthorizationStatus.authorized) {
+        debugPrint('⚠️ Notification permission not granted, requesting...');
+        await _requestPermissions();
+      } else {
+        debugPrint('✅ Notification permissions already granted');
+      }
+      
+      // For Android, also check local notification permissions
+      if (Platform.isAndroid) {
+        final androidPlugin = _localNotifications
+            .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+        
+        if (androidPlugin != null) {
+          final areNotificationsEnabled = await androidPlugin.areNotificationsEnabled();
+          debugPrint('🔔 Android local notifications enabled: $areNotificationsEnabled');
+          
+          if (areNotificationsEnabled != null && !areNotificationsEnabled) {
+            debugPrint('⚠️ Android local notifications disabled, requesting permission...');
+            await androidPlugin.requestNotificationsPermission();
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('❌ Error checking notification permissions: $e');
+    }
+  }
+
   /// Test chat message notification (should use system sound)
   Future<void> testChatMessageNotification() async {
     try {
@@ -1802,7 +1908,7 @@ class NotificationService {
 
       // Use custom sound from raw resources for new order notifications
       const androidDetails = AndroidNotificationDetails(
-        'bird_partner_order_channel',
+        'bird_partner_order_channel_v2',
         'Bird Partner Order Notifications',
         channelDescription: 'Order notifications with custom ringtone',
         importance: Importance.high,
@@ -1845,7 +1951,7 @@ class NotificationService {
         iOS: iosDetails,
       );
     } else {
-      // Fallback for other types: system default sound, default channel
+      // Fallback for other types: default channel without sound
       const androidDetails = AndroidNotificationDetails(
         'bird_partner_default_channel',
         'Bird Partner Default Notifications',
@@ -1853,7 +1959,7 @@ class NotificationService {
         importance: Importance.high,
         priority: Priority.high,
         icon: '@mipmap/ic_launcher',
-        playSound: true,
+        playSound: false,
       );
       const iosDetails = DarwinNotificationDetails(
         presentAlert: true,

@@ -99,6 +99,19 @@ class ChangeOrderStatus extends ChatEvent {
   List<Object> get props => [orderId];
 }
 
+class ForceRefreshOrderDetails extends ChatEvent {
+  final String orderId;
+  final String partnerId;
+
+  const ForceRefreshOrderDetails({
+    required this.orderId,
+    required this.partnerId,
+  });
+
+  @override
+  List<Object> get props => [orderId, partnerId];
+}
+
 class LoadUserDetails extends ChatEvent {
   final String userId;
 

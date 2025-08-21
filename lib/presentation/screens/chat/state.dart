@@ -148,26 +148,26 @@ class OrderDetailsError extends ChatState {
 class ChatOrderInfo {
   final String orderId;
   final String restaurantName;
-  final String estimatedDelivery;
+  // final String estimatedDelivery;
   final String status;
 
   const ChatOrderInfo({
     required this.orderId,
     required this.restaurantName,
-    required this.estimatedDelivery,
+    // required this.estimatedDelivery,
     required this.status,
   });
 
   ChatOrderInfo copyWith({
     String? orderId,
     String? restaurantName,
-    String? estimatedDelivery,
+    // String? estimatedDelivery,
     String? status,
   }) {
     return ChatOrderInfo(
       orderId: orderId ?? this.orderId,
       restaurantName: restaurantName ?? this.restaurantName,
-      estimatedDelivery: estimatedDelivery ?? this.estimatedDelivery,
+      // estimatedDelivery: estimatedDelivery ?? this.estimatedDelivery,
       status: status ?? this.status,
     );
   }
@@ -397,12 +397,14 @@ class OrderItem {
   final int quantity;
   final double itemPrice;
   final Map<String, dynamic>? attributes;
+  final String? itemName; // optional name from API
 
   const OrderItem({
     required this.menuId,
     required this.quantity,
     required this.itemPrice,
     this.attributes,
+    this.itemName,
   });
 
   factory OrderItem.fromJson(Map<String, dynamic> json) {
@@ -411,6 +413,7 @@ class OrderItem {
       quantity: json['quantity'] ?? 0,
       itemPrice: _parsePrice(json['item_price']),
       attributes: json['attributes'] != null ? Map<String, dynamic>.from(json['attributes']) : null,
+      itemName: json['item_name'] ?? json['name'],
     );
   }
 

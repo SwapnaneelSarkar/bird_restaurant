@@ -15,8 +15,9 @@ class RefreshOrdersEvent extends OrdersEvent {
 
 class FilterOrdersEvent extends OrdersEvent {
   final OrderStatus status;
+  final bool filterByToday;
   
-  const FilterOrdersEvent(this.status);
+  const FilterOrdersEvent(this.status, {this.filterByToday = false});
 }
 
 class UpdateOrderStatusEvent extends OrdersEvent {

@@ -4,6 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../ui_components/cuisine_card.dart';
+import '../../../../ui_components/cuisine_grid.dart';
+import '../../../models/cuisine_model.dart';
+import '../../../services/cuisine_service.dart';
 import '../../../../ui_components/proggress_bar.dart';
 import '../../../constants/enums.dart';
 import '../../../ui_components/custom_button_slim.dart';
@@ -39,6 +42,7 @@ class _BodyState extends State<_Body> with SingleTickerProviderStateMixin {
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
+  late Future<List<Cuisine>> _cuisinesFuture;
 
   @override
   void initState() {
@@ -62,6 +66,8 @@ class _BodyState extends State<_Body> with SingleTickerProviderStateMixin {
     ));
     
     _animationController.forward();
+
+    _cuisinesFuture = CuisineService.fetchCuisines();
   }
 
   @override
@@ -217,24 +223,46 @@ class _BodyState extends State<_Body> with SingleTickerProviderStateMixin {
                           ),
                         ),
                         SizedBox(height: h * 0.01),
-                        GridView.count(
-                          crossAxisCount: (w > 600) ? 4 : 3,
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          mainAxisSpacing: h * 0.015,
-                          crossAxisSpacing: w * 0.03,
-                          childAspectRatio: 1,
-                          children: [
-                            for (final ct in CuisineType.values)
-                              CuisineCard(
-                                cuisine: ct,
-                                selected: state.selected.contains(ct),
-                                onTap: () {
+                        FutureBuilder<List<Cuisine>>(
+                          future: _cuisinesFuture,
+                          builder: (context, snapshot) {
+                            final cuisines = snapshot.data ?? const <Cuisine>[];
+                            if (snapshot.connectionState == ConnectionState.waiting) {
+                              return const Center(child: CircularProgressIndicator());
+                            }
+                            if (cuisines.isNotEmpty) {
+                              return CuisineGrid(
+                                width: w,
+                                height: h,
+                                cuisines: cuisines,
+                                selected: state.selected.toSet(),
+                                onTap: (ct) {
                                   debugPrint('🍽️ Tapped cuisine: ${ct.label}');
                                   bloc.add(ToggleCuisineEvent(ct));
                                 },
-                              ),
-                          ],
+                              );
+                            }
+                            // Fallback to existing static list if API returns nothing
+                            return GridView.count(
+                              crossAxisCount: (w > 600) ? 4 : 3,
+                              shrinkWrap: true,
+                              physics: const NeverScrollableScrollPhysics(),
+                              mainAxisSpacing: h * 0.015,
+                              crossAxisSpacing: w * 0.03,
+                              childAspectRatio: 1,
+                              children: [
+                                for (final ct in CuisineType.values)
+                                  CuisineCard(
+                                    cuisine: ct,
+                                    selected: state.selected.contains(ct),
+                                    onTap: () {
+                                      debugPrint('🍽️ Tapped cuisine: ${ct.label}');
+                                      bloc.add(ToggleCuisineEvent(ct));
+                                    },
+                                  ),
+                              ],
+                            );
+                          },
                         ),
                         
                         // Add validation message for cuisine selection

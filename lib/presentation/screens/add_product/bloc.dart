@@ -38,6 +38,12 @@ class AddProductBloc extends Bloc<AddProductEvent, AddProductState> {
     on<UpdateTimezoneEvent>(_onUpdateTimezone);
     on<SubmitProductEvent>(_onSubmitProduct);
     on<ResetFormEvent>(_onResetForm);
+    // Validation events
+    on<ValidateNameEvent>(_onValidateName);
+    on<ValidateDescriptionEvent>(_onValidateDescription);
+    on<ValidatePriceEvent>(_onValidatePrice);
+    on<ValidateTagsEvent>(_onValidateTags);
+    on<ValidateAllFieldsEvent>(_onValidateAllFields);
   }
 
   void _onInitialize(AddProductInitEvent event, Emitter<AddProductState> emit) async {
@@ -116,8 +122,16 @@ class AddProductBloc extends Bloc<AddProductEvent, AddProductState> {
   void _onNameChanged(ProductNameChangedEvent event, Emitter<AddProductState> emit) {
     if (state is AddProductFormState) {
       final currentState = state as AddProductFormState;
+      String? nameError = currentState.nameError;
+      
+      // Clear error if field becomes valid
+      if (event.name.isNotEmpty && event.name.length <= 30) {
+        nameError = null;
+      }
+      
       emit(currentState.copyWith(
         product: currentState.product.copyWith(name: event.name),
+        nameError: nameError,
       ));
     }
   }
@@ -125,8 +139,16 @@ class AddProductBloc extends Bloc<AddProductEvent, AddProductState> {
   void _onDescriptionChanged(ProductDescriptionChangedEvent event, Emitter<AddProductState> emit) {
     if (state is AddProductFormState) {
       final currentState = state as AddProductFormState;
+      String? descriptionError = currentState.descriptionError;
+      
+      // Clear error if field becomes valid
+      if (event.description.isNotEmpty && event.description.length <= 100) {
+        descriptionError = null;
+      }
+      
       emit(currentState.copyWith(
         product: currentState.product.copyWith(description: event.description),
+        descriptionError: descriptionError,
       ));
     }
   }
@@ -146,8 +168,16 @@ class AddProductBloc extends Bloc<AddProductEvent, AddProductState> {
   void _onPriceChanged(ProductPriceChangedEvent event, Emitter<AddProductState> emit) {
     if (state is AddProductFormState) {
       final currentState = state as AddProductFormState;
+      String? priceError = currentState.priceError;
+      
+      // Clear error if field becomes valid
+      if (event.price > 0 && event.price <= 9999.99) {
+        priceError = null;
+      }
+      
       emit(currentState.copyWith(
         product: currentState.product.copyWith(price: event.price),
+        priceError: priceError,
       ));
     }
   }
@@ -155,8 +185,16 @@ class AddProductBloc extends Bloc<AddProductEvent, AddProductState> {
   void _onTagsChanged(ProductTagsChangedEvent event, Emitter<AddProductState> emit) {
     if (state is AddProductFormState) {
       final currentState = state as AddProductFormState;
+      String? tagsError = currentState.tagsError;
+      
+      // Clear error if field becomes valid
+      if (event.tags.length <= 100) {
+        tagsError = null;
+      }
+      
       emit(currentState.copyWith(
         product: currentState.product.copyWith(tags: event.tags),
+        tagsError: tagsError,
       ));
     }
   }
@@ -364,6 +402,11 @@ class AddProductBloc extends Bloc<AddProductEvent, AddProductState> {
         return;
       }
       
+      if (currentState.product.description.isEmpty) {
+        emit(currentState.copyWith(errorMessage: 'Product description is required'));
+        return;
+      }
+      
       if (currentState.product.categoryId == null) {
         emit(currentState.copyWith(errorMessage: 'Please select a category'));
         return;
@@ -409,6 +452,10 @@ class AddProductBloc extends Bloc<AddProductEvent, AddProductState> {
         product: ProductModel(),
         errorMessage: null,
         isSuccess: false,
+        nameError: null,
+        descriptionError: null,
+        priceError: null,
+        tagsError: null,
       ));
     }
   }
@@ -574,4 +621,111 @@ Future<MenuItemResponse> _submitMenuItemToApi(ProductModel product) async {
     );
   }
 }
+
+  // Validation handlers
+  void _onValidateName(ValidateNameEvent event, Emitter<AddProductState> emit) {
+    if (state is AddProductFormState) {
+      final currentState = state as AddProductFormState;
+      String? nameError;
+      
+      if (event.name.isEmpty) {
+        nameError = 'Product name is required';
+      } else if (event.name.length > 30) {
+        nameError = 'Maximum 30 characters allowed';
+      }
+      
+      emit(currentState.copyWith(nameError: nameError));
+    }
+  }
+
+  void _onValidateDescription(ValidateDescriptionEvent event, Emitter<AddProductState> emit) {
+    if (state is AddProductFormState) {
+      final currentState = state as AddProductFormState;
+      String? descriptionError;
+      
+      if (event.description.isEmpty) {
+        descriptionError = 'Description is required';
+      } else if (event.description.length > 100) {
+        descriptionError = 'Maximum 100 characters allowed';
+      }
+      
+      emit(currentState.copyWith(descriptionError: descriptionError));
+    }
+  }
+
+  void _onValidatePrice(ValidatePriceEvent event, Emitter<AddProductState> emit) {
+    if (state is AddProductFormState) {
+      final currentState = state as AddProductFormState;
+      String? priceError;
+      
+      if (event.price.isEmpty) {
+        priceError = 'Price is required';
+      } else {
+        final price = double.tryParse(event.price) ?? 0.0;
+        if (price <= 0) {
+          priceError = 'Price must be greater than 0';
+        } else if (price > 9999.99) {
+          priceError = 'Price cannot exceed \$9999.99';
+        }
+      }
+      
+      emit(currentState.copyWith(priceError: priceError));
+    }
+  }
+
+  void _onValidateTags(ValidateTagsEvent event, Emitter<AddProductState> emit) {
+    if (state is AddProductFormState) {
+      final currentState = state as AddProductFormState;
+      String? tagsError;
+      
+      if (event.tags.length > 100) {
+        tagsError = 'Maximum 100 characters allowed';
+      }
+      
+      emit(currentState.copyWith(tagsError: tagsError));
+    }
+  }
+
+  void _onValidateAllFields(ValidateAllFieldsEvent event, Emitter<AddProductState> emit) {
+    if (state is AddProductFormState) {
+      final currentState = state as AddProductFormState;
+      
+      // Validate name
+      String? nameError;
+      if (currentState.product.name.isEmpty) {
+        nameError = 'Product name is required';
+      } else if (currentState.product.name.length > 30) {
+        nameError = 'Maximum 30 characters allowed';
+      }
+      
+      // Validate description
+      String? descriptionError;
+      if (currentState.product.description.isEmpty) {
+        descriptionError = 'Description is required';
+      } else if (currentState.product.description.length > 100) {
+        descriptionError = 'Maximum 100 characters allowed';
+      }
+      
+      // Validate price
+      String? priceError;
+      if (currentState.product.price <= 0) {
+        priceError = 'Price is required';
+      } else if (currentState.product.price > 9999.99) {
+        priceError = 'Price cannot exceed \$9999.99';
+      }
+      
+      // Validate tags
+      String? tagsError;
+      if (currentState.product.tags.length > 100) {
+        tagsError = 'Maximum 100 characters allowed';
+      }
+      
+      emit(currentState.copyWith(
+        nameError: nameError,
+        descriptionError: descriptionError,
+        priceError: priceError,
+        tagsError: tagsError,
+      ));
+    }
+  }
 }
