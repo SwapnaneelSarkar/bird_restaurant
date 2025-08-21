@@ -497,7 +497,7 @@ static Map<String, dynamic> getPartnerStatusValidationInfo(String currentStatus,
         throw Exception('No authentication token found');
       }
       
-      final url = Uri.parse('$baseUrl/get-partner/reviews/order/$orderId?partner_id=$partnerId');
+      final url = Uri.parse('$baseUrl/partner/reviews/order/$orderId?partner_id=$partnerId');
       
       final response = await http.get(
         url,

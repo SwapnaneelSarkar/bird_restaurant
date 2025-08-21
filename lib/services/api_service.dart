@@ -674,15 +674,20 @@ Future<ApiResponse> registerPartner(String mobile) async {
         debugPrint('Mobile saved to SharedPreferences: $mobile');
       }
       
-      // NEW: Save supercategory ID if present in the response
+      // NEW: Save supercategory ID and name if present in the response
       if (data['supercategory'] != null) {
         final supercategory = data['supercategory'] as Map<String, dynamic>;
         if (supercategory['id'] != null) {
           final supercategoryId = supercategory['id'] as String;
+          final supercategoryName = supercategory['name'] as String?;
           final prefs = await SharedPreferences.getInstance();
           await prefs.setString('supercategory_id', supercategoryId);
+          await prefs.setString('supercategory_name', supercategoryName ?? '');
           await TokenService.saveSupercategoryId(supercategoryId);
           debugPrint('Supercategory ID extracted and saved to SharedPreferences: $supercategoryId');
+          if (supercategoryName != null) {
+            debugPrint('Supercategory name extracted and saved to SharedPreferences: $supercategoryName');
+          }
         }
       }
     } else {
@@ -727,17 +732,27 @@ Future<ApiResponse> registerPartner(String mobile) async {
         }
       }
       
-      // NEW: Extract supercategory ID using regex if data is null
+      // NEW: Extract supercategory ID and name using regex if data is null
       if (rawResponseBody.contains('"supercategory"')) {
         final supercategoryIdRegex = RegExp(r'"supercategory":\s*\{[^}]*"id":\s*"([^"]+)"');
-        final match = supercategoryIdRegex.firstMatch(rawResponseBody);
-        if (match != null && match.groupCount >= 1) {
-          final supercategoryId = match.group(1);
+        final supercategoryNameRegex = RegExp(r'"supercategory":\s*\{[^}]*"name":\s*"([^"]+)"');
+        
+        final idMatch = supercategoryIdRegex.firstMatch(rawResponseBody);
+        final nameMatch = supercategoryNameRegex.firstMatch(rawResponseBody);
+        
+        if (idMatch != null && idMatch.groupCount >= 1) {
+          final supercategoryId = idMatch.group(1);
+          final supercategoryName = nameMatch?.group(1) ?? '';
+          
           if (supercategoryId != null) {
             final prefs = await SharedPreferences.getInstance();
             await prefs.setString('supercategory_id', supercategoryId);
+            await prefs.setString('supercategory_name', supercategoryName);
             await TokenService.saveSupercategoryId(supercategoryId);
             debugPrint('Supercategory ID extracted and saved to SharedPreferences using regex: $supercategoryId');
+            if (supercategoryName.isNotEmpty) {
+              debugPrint('Supercategory name extracted and saved to SharedPreferences using regex: $supercategoryName');
+            }
           }
         }
       }

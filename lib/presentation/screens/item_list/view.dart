@@ -3,17 +3,18 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'dart:async';
 
 import '../../../ui_components/edit_item_card.dart';
-import '../../../ui_components/universal_widget/topbar.dart';
 import '../../../ui_components/shimmer_loading.dart';
 import '../add_product/view.dart';
 import '../edit_item/view.dart';
-// Remove this import
+import '../update_product_from_catalog/view.dart';
 import '../homePage/sidebar/sidebar_drawer.dart';
 import 'bloc.dart';
 import 'event.dart';
 import 'state.dart';
 import '../../../services/restaurant_info_service.dart';
+import '../../../services/token_service.dart';
 import '../../resources/router/router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class EditMenuView extends StatefulWidget {
   const EditMenuView({Key? key}) : super(key: key);
@@ -93,6 +94,53 @@ class _EditMenuViewState extends State<EditMenuView> {
     }
   }
 
+  // Check if current supercategory is Food
+  Future<bool> _isFoodSupercategory() async {
+    try {
+      final supercategoryId = await TokenService.getSupercategoryId();
+      final prefs = await SharedPreferences.getInstance();
+      final supercategoryName = prefs.getString('supercategory_name');
+      
+      // Check if it's Food by ID or name
+      return supercategoryId == '7acc47a2fa5a4eeb906a753b3' || 
+             supercategoryName == 'Food';
+    } catch (e) {
+      debugPrint('Error checking supercategory: $e');
+      return false; // Default to non-Food behavior
+    }
+  }
+
+  // Navigate to appropriate edit page based on supercategory
+  Future<void> _navigateToEditPage(dynamic menuItem) async {
+    final isFood = await _isFoodSupercategory();
+    
+    if (isFood) {
+      // For Food supercategory, use regular EditProductView
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => EditProductView(menuItem: menuItem),
+        ),
+      ).then((result) {
+        // Refresh menu items when returning from edit screen if result is true
+        if (result == true) {
+          _menuItemsBloc.add(const RefreshMenuItemsEvent());
+        }
+      });
+    } else {
+      // For non-Food supercategories, use UpdateProductFromCatalogScreen
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => const UpdateProductFromCatalogScreen(),
+        ),
+      ).then((result) {
+        // Refresh menu items when returning from edit screen if result is true
+        if (result == true) {
+          _menuItemsBloc.add(const RefreshMenuItemsEvent());
+        }
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return WillPopScope(
@@ -124,17 +172,8 @@ class _EditMenuViewState extends State<EditMenuView> {
                 _menuItemsBloc.add(const RefreshMenuItemsEvent());
               });
             } else if (state is NavigateToEditItem) {
-              // Navigate to edit product screen with the selected menu item
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => EditProductView(menuItem: state.menuItem),
-                ),
-              ).then((result) {
-                // Refresh menu items when returning from edit screen if result is true
-                if (result == true) {
-                  _menuItemsBloc.add(const RefreshMenuItemsEvent());
-                }
-              });
+              // Conditionally navigate to appropriate edit page based on supercategory
+              _navigateToEditPage(state.menuItem);
             } else if (state is MenuItemsError) {
               // Show error message
               ScaffoldMessenger.of(context).showSnackBar(

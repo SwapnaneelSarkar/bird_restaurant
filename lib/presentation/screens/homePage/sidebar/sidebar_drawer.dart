@@ -9,6 +9,7 @@ import '../../../../services/restaurant_info_service.dart';
 import '../../../../services/subscription_lock_service.dart';
 import '../../../../ui_components/subscription_lock_dialog.dart';
 import '../../../../services/subscription_plans_service.dart';
+import '../../../../services/token_service.dart';
 import '../../../resources/router/router.dart';
 import '../event.dart';
 
@@ -60,23 +61,48 @@ class _SidebarDrawerState extends State<SidebarDrawer> with SingleTickerProvider
   
   // For menu item staggered animation
   late List<Animation<double>> _menuItemAnimations;
-  final int _menuItemCount = 16; // Total number of menu items including logout and accepting orders toggle
+  final int _menuItemCount = 16; // Total number of menu items including logout and accepting orders toggle (max possible)
 
-  // Minimal subscription check utility
-  static const List<String> _protectedRoutes = [
-    '/orders',
-    '/editMenu',
-    '/addProduct',
-    '/addProductFromCatalog',
-    '/updateProductFromCatalog',
-    '/attributes',
-  ];
+  // Minimal subscription check utility - now handled dynamically
 
   Future<bool> _hasActiveSubscription() async {
     try {
       return await SubscriptionPlansService.checkSubscriptionStatus();
     } catch (_) {
       return false;
+    }
+  }
+
+  // Get protected routes based on supercategory
+  Future<List<String>> _getProtectedRoutes() async {
+    final baseRoutes = [
+      '/orders',
+      '/editMenu',
+      '/addProduct',
+      '/addProductFromCatalog',
+    ];
+
+    // Check if it's Food supercategory
+    try {
+      final supercategoryId = await TokenService.getSupercategoryId();
+      final prefs = await SharedPreferences.getInstance();
+      final supercategoryName = prefs.getString('supercategory_name');
+      
+      // Check if it's Food by ID or name
+      final isFood = supercategoryId == '7acc47a2fa5a4eeb906a753b3' || 
+                     supercategoryName == 'Food';
+      
+      if (isFood) {
+        // For Food supercategory, exclude updateProductFromCatalog
+        return baseRoutes.where((route) => route != '/updateProductFromCatalog').toList();
+      } else {
+        // For non-Food supercategories, include updateProductFromCatalog
+        return [...baseRoutes, '/updateProductFromCatalog'];
+      }
+    } catch (e) {
+      debugPrint('Error checking supercategory for protected routes: $e');
+      // Default to non-Food behavior
+      return [...baseRoutes, '/updateProductFromCatalog'];
     }
   }
 
@@ -238,7 +264,8 @@ class _SidebarDrawerState extends State<SidebarDrawer> with SingleTickerProvider
 
   // Updated navigation method with subscription check
   Future<void> _navigateToPage(String routeName) async {
-    if (_protectedRoutes.contains(routeName)) {
+    final protectedRoutes = await _getProtectedRoutes();
+    if (protectedRoutes.contains(routeName)) {
       final hasAccess = await _hasActiveSubscription();
       if (!hasAccess) {
         _showSubscriptionDialog();
@@ -382,6 +409,26 @@ class AnimatedSidebarContent extends StatelessWidget {
     this.homeBloc,
   }) : super(key: key);
 
+  // Food supercategory constants
+  static const String _foodSupercategoryId = '7acc47a2fa5a4eeb906a753b3';
+  static const String _foodSupercategoryName = 'Food';
+
+  // Check if current supercategory is Food
+  Future<bool> _isFoodSupercategory() async {
+    try {
+      final supercategoryId = await TokenService.getSupercategoryId();
+      final prefs = await SharedPreferences.getInstance();
+      final supercategoryName = prefs.getString('supercategory_name');
+      
+      // Check if it's Food by ID or name
+      return supercategoryId == _foodSupercategoryId || 
+             supercategoryName == _foodSupercategoryName;
+    } catch (e) {
+      debugPrint('Error checking supercategory: $e');
+      return false; // Default to non-Food behavior
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -438,33 +485,36 @@ class AnimatedSidebarContent extends StatelessWidget {
                       isActive: activePage == 'products',
                       onTap: () => onNavigate('/editMenu'),
                     ),
-                    _buildAnimatedMenuItem(
-                      animations[4],
-                      icon: Icons.add_circle_outline,
-                      title: 'Add Product',
-                      isActive: activePage == 'addProduct',
-                      onTap: () => onNavigate('/addProduct'),
-                    ),
-                    _buildAnimatedMenuItem(
-                      animations[4],
-                      icon: Icons.inventory_outlined,
-                      title: 'Add From Catalog',
-                      isActive: activePage == 'addProductFromCatalog',
-                      onTap: () => onNavigate('/addProductFromCatalog'),
-                    ),
-                    _buildAnimatedMenuItem(
-                      animations[4],
-                      icon: Icons.edit_outlined,
-                      title: 'Update From Catalog',
-                      isActive: activePage == 'updateProductFromCatalog',
-                      onTap: () => onNavigate('/updateProductFromCatalog'),
-                    ),
-                    _buildAnimatedMenuItem(
-                      animations[5],
-                      icon: Icons.view_list_outlined,
-                      title: 'Attributes',
-                      isActive: activePage == 'add_attributes',
-                      onTap: () => onNavigate('/attributes'),
+                    // Conditional Add Product menu items based on supercategory
+                    FutureBuilder<bool>(
+                      future: _isFoodSupercategory(),
+                      builder: (context, snapshot) {
+                        final isFood = snapshot.data ?? false;
+                        
+                        if (isFood) {
+                          // Show regular Add Product for Food supercategory
+                          return _buildAnimatedMenuItem(
+                            animations[4],
+                            icon: Icons.add_circle_outline,
+                            title: 'Add Product',
+                            isActive: activePage == 'addProduct',
+                            onTap: () => onNavigate('/addProduct'),
+                          );
+                        } else {
+                          // Show catalog-based options for non-Food supercategories
+                          return Column(
+                            children: [
+                              _buildAnimatedMenuItem(
+                                animations[4],
+                                icon: Icons.inventory_outlined,
+                                title: 'Add From Catalog',
+                                isActive: activePage == 'addProductFromCatalog',
+                                onTap: () => onNavigate('/addProductFromCatalog'),
+                              ),
+                            ],
+                          );
+                        }
+                      },
                     ),
                     _buildAnimatedMenuItem(
                       animations[6],

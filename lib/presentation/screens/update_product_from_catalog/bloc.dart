@@ -126,7 +126,7 @@ class UpdateProductFromCatalogBloc extends Bloc<UpdateProductFromCatalogEvent, U
           throw Exception('Authentication information not found. Please login again.');
         }
         
-        final url = Uri.parse('${ApiConstants.baseUrl}/get-products/subcategories/category/${event.categoryId}');
+        final url = Uri.parse('${ApiConstants.baseUrl}/products/subcategories/category/${event.categoryId}');
         
         debugPrint('🔍 Update Product From Catalog - Subcategories API URL: $url');
         
@@ -195,7 +195,7 @@ class UpdateProductFromCatalogBloc extends Bloc<UpdateProductFromCatalogEvent, U
           throw Exception('Authentication information not found. Please login again.');
         }
         
-        final url = Uri.parse('${ApiConstants.baseUrl}/get-partner/subcategory/${event.subcategoryId}/products');
+        final url = Uri.parse('${ApiConstants.baseUrl}/partner/subcategory/${event.subcategoryId}/products');
         
         debugPrint('🔍 Update Product From Catalog - Products API URL: $url');
         

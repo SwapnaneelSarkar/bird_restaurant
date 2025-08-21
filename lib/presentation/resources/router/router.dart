@@ -4,9 +4,9 @@ import 'package:bird_restaurant/presentation/partner_selection/view.dart';
 
 import 'package:bird_restaurant/presentation/screens/delivery_partner_pages/otp/view.dart';
 import 'package:bird_restaurant/presentation/screens/delivery_partner_pages/signin/view.dart';
-import 'package:bird_restaurant/presentation/screens/add_product/view.dart';
 import 'package:bird_restaurant/presentation/screens/add_product_from_catalog/view.dart';
 import 'package:bird_restaurant/presentation/screens/update_product_from_catalog/view.dart';
+import 'package:bird_restaurant/presentation/screens/conditional_add_product_wrapper.dart';
 import 'package:bird_restaurant/presentation/screens/add_resturant_info/view.dart';
 import 'package:bird_restaurant/presentation/screens/attributes/view.dart';
 import 'package:bird_restaurant/presentation/screens/chat/view.dart';
@@ -92,6 +92,7 @@ class Routes {
 }
 
 class RouteGenerator {
+
   static Route<dynamic> getRoute(RouteSettings routeSettings) {
     final name = routeSettings.name;
     
@@ -145,7 +146,7 @@ class RouteGenerator {
 
         case Routes.addProduct:
           return MaterialPageRoute(
-            builder: (_) => const AddProductScreen(),
+            builder: (_) => const ConditionalAddProductWrapper(),
             settings: routeSettings,
           );
 
