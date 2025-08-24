@@ -19,32 +19,38 @@ class MenuItemsLoading extends MenuItemsState {}
 // Loaded state with menu items
 class MenuItemsLoaded extends MenuItemsState {
   final List<MenuItem> menuItems;
+  final List<Product> products; // Add products
   final RestaurantData restaurantData;
   final bool isFiltered;
   final FilterType? filterType;
   final String? searchQuery;
   final bool showVegOnly;
   final bool showNonVegOnly;
+  final bool isFoodSupercategory; // Add supercategory type
 
   const MenuItemsLoaded({
     required this.menuItems,
+    required this.products, // Add products parameter
     required this.restaurantData,
     this.isFiltered = false,
     this.filterType,
     this.searchQuery,
     this.showVegOnly = false,
     this.showNonVegOnly = false,
+    required this.isFoodSupercategory, // Add supercategory parameter
   });
 
   @override
   List<Object?> get props => [
         menuItems,
+        products, // Add products to props
         restaurantData,
         isFiltered,
         filterType,
         searchQuery,
         showVegOnly,
         showNonVegOnly,
+        isFoodSupercategory, // Add to props
       ];
 }
 

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math' show min;
@@ -7,6 +8,9 @@ import 'package:http_parser/http_parser.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:geocoding/geocoding.dart' as geocoding;
 import '../../../constants/api_constants.dart';
 import '../../../services/api_service.dart';
 import '../../../services/token_service.dart';
@@ -16,12 +20,16 @@ import 'event.dart';
 import 'state.dart';
 import '../../../services/restaurant_info_service.dart';
 import '../../../constants/enums.dart';
+import '../../../utils/build_config.dart';
+import '../../../models/country.dart';
 
 
 class RestaurantProfileBloc
     extends Bloc<RestaurantProfileEvent, RestaurantProfileState> {
   final ApiServices _apiServices = ApiServices();
   final ImagePicker _imagePicker = ImagePicker();
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+  Timer? _phoneOtpTimer;
 
   RestaurantProfileBloc()
       : super(
@@ -50,7 +58,14 @@ class RestaurantProfileBloc
     
     // Owner fields
     on<OwnerNameChanged>((e, emit) => emit(state.copyWith(ownerName: e.value)));
-    on<OwnerMobileChanged>((e, emit) => emit(state.copyWith(ownerMobile: e.v)));
+    on<OwnerMobileChanged>((e, emit) {
+      // Prevent changes if phone is already verified
+      if (state.isPhoneVerified) {
+        debugPrint('⚠️ BLOC: Attempted to change verified phone number from "${state.ownerMobile}" to "${e.v}" - BLOCKED');
+        return;
+      }
+      emit(state.copyWith(ownerMobile: e.v));
+    });
     on<OwnerEmailChanged>((e, emit) => emit(state.copyWith(ownerEmail: e.v)));
     on<OwnerAddressChanged>((e, emit) => emit(state.copyWith(ownerAddress: e.v)));
 
@@ -96,6 +111,25 @@ class RestaurantProfileBloc
     // Add new event
     on<ClearSubmissionMessage>((event, emit) => emit(state.copyWith(submissionMessage: null,submissionSuccess: null, errorMessage: null)));
     on<ToggleCuisineType>(_onToggleCuisineType);
+    
+    // Phone OTP Verification Events
+    on<InitializePhoneOtpEvent>(_onInitializePhoneOtp);
+    on<PhoneOtpDigitChanged>(_onPhoneOtpDigitChanged);
+    on<SubmitPhoneOtpEvent>(_onSubmitPhoneOtp);
+    on<ResendPhoneOtpEvent>(_onResendPhoneOtp);
+    on<PhoneOtpTimerTickEvent>(_onPhoneOtpTimerTick);
+    on<PhoneOtpVerificationCompleted>(_onPhoneOtpVerificationCompleted);
+    on<PhoneOtpVerificationFailed>(_onPhoneOtpVerificationFailed);
+    on<PhoneOtpCodeSent>(_onPhoneOtpCodeSent);
+    
+    // Country Detection Events
+    on<AutoDetectCountryRequested>(_onAutoDetectCountryRequested);
+    on<CountryChanged>(_onCountryChanged);
+    
+    // Location Permission Events
+    on<CheckLocationPermissionEvent>(_onCheckLocationPermission);
+    on<LocationPermissionGranted>(_onLocationPermissionGranted);
+    on<LocationPermissionDenied>(_onLocationPermissionDenied);
   }
 
   Future<void> _onLoadRestaurantTypes(
@@ -407,6 +441,10 @@ class RestaurantProfileBloc
             .toList();
         emit(state.copyWith(selectedCuisines: selectedCuisines));
         
+        // Load supercategory from SharedPreferences
+        final selectedSupercategoryId = prefs.getString('selected_supercategory_id');
+        final selectedSupercategoryName = prefs.getString('selected_supercategory_name');
+        
         // Handle null values properly
         final latitudeStr = data['latitude']?.toString() ?? '';
         final longitudeStr = data['longitude']?.toString() ?? '';
@@ -429,6 +467,8 @@ class RestaurantProfileBloc
           type: restaurantType,
           hours: updatedHours,
           restaurantImageUrl: imageUrl,
+          selectedSupercategoryId: selectedSupercategoryId,
+          selectedSupercategoryName: selectedSupercategoryName,
         ));
         
         debugPrint('State updated with API data');
@@ -830,5 +870,381 @@ class RestaurantProfileBloc
     } else {
       return '${timeStr}am';
     }
+  }
+  
+  // Phone OTP Verification Methods
+  Future<void> _onInitializePhoneOtp(InitializePhoneOtpEvent event, Emitter<RestaurantProfileState> emit) async {
+    emit(state.copyWith(
+      isPhoneVerificationInProgress: true,
+      phoneVerificationError: null,
+    ));
+    
+    try {
+      // Always combine country code with phone number
+      String formattedNumber = '${state.selectedCountry.dialCode}${event.phoneNumber}';
+      debugPrint('Combining country code ${state.selectedCountry.dialCode} with phone ${event.phoneNumber} = $formattedNumber');
+      
+      if (formattedNumber == '+911111111111') {
+        debugPrint('Test phone number detected');
+        
+        if (Platform.isIOS) {
+          debugPrint('iOS detected - using test mode');
+          emit(state.copyWith(
+            phoneVerificationId: 'test-verification-id',
+            isPhoneVerificationInProgress: false,
+          ));
+          _startPhoneOtpTimer(emit);
+          return;
+        } else {
+          await _auth.setSettings(
+            appVerificationDisabledForTesting: true,
+            forceRecaptchaFlow: false,
+          );
+        }
+      } else {
+        debugPrint('Real phone number - using build configuration');
+        await _auth.setSettings(
+          appVerificationDisabledForTesting: false,
+          forceRecaptchaFlow: BuildConfig.shouldForceRecaptcha,
+        );
+      }
+      
+      debugPrint('Starting Firebase phone verification');
+      
+      await _auth.verifyPhoneNumber(
+        phoneNumber: formattedNumber,
+        verificationCompleted: (PhoneAuthCredential credential) async {
+          debugPrint('✅ Verification completed automatically');
+          add(PhoneOtpVerificationCompleted(credential.smsCode ?? ''));
+        },
+        verificationFailed: (FirebaseAuthException e) {
+          debugPrint('❌ Verification failed: ${e.code} - ${e.message}');
+          if (e.code == 'invalid-phone-number') {
+            add(PhoneOtpVerificationFailed('The provided phone number is not valid.'));
+                      } else if (e.code == 'missing-client-identifier') {
+              add(PhoneOtpVerificationFailed('Missing client identifier. Please check your Firebase configuration.'));
+            } else if (e.code == 'app-not-authorized') {
+              add(PhoneOtpVerificationFailed('This app is not authorized to use Firebase Authentication. Please check your Firebase configuration.'));
+          } else {
+            add(PhoneOtpVerificationFailed(e.message ?? 'Verification failed'));
+          }
+        },
+        codeSent: (String verificationId, int? resendToken) {
+          debugPrint('✅ Code sent! Verification ID: $verificationId');
+          add(PhoneOtpCodeSent(verificationId));
+        },
+        codeAutoRetrievalTimeout: (String verificationId) {
+          debugPrint('⏰ Auto retrieval timeout. Verification ID: $verificationId');
+          if (state.phoneVerificationId == null) {
+            add(PhoneOtpCodeSent(verificationId));
+          }
+        },
+        timeout: const Duration(seconds: 60),
+      );
+    } catch (e) {
+      debugPrint('❌ Error in _onInitializePhoneOtp: $e');
+      emit(state.copyWith(
+        isPhoneVerificationInProgress: false,
+        phoneVerificationError: 'Failed to send OTP: $e',
+      ));
+    }
+  }
+
+  void _onPhoneOtpDigitChanged(PhoneOtpDigitChanged event, Emitter<RestaurantProfileState> emit) {
+    final digits = List<String>.from(state.phoneOtpDigits);
+    digits[event.index] = event.digit;
+    
+    emit(state.copyWith(
+      phoneOtpDigits: digits,
+    ));
+  }
+
+  Future<void> _onSubmitPhoneOtp(SubmitPhoneOtpEvent event, Emitter<RestaurantProfileState> emit) async {
+    if (state.phoneVerificationId == null) {
+      return;
+    }
+
+    emit(state.copyWith(
+      isPhoneVerificationInProgress: true,
+      phoneVerificationError: null,
+    ));
+
+    try {
+      final otp = state.phoneOtpDigits.join('');
+      debugPrint('Submitting OTP: $otp');
+
+      // For test phone number, skip Firebase verification
+      if (state.ownerMobile == '+911111111111') {
+        debugPrint('Test phone number - skipping Firebase verification');
+        if (otp == '000000' || otp == '123456') {
+          debugPrint('✅ Test phone verification successful! Setting isPhoneVerified = true');
+          emit(state.copyWith(
+            isPhoneVerified: true,
+            isPhoneVerificationInProgress: false,
+            phoneVerificationError: null,
+          ));
+          _stopPhoneOtpTimer();
+        } else {
+          emit(state.copyWith(
+            isPhoneVerificationInProgress: false,
+            phoneVerificationError: 'Invalid test OTP. Use 000000 or 123456',
+          ));
+        }
+        return;
+      }
+
+      // Create credential with Firebase
+      final credential = PhoneAuthProvider.credential(
+        verificationId: state.phoneVerificationId!,
+        smsCode: otp,
+      );
+
+      // Sign in with Firebase
+      final userCredential = await _auth.signInWithCredential(credential);
+      debugPrint('Firebase sign-in successful: ${userCredential.user?.uid}');
+
+      // Sign out immediately - we don't want to keep user signed in
+      await _auth.signOut();
+
+      debugPrint('✅ Phone verification successful! Setting isPhoneVerified = true');
+      emit(state.copyWith(
+        isPhoneVerified: true,
+        isPhoneVerificationInProgress: false,
+        phoneVerificationError: null,
+      ));
+      _stopPhoneOtpTimer();
+
+    } catch (e) {
+      debugPrint('Error submitting OTP: $e');
+      String errorMessage = 'Invalid OTP. Please try again.';
+      
+      if (e is FirebaseAuthException) {
+        if (e.code == 'invalid-verification-code') {
+          errorMessage = 'Invalid OTP. Please check and try again.';
+        } else if (e.code == 'invalid-verification-id') {
+          errorMessage = 'OTP expired. Please request a new one.';
+        } else {
+          errorMessage = e.message ?? 'Verification failed';
+        }
+      }
+      
+      emit(state.copyWith(
+        isPhoneVerificationInProgress: false,
+        phoneVerificationError: errorMessage,
+      ));
+    }
+  }
+
+  Future<void> _onResendPhoneOtp(ResendPhoneOtpEvent event, Emitter<RestaurantProfileState> emit) async {
+    if (state.ownerMobile.isEmpty) {
+      emit(state.copyWith(
+        phoneVerificationError: 'Phone number is required',
+      ));
+      return;
+    }
+
+    emit(state.copyWith(
+      isPhoneVerificationInProgress: true,
+      phoneVerificationError: null,
+    ));
+
+    try {
+      // Reset digits
+      emit(state.copyWith(
+        phoneOtpDigits: List<String>.filled(6, ''),
+      ));
+
+      // Re-initialize OTP
+      add(InitializePhoneOtpEvent(state.ownerMobile));
+    } catch (e) {
+      emit(state.copyWith(
+        isPhoneVerificationInProgress: false,
+        phoneVerificationError: 'Failed to resend OTP: $e',
+      ));
+    }
+  }
+
+  void _onPhoneOtpTimerTick(PhoneOtpTimerTickEvent event, Emitter<RestaurantProfileState> emit) {
+    final sec = state.phoneOtpTimer;
+    if (sec > 0) {
+      emit(state.copyWith(phoneOtpTimer: sec - 1));
+    } else {
+      _stopPhoneOtpTimer();
+    }
+  }
+
+  void _onPhoneOtpVerificationCompleted(PhoneOtpVerificationCompleted event, Emitter<RestaurantProfileState> emit) {
+    final smsCode = event.smsCode;
+    final digits = List<String>.filled(6, '');
+    
+    for (int i = 0; i < smsCode.length && i < 6; i++) {
+      digits[i] = smsCode[i];
+    }
+    
+    emit(state.copyWith(
+      phoneOtpDigits: digits,
+    ));
+    add(const SubmitPhoneOtpEvent());
+  }
+
+  void _onPhoneOtpVerificationFailed(PhoneOtpVerificationFailed event, Emitter<RestaurantProfileState> emit) {
+    emit(state.copyWith(
+      isPhoneVerificationInProgress: false,
+      phoneVerificationError: event.message,
+    ));
+  }
+
+  void _onPhoneOtpCodeSent(PhoneOtpCodeSent event, Emitter<RestaurantProfileState> emit) {
+    debugPrint('_onPhoneOtpCodeSent called with verificationId: ${event.verificationId}');
+    if (event.verificationId.isEmpty) {
+      debugPrint('ERROR: Received empty verification ID');
+      emit(state.copyWith(
+        isPhoneVerificationInProgress: false,
+        phoneVerificationError: 'Failed to receive verification ID from Firebase',
+      ));
+      return;
+    }
+    
+    emit(state.copyWith(
+      phoneVerificationId: event.verificationId,
+      isPhoneVerificationInProgress: false,
+    ));
+    _startPhoneOtpTimer(emit);
+  }
+
+  void _startPhoneOtpTimer(Emitter<RestaurantProfileState> emit) {
+    _phoneOtpTimer?.cancel();
+    emit(state.copyWith(phoneOtpTimer: 30));
+    _phoneOtpTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      add(const PhoneOtpTimerTickEvent());
+    });
+  }
+
+  void _stopPhoneOtpTimer() {
+    _phoneOtpTimer?.cancel();
+  }
+
+  @override
+  Future<void> close() {
+    _phoneOtpTimer?.cancel();
+    return super.close();
+  }
+  
+  // Country Detection Methods
+  Future<void> _onAutoDetectCountryRequested(AutoDetectCountryRequested event, Emitter<RestaurantProfileState> emit) async {
+    emit(state.copyWith(isCountryDetectionInProgress: true));
+    
+    try {
+      // Try using device locale first as a fast path
+      final locale = WidgetsBinding.instance.platformDispatcher.locale;
+      if (locale.countryCode != null) {
+        final fromLocale = CountryData.findByCode(locale.countryCode!.toUpperCase());
+        if (fromLocale != null) {
+          emit(state.copyWith(
+            selectedCountry: fromLocale,
+            isCountryDetectionInProgress: false,
+          ));
+          return;
+        }
+      }
+
+      // Fallback to geolocation + reverse geocoding
+      final hasPermission = await _hasLocationPermissionWithoutPrompt();
+      if (!hasPermission) {
+        emit(state.copyWith(isCountryDetectionInProgress: false));
+        return;
+      }
+
+      final position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(accuracy: LocationAccuracy.low),
+      );
+
+      final placemarks = await geocoding.placemarkFromCoordinates(
+        position.latitude,
+        position.longitude,
+      );
+      if (placemarks.isNotEmpty) {
+        final isoCountryCode = placemarks.first.isoCountryCode;
+        if (isoCountryCode != null) {
+          final match = CountryData.findByCode(isoCountryCode.toUpperCase());
+          if (match != null) {
+            emit(state.copyWith(
+              selectedCountry: match,
+              isCountryDetectionInProgress: false,
+            ));
+            return;
+          }
+        }
+      }
+      
+      // If all else fails, keep the default country
+      emit(state.copyWith(isCountryDetectionInProgress: false));
+    } catch (e) {
+      debugPrint('Auto-detect country failed: $e');
+      emit(state.copyWith(isCountryDetectionInProgress: false));
+    }
+  }
+
+  void _onCountryChanged(CountryChanged event, Emitter<RestaurantProfileState> emit) {
+    emit(state.copyWith(selectedCountry: event.country));
+  }
+
+  Future<bool> _hasLocationPermissionWithoutPrompt() async {
+    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) return false;
+
+    LocationPermission permission = await Geolocator.checkPermission();
+    return permission == LocationPermission.always ||
+        permission == LocationPermission.whileInUse;
+  }
+  
+  // Location Permission Methods
+  Future<void> _onCheckLocationPermission(CheckLocationPermissionEvent event, Emitter<RestaurantProfileState> emit) async {
+    emit(state.copyWith(isCountryDetectionInProgress: true));
+    
+    try {
+      // Check if location services are enabled
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        add(const LocationPermissionDenied('Location services are disabled. Please enable location services in your device settings.'));
+        return;
+      }
+
+      // Check current permission status
+      LocationPermission permission = await Geolocator.checkPermission();
+      
+      if (permission == LocationPermission.denied) {
+        // Request permission
+        permission = await Geolocator.requestPermission();
+      }
+      
+      if (permission == LocationPermission.always || permission == LocationPermission.whileInUse) {
+        add(LocationPermissionGranted());
+        // Also trigger auto-detect country
+        add(AutoDetectCountryRequested());
+      } else if (permission == LocationPermission.deniedForever) {
+        add(const LocationPermissionDenied('Location permission permanently denied. Please enable location access in your device settings.'));
+      } else {
+        add(const LocationPermissionDenied('Location permission denied. Location access is required to edit phone number.'));
+      }
+    } catch (e) {
+      debugPrint('Error checking location permission: $e');
+      add(LocationPermissionDenied('Failed to check location permission: $e'));
+    }
+  }
+
+  void _onLocationPermissionGranted(LocationPermissionGranted event, Emitter<RestaurantProfileState> emit) {
+    emit(state.copyWith(
+      hasLocationPermission: true,
+      isCountryDetectionInProgress: false,
+    ));
+  }
+
+  void _onLocationPermissionDenied(LocationPermissionDenied event, Emitter<RestaurantProfileState> emit) {
+    emit(state.copyWith(
+      hasLocationPermission: false,
+      isCountryDetectionInProgress: false,
+      phoneVerificationError: event.reason,
+    ));
   }
 }

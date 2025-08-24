@@ -7,12 +7,15 @@ import '../../../constants/api_constants.dart';
 import '../../../models/catagory_model.dart';
 import '../../../models/subcategory_model.dart';
 import '../../../models/product_selection_model.dart';
+import '../../../models/restaurant_menu_model.dart' as menu_model; // Add Product model import with prefix
 import '../../../services/token_service.dart';
 import 'event.dart';
 import 'state.dart';
 
 class UpdateProductFromCatalogBloc extends Bloc<UpdateProductFromCatalogEvent, UpdateProductFromCatalogState> {
-  UpdateProductFromCatalogBloc() : super(UpdateProductFromCatalogInitial()) {
+  final menu_model.Product? preSelectedProduct; // Add pre-selected product
+  
+  UpdateProductFromCatalogBloc([this.preSelectedProduct]) : super(UpdateProductFromCatalogInitial()) {
     on<UpdateProductFromCatalogInitEvent>(_onInitialize);
     on<FetchCategoriesEvent>(_onFetchCategories);
     on<CategorySelectedEvent>(_onCategorySelected);
@@ -31,8 +34,49 @@ class UpdateProductFromCatalogBloc extends Bloc<UpdateProductFromCatalogEvent, U
   }
 
   void _onInitialize(UpdateProductFromCatalogInitEvent event, Emitter<UpdateProductFromCatalogState> emit) async {
-    emit(const UpdateProductFromCatalogFormState());
-    add(const FetchCategoriesEvent());
+    debugPrint('🔍 _onInitialize - preSelectedProduct: ${preSelectedProduct?.name ?? 'null'}');
+    
+    if (preSelectedProduct != null) {
+      // If we have a pre-selected product, initialize with its details
+      debugPrint('🔍 Initializing in EDIT mode with product: ${preSelectedProduct!.name}');
+      emit(UpdateProductFromCatalogFormState(
+        selectedProduct: _convertToProductSelectionModel(preSelectedProduct!),
+        quantity: preSelectedProduct!.quantity,
+        price: double.tryParse(preSelectedProduct!.price) ?? 0.0,
+        available: preSelectedProduct!.available,
+      ));
+    } else {
+      // Normal initialization for adding new products
+      debugPrint('🔍 Initializing in ADD mode - fetching categories');
+      emit(const UpdateProductFromCatalogFormState());
+      add(const FetchCategoriesEvent());
+    }
+  }
+  
+  // Helper method to convert Product to ProductSelectionModel
+  ProductSelectionModel _convertToProductSelectionModel(menu_model.Product product) {
+    return ProductSelectionModel(
+      productId: product.productId,
+      name: product.name,
+      description: product.description,
+      brand: product.brand,
+      weight: product.weight,
+      unit: product.unit,
+      imageUrl: product.imageUrl,
+      active: product.available,
+      subcategory: SubcategoryInfo(
+        id: '', // We don't have ID in Product model
+        name: product.subcategory.name,
+      ),
+      category: CategoryInfo(
+        id: '', // We don't have ID in Product model
+        name: product.category.name,
+      ),
+      supercategory: SupercategoryInfo(
+        id: '', // We don't have ID in Product model
+        name: product.supercategory.name,
+      ),
+    );
   }
 
   void _onFetchCategories(FetchCategoriesEvent event, Emitter<UpdateProductFromCatalogState> emit) async {
@@ -294,11 +338,6 @@ class UpdateProductFromCatalogBloc extends Bloc<UpdateProductFromCatalogEvent, U
       final currentState = state as UpdateProductFromCatalogFormState;
       
       // Validation
-      if (currentState.selectedProduct == null) {
-        emit(currentState.copyWith(errorMessage: 'Please select a product'));
-        return;
-      }
-      
       if (currentState.quantity <= 0) {
         emit(currentState.copyWith(errorMessage: 'Please enter a valid quantity'));
         return;
@@ -313,11 +352,31 @@ class UpdateProductFromCatalogBloc extends Bloc<UpdateProductFromCatalogEvent, U
       emit(currentState.copyWith(isSubmitting: true, errorMessage: null));
       
       try {
+        // Determine product ID and available status based on mode
+        String productId;
+        bool available;
+        
+        if (preSelectedProduct != null) {
+          // Edit mode: use pre-selected product's ID and available status
+          productId = preSelectedProduct!.productId;
+          available = preSelectedProduct!.available;
+          debugPrint('🔍 Edit mode - Product ID: $productId, Available: $available');
+        } else {
+          // Add mode: use selected product's ID and current available status
+          if (currentState.selectedProduct == null) {
+            emit(currentState.copyWith(errorMessage: 'Please select a product'));
+            return;
+          }
+          productId = currentState.selectedProduct!.productId;
+          available = currentState.available;
+          debugPrint('🔍 Add mode - Product ID: $productId, Available: $available');
+        }
+        
         final result = await _updateProductToApi(
-          currentState.selectedProduct!.productId,
+          productId,
           currentState.quantity,
           currentState.price,
-          currentState.available,
+          available,
         );
         
         if (result['status'] == 'SUCCESS') {

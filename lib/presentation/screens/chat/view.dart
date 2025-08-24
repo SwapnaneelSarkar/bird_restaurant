@@ -1184,14 +1184,14 @@ class _ChatViewState extends State<ChatView> with WidgetsBindingObserver {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text(
-                              'Delivery Fee',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey.shade600,
-                                fontFamily: FontFamily.Montserrat,
-                              ),
-                            ),
+                            // Text(
+                            //   'Delivery Fee',
+                            //   style: TextStyle(
+                            //     fontSize: 12,
+                            //     color: Colors.grey.shade600,
+                            //     fontFamily: FontFamily.Montserrat,
+                            //   ),
+                            // ),
                             Text(
                               orderDetails.formattedDeliveryFees('₹'),
                               style: TextStyle(

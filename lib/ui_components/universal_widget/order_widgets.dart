@@ -643,14 +643,14 @@ class OrderDetailsWidget extends StatelessWidget {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
-                          'Delivery Fees',
-                          style: TextStyle(
-                            color: Colors.grey[700],
-                            fontSize: 15,
-                            fontFamily: FontFamily.Montserrat,
-                          ),
-                        ),
+                        // Text(
+                        //   'Delivery Fees',
+                        //   style: TextStyle(
+                        //     color: Colors.grey[700],
+                        //     fontSize: 15,
+                        //     fontFamily: FontFamily.Montserrat,
+                        //   ),
+                        // ),
                         Text(
                           orderDetails.formattedDeliveryFees(symbol),
                           style: TextStyle(

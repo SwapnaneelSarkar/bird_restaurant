@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../resturant_details_2/state.dart';
 import 'event.dart';
 import '../../../constants/enums.dart';
+import '../../../models/country.dart';
 
 
 class RestaurantProfileState extends Equatable {
@@ -47,6 +48,25 @@ class RestaurantProfileState extends Equatable {
   final String? errorMessage;
 
   final List<CuisineType> selectedCuisines;
+  
+  // Supercategory
+  final String? selectedSupercategoryId;
+  final String? selectedSupercategoryName;
+  
+  // Phone OTP Verification
+  final bool isPhoneVerified;
+  final bool isPhoneVerificationInProgress;
+  final String? phoneVerificationError;
+  final String? phoneVerificationId;
+  final List<String> phoneOtpDigits;
+  final int phoneOtpTimer;
+  
+  // Country Code Detection
+  final Country selectedCountry;
+  final bool isCountryDetectionInProgress;
+  
+  // Location Permission
+  final bool hasLocationPermission;
 
   const RestaurantProfileState({
     this.imagePath,
@@ -72,6 +92,17 @@ class RestaurantProfileState extends Equatable {
     this.submissionMessage,
     this.errorMessage,
     this.selectedCuisines = const [],
+    this.selectedSupercategoryId,
+    this.selectedSupercategoryName,
+    this.isPhoneVerified = false,
+    this.isPhoneVerificationInProgress = false,
+    this.phoneVerificationError,
+    this.phoneVerificationId,
+    this.phoneOtpDigits = const ['', '', '', '', '', ''],
+    this.phoneOtpTimer = 0,
+    this.selectedCountry = const Country(name: 'India', code: 'IN', dialCode: '+91', flag: '🇮🇳'),
+    this.isCountryDetectionInProgress = false,
+    this.hasLocationPermission = false,
   });
 
   RestaurantProfileState copyWith({
@@ -98,6 +129,17 @@ class RestaurantProfileState extends Equatable {
     String? submissionMessage,
     String? errorMessage,
     List<CuisineType>? selectedCuisines,
+    String? selectedSupercategoryId,
+    String? selectedSupercategoryName,
+    bool? isPhoneVerified,
+    bool? isPhoneVerificationInProgress,
+    String? phoneVerificationError,
+    String? phoneVerificationId,
+    List<String>? phoneOtpDigits,
+    int? phoneOtpTimer,
+    Country? selectedCountry,
+    bool? isCountryDetectionInProgress,
+    bool? hasLocationPermission,
   }) =>
       RestaurantProfileState(
         imagePath: imagePath ?? this.imagePath,
@@ -123,6 +165,17 @@ class RestaurantProfileState extends Equatable {
         submissionMessage: submissionMessage ?? this.submissionMessage,
         errorMessage: errorMessage ?? this.errorMessage,
         selectedCuisines: selectedCuisines ?? this.selectedCuisines,
+        selectedSupercategoryId: selectedSupercategoryId ?? this.selectedSupercategoryId,
+        selectedSupercategoryName: selectedSupercategoryName ?? this.selectedSupercategoryName,
+        isPhoneVerified: isPhoneVerified ?? this.isPhoneVerified,
+        isPhoneVerificationInProgress: isPhoneVerificationInProgress ?? this.isPhoneVerificationInProgress,
+        phoneVerificationError: phoneVerificationError ?? this.phoneVerificationError,
+        phoneVerificationId: phoneVerificationId ?? this.phoneVerificationId,
+        phoneOtpDigits: phoneOtpDigits ?? this.phoneOtpDigits,
+        phoneOtpTimer: phoneOtpTimer ?? this.phoneOtpTimer,
+        selectedCountry: selectedCountry ?? this.selectedCountry,
+        isCountryDetectionInProgress: isCountryDetectionInProgress ?? this.isCountryDetectionInProgress,
+        hasLocationPermission: hasLocationPermission ?? this.hasLocationPermission,
 
       );
 
@@ -135,6 +188,13 @@ class RestaurantProfileState extends Equatable {
     debugPrint('- deliveryRadius: "$deliveryRadius"'); // 👈 NEW DEBUG LOG
     
     return true;
+  }
+  
+  // Helper method to check if supercategory is food
+  bool get isFoodSupercategory {
+    // Check if supercategory ID is the food supercategory ID
+    return selectedSupercategoryId == "7acc47a2fa5a4eeb906a753b3" || 
+           selectedSupercategoryName?.toLowerCase() == "food";
   }
 
   @override
@@ -162,5 +222,16 @@ class RestaurantProfileState extends Equatable {
         submissionMessage,
         errorMessage,
         selectedCuisines,
+        selectedSupercategoryId,
+        selectedSupercategoryName,
+        isPhoneVerified,
+        isPhoneVerificationInProgress,
+        phoneVerificationError,
+        phoneVerificationId,
+        phoneOtpDigits,
+        phoneOtpTimer,
+        selectedCountry,
+        isCountryDetectionInProgress,
+        hasLocationPermission,
       ];
 }

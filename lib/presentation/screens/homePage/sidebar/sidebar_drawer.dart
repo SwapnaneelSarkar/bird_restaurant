@@ -93,10 +93,10 @@ class _SidebarDrawerState extends State<SidebarDrawer> with SingleTickerProvider
                      supercategoryName == 'Food';
       
       if (isFood) {
-        // For Food supercategory, exclude updateProductFromCatalog
-        return baseRoutes.where((route) => route != '/updateProductFromCatalog').toList();
+        // For Food supercategory, include attributes but exclude updateProductFromCatalog
+        return [...baseRoutes, '/attributes'];
       } else {
-        // For non-Food supercategories, include updateProductFromCatalog
+        // For non-Food supercategories, include updateProductFromCatalog but exclude attributes
         return [...baseRoutes, '/updateProductFromCatalog'];
       }
     } catch (e) {
@@ -513,6 +513,27 @@ class AnimatedSidebarContent extends StatelessWidget {
                               ),
                             ],
                           );
+                        }
+                      },
+                    ),
+                    // Conditional Attributes menu item based on supercategory
+                    FutureBuilder<bool>(
+                      future: _isFoodSupercategory(),
+                      builder: (context, snapshot) {
+                        final isFood = snapshot.data ?? false;
+                        
+                        if (isFood) {
+                          // Show Attributes for Food supercategory
+                          return _buildAnimatedMenuItem(
+                            animations[5],
+                            icon: Icons.view_list_outlined,
+                            title: 'Attributes',
+                            isActive: activePage == 'add_attributes',
+                            onTap: () => onNavigate('/attributes'),
+                          );
+                        } else {
+                          // Hide Attributes for non-Food supercategories
+                          return const SizedBox.shrink();
                         }
                       },
                     ),

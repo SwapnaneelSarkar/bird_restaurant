@@ -42,10 +42,23 @@ class _ImageCropperWidgetState extends State<ImageCropperWidget> {
   Offset _startFocalPoint = Offset.zero;
   double _startScale = 1.0;
 
+  // Image display state for accurate cropping
+  Size _displayedImageSize = Size.zero;
+  Offset _displayedImageOffset = Offset.zero;
+
   @override
   void initState() {
     super.initState();
     _loadImage();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Recalculate crop area when dependencies change (e.g., screen size, orientation)
+    if (_image != null && _screenSize != MediaQuery.of(context).size) {
+      _initializeCropArea();
+    }
   }
 
   Future<void> _loadImage() async {
@@ -88,9 +101,14 @@ class _ImageCropperWidgetState extends State<ImageCropperWidget> {
     setState(() {
       _screenSize = MediaQuery.of(context).size;
       
+      // Get safe area insets for better positioning
+      final EdgeInsets safeArea = MediaQuery.of(context).padding;
+      final double availableWidth = _screenSize.width - safeArea.left - safeArea.right;
+      final double availableHeight = _screenSize.height - safeArea.top - safeArea.bottom;
+      
       // Calculate crop area size based on aspect ratio
-      final double maxWidth = _screenSize.width - 40;
-      final double maxHeight = _screenSize.height * 0.6;
+      final double maxWidth = availableWidth - 40;
+      final double maxHeight = availableHeight * 0.6;
       
       double cropWidth, cropHeight;
       
@@ -114,10 +132,48 @@ class _ImageCropperWidgetState extends State<ImageCropperWidget> {
       
       _cropSize = Size(cropWidth, cropHeight);
       _cropOffset = Offset(
-        (_screenSize.width - cropWidth) / 2,
-        (_screenSize.height - cropHeight) / 2 - 50,
+        safeArea.left + (availableWidth - cropWidth) / 2,
+        safeArea.top + (availableHeight - cropHeight) / 2 - 50,
       );
+      
+      // Calculate how the image will be displayed with BoxFit.cover
+      _calculateImageDisplay();
     });
+  }
+
+  void _calculateImageDisplay() {
+    if (_image == null) return;
+    
+    final double screenAspectRatio = _screenSize.width / _screenSize.height;
+    final double imageAspectRatio = _imageSize.width / _imageSize.height;
+    
+    double displayedImageWidth, displayedImageHeight;
+    
+    if (imageAspectRatio > screenAspectRatio) {
+      // Image is wider than screen - fit to height, crop width
+      displayedImageHeight = _screenSize.height;
+      displayedImageWidth = displayedImageHeight * imageAspectRatio;
+      _displayedImageOffset = Offset(
+        (_screenSize.width - displayedImageWidth) / 2,
+        0,
+      );
+    } else {
+      // Image is taller than screen - fit to width, crop height
+      displayedImageWidth = _screenSize.width;
+      displayedImageHeight = displayedImageWidth / imageAspectRatio;
+      _displayedImageOffset = Offset(
+        0,
+        (_screenSize.height - displayedImageHeight) / 2,
+      );
+    }
+    
+    _displayedImageSize = Size(displayedImageWidth, displayedImageHeight);
+    
+    // Ensure displayed image size is not zero
+    if (_displayedImageSize.width == 0 || _displayedImageSize.height == 0) {
+      _displayedImageSize = _imageSize;
+      _displayedImageOffset = Offset.zero;
+    }
   }
 
   @override
@@ -203,8 +259,12 @@ class _ImageCropperWidgetState extends State<ImageCropperWidget> {
       onScaleUpdate: _onScaleUpdate,
       child: Stack(
         children: [
-          // Background image
-          Positioned.fill(
+          // Background image with proper positioning
+          Positioned(
+            left: _displayedImageOffset.dx,
+            top: _displayedImageOffset.dy,
+            width: _displayedImageSize.width,
+            height: _displayedImageSize.height,
             child: Transform.scale(
               scale: _scale,
               child: Transform.translate(
@@ -212,8 +272,8 @@ class _ImageCropperWidgetState extends State<ImageCropperWidget> {
                 child: Image.file(
                   File(widget.imagePath),
                   fit: BoxFit.cover,
-                  width: _screenSize.width,
-                  height: _screenSize.height,
+                  width: _displayedImageSize.width,
+                  height: _displayedImageSize.height,
                 ),
               ),
             ),
@@ -324,7 +384,28 @@ class _ImageCropperWidgetState extends State<ImageCropperWidget> {
       final Offset delta = details.focalPoint - _startFocalPoint;
       _imageOffset += delta;
       _startFocalPoint = details.focalPoint;
+      
+      // Constrain the image position to keep crop area visible
+      _constrainImagePosition();
     });
+  }
+
+  void _constrainImagePosition() {
+    // Calculate the transformed image bounds
+    final double transformedImageWidth = _displayedImageSize.width * _scale;
+    final double transformedImageHeight = _displayedImageSize.height * _scale;
+    
+    // Calculate the minimum offset needed to keep crop area visible
+    final double minOffsetX = _cropOffset.dx - transformedImageWidth + _cropSize.width;
+    final double maxOffsetX = _cropOffset.dx;
+    final double minOffsetY = _cropOffset.dy - transformedImageHeight + _cropSize.height;
+    final double maxOffsetY = _cropOffset.dy;
+    
+    // Constrain the image offset
+    _imageOffset = Offset(
+      _imageOffset.dx.clamp(minOffsetX, maxOffsetX),
+      _imageOffset.dy.clamp(minOffsetY, maxOffsetY),
+    );
   }
 
   Future<void> _cropImage() async {
@@ -355,35 +436,13 @@ class _ImageCropperWidgetState extends State<ImageCropperWidget> {
         ),
       );
 
-      // Calculate the actual crop parameters based on current transformation
-      // The image is displayed with BoxFit.cover, so we need to calculate the actual displayed image dimensions
+      // Calculate the actual crop parameters with proper coordinate transformation
       
-      // Calculate the displayed image size (what's actually visible on screen)
-      final double screenAspectRatio = _screenSize.width / _screenSize.height;
-      final double imageAspectRatio = _imageSize.width / _imageSize.height;
-      
-      double displayedImageWidth, displayedImageHeight;
-      double imageOffsetX, imageOffsetY;
-      
-      if (imageAspectRatio > screenAspectRatio) {
-        // Image is wider than screen - fit to height
-        displayedImageHeight = _screenSize.height;
-        displayedImageWidth = displayedImageHeight * imageAspectRatio;
-        imageOffsetX = (_screenSize.width - displayedImageWidth) / 2;
-        imageOffsetY = 0;
-      } else {
-        // Image is taller than screen - fit to width
-        displayedImageWidth = _screenSize.width;
-        displayedImageHeight = displayedImageWidth / imageAspectRatio;
-        imageOffsetX = 0;
-        imageOffsetY = (_screenSize.height - displayedImageHeight) / 2;
-      }
-      
-      // Apply the user's transformations (scale and offset)
-      final double transformedImageWidth = displayedImageWidth * _scale;
-      final double transformedImageHeight = displayedImageHeight * _scale;
-      final double transformedImageOffsetX = imageOffsetX + _imageOffset.dx;
-      final double transformedImageOffsetY = imageOffsetY + _imageOffset.dy;
+      // Get the transformed image dimensions and position
+      final double transformedImageWidth = _displayedImageSize.width * _scale;
+      final double transformedImageHeight = _displayedImageSize.height * _scale;
+      final double transformedImageOffsetX = _displayedImageOffset.dx + _imageOffset.dx;
+      final double transformedImageOffsetY = _displayedImageOffset.dy + _imageOffset.dy;
       
       // Calculate the crop area in screen coordinates
       final double cropScreenX = _cropOffset.dx;
@@ -392,25 +451,56 @@ class _ImageCropperWidgetState extends State<ImageCropperWidget> {
       final double cropScreenHeight = _cropSize.height;
       
       // Convert screen crop coordinates to image coordinates
-      final double cropImageX = (cropScreenX - transformedImageOffsetX) * (_imageSize.width / transformedImageWidth);
-      final double cropImageY = (cropScreenY - transformedImageOffsetY) * (_imageSize.height / transformedImageHeight);
+      // First, convert screen coordinates to the transformed image coordinates
+      final double cropInTransformedImageX = cropScreenX - transformedImageOffsetX;
+      final double cropInTransformedImageY = cropScreenY - transformedImageOffsetY;
+      
+      // Then convert to original image coordinates
+      final double cropImageX = cropInTransformedImageX * (_imageSize.width / transformedImageWidth);
+      final double cropImageY = cropInTransformedImageY * (_imageSize.height / transformedImageHeight);
       final double cropImageWidth = cropScreenWidth * (_imageSize.width / transformedImageWidth);
       final double cropImageHeight = cropScreenHeight * (_imageSize.height / transformedImageHeight);
       
+      // Account for device pixel ratio for more accurate cropping
+      final double devicePixelRatio = MediaQuery.of(context).devicePixelRatio;
+      final double adjustedCropImageX = cropImageX / devicePixelRatio;
+      final double adjustedCropImageY = cropImageY / devicePixelRatio;
+      final double adjustedCropImageWidth = cropImageWidth / devicePixelRatio;
+      final double adjustedCropImageHeight = cropImageHeight / devicePixelRatio;
+      
       // Ensure crop area is within image bounds
-      final double clampedCropX = cropImageX.clamp(0.0, _imageSize.width - cropImageWidth);
-      final double clampedCropY = cropImageY.clamp(0.0, _imageSize.height - cropImageHeight);
-      final double clampedCropWidth = cropImageWidth.clamp(0.0, _imageSize.width - clampedCropX);
-      final double clampedCropHeight = cropImageHeight.clamp(0.0, _imageSize.height - clampedCropY);
+      final double clampedCropX = adjustedCropImageX.clamp(0.0, _imageSize.width - adjustedCropImageWidth);
+      final double clampedCropY = adjustedCropImageY.clamp(0.0, _imageSize.height - adjustedCropImageHeight);
+      final double clampedCropWidth = adjustedCropImageWidth.clamp(0.0, _imageSize.width - clampedCropX);
+      final double clampedCropHeight = adjustedCropImageHeight.clamp(0.0, _imageSize.height - clampedCropY);
+      
+      // Additional safety checks
+      if (clampedCropWidth <= 0 || clampedCropHeight <= 0) {
+        throw Exception('Invalid crop dimensions: ${clampedCropWidth} x ${clampedCropHeight}');
+      }
+      
+      if (clampedCropX < 0 || clampedCropY < 0 || 
+          clampedCropX + clampedCropWidth > _imageSize.width ||
+          clampedCropY + clampedCropHeight > _imageSize.height) {
+        throw Exception('Crop area outside image bounds');
+      }
 
-      debugPrint('Image size: ${_imageSize.width} x ${_imageSize.height}');
+      debugPrint('=== CROPPING DEBUG INFO ===');
+      debugPrint('Original image size: ${_imageSize.width} x ${_imageSize.height}');
       debugPrint('Screen size: ${_screenSize.width} x ${_screenSize.height}');
-      debugPrint('Displayed image: ${displayedImageWidth} x ${displayedImageHeight}');
+      debugPrint('Device pixel ratio: $devicePixelRatio');
+      debugPrint('Displayed image size: ${_displayedImageSize.width} x ${_displayedImageSize.height}');
+      debugPrint('Displayed image offset: ${_displayedImageOffset.dx}, ${_displayedImageOffset.dy}');
       debugPrint('Transformed image: ${transformedImageWidth} x ${transformedImageHeight}');
       debugPrint('Transformed offset: ${transformedImageOffsetX}, ${transformedImageOffsetY}');
-      debugPrint('Crop screen: ${cropScreenX}, ${cropScreenY}, ${cropScreenWidth} x ${cropScreenHeight}');
-      debugPrint('Crop image: ${cropImageX}, ${cropImageY}, ${cropImageWidth} x ${cropImageHeight}');
-      debugPrint('Clamped crop: ${clampedCropX}, ${clampedCropY}, ${clampedCropWidth} x ${clampedCropHeight}');
+      debugPrint('User scale: $_scale');
+      debugPrint('User offset: ${_imageOffset.dx}, ${_imageOffset.dy}');
+      debugPrint('Crop screen area: ${cropScreenX}, ${cropScreenY}, ${cropScreenWidth} x ${cropScreenHeight}');
+      debugPrint('Crop in transformed image: ${cropInTransformedImageX}, ${cropInTransformedImageY}');
+      debugPrint('Crop in original image: ${cropImageX}, ${cropImageY}, ${cropImageWidth} x ${cropImageHeight}');
+      debugPrint('Adjusted crop (with DPR): ${adjustedCropImageX}, ${adjustedCropImageY}, ${adjustedCropImageWidth} x ${adjustedCropImageHeight}');
+      debugPrint('Final clamped crop: ${clampedCropX}, ${clampedCropY}, ${clampedCropWidth} x ${clampedCropHeight}');
+      debugPrint('==========================');
 
       // Create a cropped image using the ui.Image
       final ui.PictureRecorder recorder = ui.PictureRecorder();

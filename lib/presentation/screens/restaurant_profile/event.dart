@@ -1,6 +1,7 @@
 import 'package:equatable/equatable.dart';
 import 'package:flutter/material.dart';
 import '../../../constants/enums.dart';
+import '../../../models/country.dart';
 
 
 /// ─── EVENTS ─────────────────────────────────────────────────────────────
@@ -102,5 +103,76 @@ class ToggleCuisineType extends RestaurantProfileEvent {
   const ToggleCuisineType(this.type);
   @override
   List<Object?> get props => [type];
+}
+
+// Phone OTP Verification Events
+class InitializePhoneOtpEvent extends RestaurantProfileEvent {
+  final String phoneNumber;
+  const InitializePhoneOtpEvent(this.phoneNumber);
+  @override
+  List<Object?> get props => [phoneNumber];
+}
+
+class PhoneOtpDigitChanged extends RestaurantProfileEvent {
+  final int index;
+  final String digit;
+  const PhoneOtpDigitChanged(this.index, this.digit);
+  @override
+  List<Object?> get props => [index, digit];
+}
+
+class SubmitPhoneOtpEvent extends RestaurantProfileEvent {
+  const SubmitPhoneOtpEvent();
+}
+
+class ResendPhoneOtpEvent extends RestaurantProfileEvent {
+  const ResendPhoneOtpEvent();
+}
+
+class PhoneOtpTimerTickEvent extends RestaurantProfileEvent {
+  const PhoneOtpTimerTickEvent();
+}
+
+class PhoneOtpVerificationCompleted extends RestaurantProfileEvent {
+  final String smsCode;
+  const PhoneOtpVerificationCompleted(this.smsCode);
+  @override
+  List<Object?> get props => [smsCode];
+}
+
+class PhoneOtpVerificationFailed extends RestaurantProfileEvent {
+  final String message;
+  const PhoneOtpVerificationFailed(this.message);
+  @override
+  List<Object?> get props => [message];
+}
+
+class PhoneOtpCodeSent extends RestaurantProfileEvent {
+  final String verificationId;
+  const PhoneOtpCodeSent(this.verificationId);
+  @override
+  List<Object?> get props => [verificationId];
+}
+
+// Country Detection Events
+class AutoDetectCountryRequested extends RestaurantProfileEvent {}
+
+class CountryChanged extends RestaurantProfileEvent {
+  final Country country;
+  const CountryChanged(this.country);
+  @override
+  List<Object?> get props => [country];
+}
+
+// Location Permission Events
+class CheckLocationPermissionEvent extends RestaurantProfileEvent {}
+
+class LocationPermissionGranted extends RestaurantProfileEvent {}
+
+class LocationPermissionDenied extends RestaurantProfileEvent {
+  final String reason;
+  const LocationPermissionDenied(this.reason);
+  @override
+  List<Object?> get props => [reason];
 }
 

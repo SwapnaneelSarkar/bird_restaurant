@@ -1,5 +1,7 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -85,6 +87,12 @@ class _BodyState extends State<_Body> {
     _loadRestaurantInfo();
 
     _cuisinesFuture = CuisineService.fetchCuisines();
+    
+    // Check location permission and auto-detect country after a short delay
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final bloc = context.read<RestaurantProfileBloc>();
+      bloc.add(CheckLocationPermissionEvent());
+    });
   }
 
   Future<void> _loadRestaurantInfo() async {
@@ -361,12 +369,347 @@ class _BodyState extends State<_Body> {
                           onChanged: (v) => bloc.add(OwnerNameChanged(v)),
                         ),
                         SizedBox(height: vert * .8),
-                        CustomTextField(
+                        // Phone Number with OTP Verification
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Debug info (remove in production)
+                            if (kDebugMode)
+                              Container(
+                                padding: EdgeInsets.all(4),
+                                margin: EdgeInsets.only(bottom: 4),
+                                decoration: BoxDecoration(
+                                  color: Colors.yellow.shade100,
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  'DEBUG: isPhoneVerified=${st.isPhoneVerified}, hasLocationPermission=${st.hasLocationPermission}, fieldEnabled=${!st.isPhoneVerified && st.hasLocationPermission}, ownerMobile="${st.ownerMobile}"',
+                                  style: TextStyle(fontSize: 10, color: Colors.black87),
+                                ),
+                              ),
+                            Text(
+                              'Mobile Number',
+                              style: TextStyle(
+                                fontFamily: FontConstants.fontFamily,
+                                fontSize: FontSize.s14,
+                                color: Colors.grey.shade800,
+                              ),
+                            ),
+                            SizedBox(height: 6),
+                                                        // Combined Phone Number Field with Country Code
+                            Row(
+                              children: [
+                                // Country Code Display
+                                Container(
+                                  padding: EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+                                  decoration: BoxDecoration(
+                                    color: st.isPhoneVerified ? Colors.grey.shade100 : Colors.white,
+                                    borderRadius: BorderRadius.horizontal(left: Radius.circular(8)),
+                                    border: Border.all(
+                                      color: st.isPhoneVerified ? Colors.grey.shade300 : Colors.grey.shade400,
+                                      width: st.isPhoneVerified ? 2 : 1,
+                                    ),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        st.selectedCountry.flag,
+                                        style: TextStyle(fontSize: 16),
+                                      ),
+                                      SizedBox(width: 6),
+                                      Text(
+                                        st.selectedCountry.dialCode,
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeightManager.medium,
+                                          color: st.isPhoneVerified ? Colors.grey.shade500 : Colors.grey.shade700,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                // Phone Number Input
+                                Expanded(
+                                  child: Stack(
+                                    children: [
+                                      Container(
+                                        decoration: BoxDecoration(
+                                          color: st.isPhoneVerified ? Colors.grey.shade100 : Colors.white,
+                                          borderRadius: BorderRadius.horizontal(right: Radius.circular(8)),
+                                          border: Border.all(
+                                            color: st.isPhoneVerified ? Colors.grey.shade300 : Colors.grey.shade400,
+                                            width: st.isPhoneVerified ? 2 : 1,
+                                          ),
+                                        ),
+                                        child: Tooltip(
+                                          message: st.isPhoneVerified 
+                                              ? 'Phone number is verified and protected from changes' 
+                                              : 'Enter your phone number',
+                                          child: CustomTextField(
                           controller: _ownerMobileCtrl,
-                          label: 'Mobile Number',
-                          hintText: 'Enter mobile number',
+                                            hintText: st.isPhoneVerified 
+                                                ? 'Phone number verified' 
+                                                : !st.hasLocationPermission
+                                                    ? 'Enable location to edit phone number'
+                                                    : 'Enter mobile number',
                           keyboardType: TextInputType.phone,
-                          onChanged: (v) => bloc.add(OwnerMobileChanged(v)),
+                                            enabled: false, // Field is read-only - only editable after OTP verification
+                                            inputFormatters: [
+                                              FilteringTextInputFormatter.digitsOnly,
+                                            ],
+                                            onChanged: (v) {
+                                              // Field is read-only - all changes are blocked
+                                              debugPrint('⚠️ BLOCKED: Phone field is read-only, attempted change: $v');
+                                              return;
+                                            },
+                                          ),
+                                        ),
+                                      ),
+                                      if (st.isPhoneVerified)
+                                        Positioned(
+                                          right: 8,
+                                          top: 8,
+                                          bottom: 8,
+                                          child: Container(
+                                            padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                            decoration: BoxDecoration(
+                                              color: Colors.green.withOpacity(0.1),
+                                              borderRadius: BorderRadius.circular(4),
+                                              border: Border.all(color: Colors.green.withOpacity(0.3)),
+                                            ),
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Icon(Icons.lock, color: Colors.green, size: 14),
+                                                SizedBox(width: 4),
+                                                Text(
+                                                  'Protected',
+                                                  style: TextStyle(
+                                                    color: Colors.green,
+                                                    fontSize: 10,
+                                                    fontWeight: FontWeightManager.medium,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                ),
+                                SizedBox(width: 8),
+                                // Verify Button - Only show if not verified
+                                if (!st.isPhoneVerified) ...[
+                                  ElevatedButton.icon(
+                                    onPressed: st.isPhoneVerificationInProgress || st.ownerMobile.isEmpty
+                                        ? null 
+                                        : () => bloc.add(InitializePhoneOtpEvent(st.ownerMobile)),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: ColorManager.primary,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                    ),
+                                    icon: st.isPhoneVerificationInProgress
+                                        ? SizedBox(
+                                            width: 16,
+                                            height: 16,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                              color: Colors.white,
+                                            ),
+                                          )
+                                        : Icon(Icons.verified_user, size: 16, color: Colors.white),
+                                    label: Text(
+                                      'Verify Number',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 12,
+                                        fontWeight: FontWeightManager.medium,
+                                      ),
+                                    ),
+                                  ),
+                                ] else ...[
+                                  Container(
+                                    padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: Colors.green.withOpacity(0.1),
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: Border.all(color: Colors.green),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(Icons.check_circle, color: Colors.green, size: 16),
+                                        SizedBox(width: 4),
+                                        Text(
+                                          'Verified',
+                                          style: TextStyle(
+                                            color: Colors.green,
+                                            fontSize: 12,
+                                            fontWeight: FontWeightManager.medium,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                            // Location Permission Warning
+                            if (!st.hasLocationPermission) ...[
+                              SizedBox(height: 8),
+                              Container(
+                                padding: EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: Colors.orange.shade50,
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: Colors.orange.shade200),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.warning_amber, color: Colors.orange.shade700, size: 20),
+                                    SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        'Location access is required to edit phone number. This helps us detect your country and ensure proper formatting.',
+                                        style: TextStyle(
+                                          color: Colors.orange.shade800,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                            if (st.phoneVerificationError != null) ...[
+                              SizedBox(height: 4),
+                              Text(
+                                st.phoneVerificationError!,
+                                style: TextStyle(
+                                  color: Colors.red,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                            // OTP Input Section
+                            if (st.phoneVerificationId != null && !st.isPhoneVerified) ...[
+                              SizedBox(height: 12),
+                              Container(
+                                padding: EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: Colors.grey.shade50,
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: Colors.grey.shade300),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Enter OTP sent to ${st.selectedCountry.dialCode}${st.ownerMobile}',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeightManager.medium,
+                                        color: Colors.grey.shade700,
+                                      ),
+                                    ),
+                                    SizedBox(height: 8),
+                                    Row(
+                                      children: List.generate(6, (index) {
+                                        return Expanded(
+                                          child: Container(
+                                            margin: EdgeInsets.symmetric(horizontal: 2),
+                                            child: TextField(
+                                              textAlign: TextAlign.center,
+                                              keyboardType: TextInputType.number,
+                                              maxLength: 1,
+                                              style: TextStyle(
+                                                fontSize: 16,
+                                                fontWeight: FontWeightManager.bold,
+                                              ),
+                                              decoration: InputDecoration(
+                                                counterText: '',
+                                                border: OutlineInputBorder(
+                                                  borderRadius: BorderRadius.circular(8),
+                                                ),
+                                                contentPadding: EdgeInsets.symmetric(vertical: 8),
+                                              ),
+                                              onChanged: (value) {
+                                                bloc.add(PhoneOtpDigitChanged(index, value));
+                                                if (value.isNotEmpty && index < 5) {
+                                                  FocusScope.of(context).nextFocus();
+                                                }
+                                              },
+                                            ),
+                                          ),
+                                        );
+                                      }),
+                                    ),
+                                    SizedBox(height: 8),
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: ElevatedButton(
+                                            onPressed: st.isPhoneVerificationInProgress
+                                                ? null
+                                                : () => bloc.add(const SubmitPhoneOtpEvent()),
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor: ColorManager.primary,
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius: BorderRadius.circular(8),
+                                              ),
+                                            ),
+                                            child: st.isPhoneVerificationInProgress
+                                                ? SizedBox(
+                                                    width: 16,
+                                                    height: 16,
+                                                    child: CircularProgressIndicator(
+                                                      strokeWidth: 2,
+                                                      color: Colors.white,
+                                                    ),
+                                                  )
+                                                : Text(
+                                                    'Verify OTP',
+                                                    style: TextStyle(
+                                                      color: Colors.white,
+                                                      fontSize: 12,
+                                                      fontWeight: FontWeightManager.medium,
+                                                    ),
+                                                  ),
+                                          ),
+                                        ),
+                                        SizedBox(width: 8),
+                                        if (st.phoneOtpTimer > 0) ...[
+                                          Text(
+                                            'Resend in ${st.phoneOtpTimer}s',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: Colors.grey.shade600,
+                                            ),
+                                          ),
+                                        ] else ...[
+                                          TextButton(
+                                            onPressed: st.isPhoneVerificationInProgress
+                                                ? null
+                                                : () => bloc.add(const ResendPhoneOtpEvent()),
+                                            child: Text(
+                                              'Resend OTP',
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                color: ColorManager.primary,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ],
                         ),
                         SizedBox(height: vert * .8),
                         CustomTextField(
@@ -431,8 +774,17 @@ class _BodyState extends State<_Body> {
                         CustomTextField(
                           controller: _restNameCtrl,
                           label: 'Store Name',
-                          hintText: 'Enter store name',
-                          onChanged: (v) => bloc.add(RestaurantNameChanged(v)),
+                          hintText: 'Enter store name (max 40 characters)',
+                          maxLength: 40,
+                          counterText: '${_restNameCtrl.text.length}/40',
+                          onChanged: (v) {
+                            // Capitalize first letter of each word
+                            final capitalized = v.split(' ').map((word) {
+                              if (word.isEmpty) return word;
+                              return word[0].toUpperCase() + word.substring(1).toLowerCase();
+                            }).join(' ');
+                            bloc.add(RestaurantNameChanged(capitalized));
+                          },
                         ),
                         SizedBox(height: vert * .8),
                         CustomTextField(
@@ -443,25 +795,67 @@ class _BodyState extends State<_Body> {
                           onChanged: (v) => bloc.add(DescriptionChanged(v)),
                         ),
                         SizedBox(height: vert * .8),
+                        
+                        // Only show cooking time for food supercategory
+                        if (st.isFoodSupercategory) ...[
                         CustomTextField(
                           controller: _cookTimeCtrl,
                           label: 'Average Cooking Time (minutes)',
-                          hintText: 'Enter cooking time',
+                            hintText: 'Enter cooking time (limited to 2 digits, max 99)',
                           keyboardType: TextInputType.number,
-                          onChanged: (v) => bloc.add(CookingTimeChanged(v)),
+                            maxLength: 2,
+                            counterText: '${_cookTimeCtrl.text.length}/2',
+                            inputFormatters: [
+                              FilteringTextInputFormatter.digitsOnly,
+                              LengthLimitingTextInputFormatter(2),
+                            ],
+                            onChanged: (v) {
+                              // Ensure value is within 1-99 range
+                              final intValue = int.tryParse(v);
+                              if (intValue != null && intValue > 99) {
+                                _cookTimeCtrl.text = '99';
+                                _cookTimeCtrl.selection = TextSelection.fromPosition(
+                                  TextPosition(offset: 2),
+                                );
+                                bloc.add(CookingTimeChanged('99'));
+                              } else {
+                                bloc.add(CookingTimeChanged(v));
+                              }
+                            },
                         ),
                         SizedBox(height: vert * .8),
+                        ],
 
                         // 👈 NEW DELIVERY RADIUS FIELD ADDED
                         CustomTextField(
                           controller: _deliveryRadiusCtrl,
                           label: 'Delivery Radius (km)',
-                          hintText: 'Enter delivery radius in kilometers',
+                          hintText: 'Enter delivery radius in kilometers (limited to 2 digits, max 99)',
                           keyboardType: TextInputType.number,
-                          onChanged: (v) => bloc.add(DeliveryRadiusChanged(v)),
+                          maxLength: 2,
+                          counterText: '${_deliveryRadiusCtrl.text.length}/2',
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly,
+                            LengthLimitingTextInputFormatter(2),
+                          ],
+                          onChanged: (v) {
+                            // Ensure value is within 1-99 range
+                            final intValue = int.tryParse(v);
+                            if (intValue != null && intValue > 99) {
+                              _deliveryRadiusCtrl.text = '99';
+                              _deliveryRadiusCtrl.selection = TextSelection.fromPosition(
+                                TextPosition(offset: 2),
+                              );
+                              bloc.add(DeliveryRadiusChanged('99'));
+                            } else {
+                              bloc.add(DeliveryRadiusChanged(v));
+                            }
+                          },
                         ),
                         SizedBox(height: vert * 1.2),
 
+                        // Only show store type for food supercategory
+                        if (st.isFoodSupercategory) ...[
                         _sectionHeader('Store Type', Icons.store_outlined),
                         Row(
                           children: [
@@ -486,8 +880,11 @@ class _BodyState extends State<_Body> {
                             ),
                           ],
                         ),
+                        ],
 
                         // Store Type Dropdown - NEW SECTION
+                        // Only show kitchen type for food supercategory
+                        if (st.isFoodSupercategory) ...[
                         SizedBox(height: vert * 1.2),
                         _sectionHeader('Kitchen Type', Icons.store_outlined),
                         SizedBox(height: vert * 0.5),
@@ -597,8 +994,11 @@ class _BodyState extends State<_Body> {
                             );
                           },
                         ),
+                        ],
                         SizedBox(height: vert * 1.2),
 
+                        // Only show cuisine types for food supercategory
+                        if (st.isFoodSupercategory) ...[
                         _sectionHeader('Cuisine Types', Icons.fastfood),
                         SizedBox(height: vert * 0.5),
                         FutureBuilder<List<Cuisine>>(
@@ -635,6 +1035,7 @@ class _BodyState extends State<_Body> {
                             );
                           },
                         ),
+                        ],
                         SizedBox(height: vert * 1.2),
 
                         _sectionHeader(
@@ -902,4 +1303,5 @@ class _BodyState extends State<_Body> {
       );
     }
   }
+  
 }

@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'dart:async';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 
 import '../../../ui_components/edit_item_card.dart';
 import '../../../ui_components/shimmer_loading.dart';
+import '../../../ui_components/product_card.dart';
 import '../add_product/view.dart';
 import '../edit_item/view.dart';
 import '../update_product_from_catalog/view.dart';
+import '../add_product_from_catalog/view.dart';
 import '../homePage/sidebar/sidebar_drawer.dart';
 import 'bloc.dart';
 import 'event.dart';
@@ -14,6 +18,8 @@ import 'state.dart';
 import '../../../services/restaurant_info_service.dart';
 import '../../../services/token_service.dart';
 import '../../resources/router/router.dart';
+import '../../../constants/api_constants.dart';
+import '../../../models/restaurant_menu_model.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class EditMenuView extends StatefulWidget {
@@ -94,12 +100,157 @@ class _EditMenuViewState extends State<EditMenuView> {
     }
   }
 
+  // Toggle product availability using PUT API
+  Future<void> _toggleProductAvailability(Product product) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('token');
+      final partnerId = prefs.getString('user_id');
+      
+      if (token == null || partnerId == null) {
+        throw Exception('Authentication information not found. Please login again.');
+      }
+      
+      final url = Uri.parse('${ApiConstants.baseUrl}/partner/update-product');
+      
+      final body = {
+        'partner_id': partnerId,
+        'product_id': product.productId,
+        'quantity': product.quantity,
+        'price': double.tryParse(product.price) ?? 0.0,
+        'available': !product.available, // Toggle the availability
+      };
+      
+      debugPrint('🔍 Toggling product availability for: ${product.name}');
+      debugPrint('🔍 Request body: ${json.encode(body)}');
+      
+      final response = await http.put(
+        url,
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+        body: json.encode(body),
+      );
+      
+      debugPrint('🔍 Toggle response status: ${response.statusCode}');
+      debugPrint('🔍 Toggle response body: ${response.body}');
+      
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final responseData = json.decode(response.body);
+        if (responseData['status'] == 'SUCCESS') {
+          // Show success message
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('${product.name} is now ${!product.available ? 'available' : 'unavailable'}'),
+                backgroundColor: Colors.green,
+              ),
+            );
+          }
+          // Refresh the menu items to show updated data
+          _menuItemsBloc.add(const RefreshMenuItemsEvent());
+        } else {
+          throw Exception(responseData['message'] ?? 'Failed to update product availability');
+        }
+      } else {
+        throw Exception('Failed to update product availability. Status: ${response.statusCode}');
+      }
+    } catch (e) {
+      debugPrint('Error toggling product availability: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to update availability: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  // Delete product using DELETE API
+  Future<void> _deleteProduct(Product product) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('token');
+      final partnerId = prefs.getString('user_id');
+      
+      if (token == null || partnerId == null) {
+        throw Exception('Authentication information not found. Please login again.');
+      }
+      
+      final url = Uri.parse('${ApiConstants.baseUrl}/partner/delete-product');
+      
+      final body = {
+        'partner_id': partnerId,
+        'product_id': product.productId,
+      };
+      
+      debugPrint('🔍 Deleting product: ${product.name}');
+      debugPrint('🔍 Request body: ${json.encode(body)}');
+      
+      final response = await http.delete(
+        url,
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+        body: json.encode(body),
+      );
+      
+      debugPrint('🔍 Delete response status: ${response.statusCode}');
+      debugPrint('🔍 Delete response body: ${response.body}');
+      
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final responseData = json.decode(response.body);
+        if (responseData['status'] == 'SUCCESS') {
+          // Show success message
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('${product.name} has been deleted successfully'),
+                backgroundColor: Colors.green,
+              ),
+            );
+          }
+          // Refresh the menu items to show updated data
+          _menuItemsBloc.add(const RefreshMenuItemsEvent());
+        } else {
+          throw Exception(responseData['message'] ?? 'Failed to delete product');
+        }
+      } else {
+        throw Exception('Failed to delete product. Status: ${response.statusCode}');
+      }
+    } catch (e) {
+      debugPrint('Error deleting product: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to delete product: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
   // Check if current supercategory is Food
   Future<bool> _isFoodSupercategory() async {
     try {
+      // Get the current state to check if we're showing products or menu items
+      final currentState = _menuItemsBloc.state;
+      if (currentState is MenuItemsLoaded) {
+        // Use the same logic as the bloc to determine supercategory
+        return currentState.isFoodSupercategory;
+      }
+      
+      // Fallback: check supercategory from token service
       final supercategoryId = await TokenService.getSupercategoryId();
       final prefs = await SharedPreferences.getInstance();
       final supercategoryName = prefs.getString('supercategory_name');
+      
+      debugPrint('🔍 View _isFoodSupercategory - ID: $supercategoryId, Name: $supercategoryName');
       
       // Check if it's Food by ID or name
       return supercategoryId == '7acc47a2fa5a4eeb906a753b3' || 
@@ -111,14 +262,14 @@ class _EditMenuViewState extends State<EditMenuView> {
   }
 
   // Navigate to appropriate edit page based on supercategory
-  Future<void> _navigateToEditPage(dynamic menuItem) async {
+  Future<void> _navigateToEditPage(dynamic item) async {
     final isFood = await _isFoodSupercategory();
     
     if (isFood) {
       // For Food supercategory, use regular EditProductView
       Navigator.of(context).push(
         MaterialPageRoute(
-          builder: (_) => EditProductView(menuItem: menuItem),
+          builder: (_) => EditProductView(menuItem: item),
         ),
       ).then((result) {
         // Refresh menu items when returning from edit screen if result is true
@@ -127,10 +278,10 @@ class _EditMenuViewState extends State<EditMenuView> {
         }
       });
     } else {
-      // For non-Food supercategories, use UpdateProductFromCatalogScreen
+      // For non-Food supercategories, use UpdateProductFromCatalogScreen with product details
       Navigator.of(context).push(
         MaterialPageRoute(
-          builder: (_) => const UpdateProductFromCatalogScreen(),
+          builder: (_) => UpdateProductFromCatalogScreen(product: item),
         ),
       ).then((result) {
         // Refresh menu items when returning from edit screen if result is true
@@ -236,13 +387,18 @@ class _EditMenuViewState extends State<EditMenuView> {
                 ),
               ),
               const SizedBox(width: 12),
-              const Text(
-                'Menu Items',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87,
-                ),
+              BlocBuilder<MenuItemsBloc, MenuItemsState>(
+                builder: (context, state) {
+                  final isFoodSupercategory = state is MenuItemsLoaded ? state.isFoodSupercategory : true;
+                  return Text(
+                    isFoodSupercategory ? 'Menu Items' : 'Products',
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                    ),
+                  );
+                },
               ),
             ],
           ),
@@ -262,7 +418,7 @@ class _EditMenuViewState extends State<EditMenuView> {
                   child: TextField(
                     controller: _searchController,
                     decoration: InputDecoration(
-                      hintText: 'Search menu items',
+                      hintText: 'Search items',
                       prefixIcon: const Icon(Icons.search, color: Colors.grey),
                       border: InputBorder.none,
                       contentPadding: const EdgeInsets.symmetric(vertical: 12),
@@ -288,17 +444,22 @@ class _EditMenuViewState extends State<EditMenuView> {
             ],
           ),
         ),
-        // Veg/NonVeg Filter Toggles
-        Container(
-          height: 60,
-          color: Colors.white,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          child: BlocBuilder<MenuItemsBloc, MenuItemsState>(
-            builder: (context, state) {
-              final showVegOnly = state is MenuItemsLoaded ? state.showVegOnly : false;
-              final showNonVegOnly = state is MenuItemsLoaded ? state.showNonVegOnly : false;
-              
-              return Row(
+        // Veg/NonVeg Filter Toggles - Only show for food supercategories
+        BlocBuilder<MenuItemsBloc, MenuItemsState>(
+          builder: (context, state) {
+            final isFoodSupercategory = state is MenuItemsLoaded ? state.isFoodSupercategory : true;
+            if (!isFoodSupercategory) {
+              return const SizedBox.shrink(); // Hide for non-food supercategories
+            }
+            
+            final showVegOnly = state is MenuItemsLoaded ? state.showVegOnly : false;
+            final showNonVegOnly = state is MenuItemsLoaded ? state.showNonVegOnly : false;
+            
+            return Container(
+              height: 60,
+              color: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Row(
                 children: [
                   // Veg Toggle
                   Expanded(
@@ -400,9 +561,9 @@ class _EditMenuViewState extends State<EditMenuView> {
                     ),
                   ),
                 ],
-              );
-            },
-          ),
+              ),
+            );
+          },
         ),
       ],
     );
@@ -589,7 +750,8 @@ class _EditMenuViewState extends State<EditMenuView> {
     if (state is MenuItemsLoading) {
       return const ShimmerProductsContent();
     } else if (state is MenuItemsLoaded) {
-      if (state.menuItems.isEmpty) {
+      final itemsEmpty = state.isFoodSupercategory ? state.menuItems.isEmpty : state.products.isEmpty;
+      if (itemsEmpty) {
         return RefreshIndicator(
           key: _refreshIndicatorKey,
           onRefresh: _handleRefresh,
@@ -604,13 +766,13 @@ class _EditMenuViewState extends State<EditMenuView> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Icon(
-                        Icons.restaurant_menu,
+                        state.isFoodSupercategory ? Icons.restaurant_menu : Icons.inventory_2_outlined,
                         size: 60,
                         color: Colors.grey[400],
                       ),
                       const SizedBox(height: 16),
                       Text(
-                        'No menu items found',
+                        state.isFoodSupercategory ? 'No menu items found' : 'No products found',
                         style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.w500,
@@ -618,18 +780,20 @@ class _EditMenuViewState extends State<EditMenuView> {
                         ),
                       ),
                       const SizedBox(height: 8),
-                      Text(
-                        state.isFiltered && (state.searchQuery?.isNotEmpty ?? false)
-                            ? 'No results found for "${state.searchQuery}". Try a different search.'
-                            : state.isFiltered
-                                ? 'No results found with the current filter.'
-                                : 'Tap the + button to add your first menu item',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey[600],
+                                              Text(
+                          state.isFiltered && (state.searchQuery?.isNotEmpty ?? false)
+                              ? 'No results found for "${state.searchQuery}". Try a different search.'
+                              : state.isFiltered
+                                  ? 'No results found with the current filter.'
+                                  : state.isFoodSupercategory
+                                      ? 'Tap the + button to add your first menu item'
+                                      : 'Tap the + button to add your first product',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey[600],
+                          ),
+                          textAlign: TextAlign.center,
                         ),
-                        textAlign: TextAlign.center,
-                      ),
                       if (state.isFiltered) ...[
                         const SizedBox(height: 16),
                         ElevatedButton(
@@ -720,11 +884,13 @@ class _EditMenuViewState extends State<EditMenuView> {
               key: _refreshIndicatorKey,
               onRefresh: _handleRefresh,
               color: const Color(0xFFE67E22),
-              child: ListView.builder(
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.only(top: 8, bottom: 80),  // Added padding for better spacing
-                itemCount: state.menuItems.length,
-                itemBuilder: (context, index) {
+                          child: ListView.builder(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.only(top: 8, bottom: 80),  // Added padding for better spacing
+              itemCount: state.isFoodSupercategory ? state.menuItems.length : state.products.length,
+              itemBuilder: (context, index) {
+                if (state.isFoodSupercategory) {
+                  // Show menu items for food supercategory
                   final menuItem = state.menuItems[index];
                   return MenuItemCard(
                     menuItem: menuItem,
@@ -773,8 +939,66 @@ class _EditMenuViewState extends State<EditMenuView> {
                       );
                     },
                   );
-                },
-              ),
+                } else {
+                  // Show products for non-food supercategory
+                  final product = state.products[index];
+                  return ProductCard(
+                    product: product,
+                    onToggleAvailability: () {
+                      // Implement product availability toggle using the same PUT API
+                      _toggleProductAvailability(product);
+                    },
+                    onEdit: () {
+                      // Navigate to update product from catalog screen with product details
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => UpdateProductFromCatalogScreen(product: product),
+                        ),
+                      ).then((result) {
+                        // Refresh products when returning from edit screen if result is true
+                        if (result == true) {
+                          _menuItemsBloc.add(const RefreshMenuItemsEvent());
+                        }
+                      });
+                    },
+                    onDelete: () {
+                      // Show confirmation dialog before deleting
+                      showDialog(
+                        context: context,
+                        builder: (dialogContext) => AlertDialog(
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          title: const Text('Delete Product'),
+                          content: Text(
+                              'Are you sure you want to delete "${product.name}"?'),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.of(dialogContext).pop(),
+                              child: const Text(
+                                'Cancel',
+                                style: TextStyle(color: Colors.grey),
+                              ),
+                            ),
+                            TextButton(
+                              onPressed: () {
+                                Navigator.of(dialogContext).pop();
+                                // Implement product deletion
+                                _deleteProduct(product);
+                              },
+                              child: const Text(
+                                'Delete',
+                                style: TextStyle(color: Colors.red),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  );
+                }
+              },
+            ),
             ),
           ),
         ],
@@ -844,17 +1068,36 @@ class _EditMenuViewState extends State<EditMenuView> {
           ),
         ],
       ),
-      child: FloatingActionButton(
-        onPressed: () {
-          _menuItemsBloc.add(const AddNewMenuItemEvent());
+      child: BlocBuilder<MenuItemsBloc, MenuItemsState>(
+        builder: (context, state) {
+          final isFoodSupercategory = state is MenuItemsLoaded ? state.isFoodSupercategory : true;
+          return FloatingActionButton(
+            onPressed: () {
+              if (isFoodSupercategory) {
+                _menuItemsBloc.add(const AddNewMenuItemEvent());
+              } else {
+                // Navigate to add product from catalog screen
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const AddProductFromCatalogScreen(),
+                  ),
+                ).then((result) {
+                  // Refresh products when returning from add screen if result is true
+                  if (result == true) {
+                    _menuItemsBloc.add(const RefreshMenuItemsEvent());
+                  }
+                });
+              }
+            },
+            backgroundColor: const Color(0xFFE67E22),
+            elevation: 0,
+            child: const Icon(
+              Icons.add,
+              color: Colors.white,
+              size: 32,
+            ),
+          );
         },
-        backgroundColor: const Color(0xFFE67E22),
-        elevation: 0,
-        child: const Icon(
-          Icons.add,
-          color: Colors.white,
-          size: 32,
-        ),
       ),
     );
   }
