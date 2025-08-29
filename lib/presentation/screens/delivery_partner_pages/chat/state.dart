@@ -3,6 +3,7 @@
 import 'package:equatable/equatable.dart';
 import '../../../../services/menu_item_service.dart';
 import '../../../../utils/time_utils.dart';
+import 'package:flutter/foundation.dart'; // Added for debugPrint
 
 abstract class DeliveryPartnerChatState extends Equatable {
   const DeliveryPartnerChatState();
@@ -244,6 +245,15 @@ class OrderDetails {
   });
 
   factory OrderDetails.fromJson(Map<String, dynamic> json) {
+    debugPrint('DeliveryPartnerChatState: Parsing order details JSON: $json');
+    
+    // Handle different possible field names for total price
+    dynamic totalPrice = json['total_price'] ?? json['total_amount'] ?? json['amount'] ?? 0;
+    dynamic deliveryFees = json['delivery_fees'] ?? json['delivery_fee'] ?? json['delivery_charges'] ?? 0;
+    
+    debugPrint('DeliveryPartnerChatState: Raw total_price: $totalPrice');
+    debugPrint('DeliveryPartnerChatState: Raw delivery_fees: $deliveryFees');
+    
     return OrderDetails(
       orderId: json['order_id'] ?? '',
       userId: json['user_id'] ?? '',
@@ -253,8 +263,8 @@ class OrderDetails {
       items: (json['items'] as List<dynamic>?)
           ?.map((item) => OrderItem.fromJson(item))
           .toList() ?? [],
-      totalAmount: _parseAmount(json['total_price']),
-      deliveryFees: _parseAmount(json['delivery_fees']),
+      totalAmount: _parseAmount(totalPrice),
+      deliveryFees: _parseAmount(deliveryFees),
       orderStatus: json['order_status'] ?? 'UNKNOWN',
       deliveryAddress: json['delivery_address'] ?? json['address'],
       deliveryDate: json['delivery_date'],
@@ -299,12 +309,27 @@ class OrderDetails {
   }
 
   static String _parseAmount(dynamic amount) {
-    if (amount == null) return '0.00';
+    debugPrint('DeliveryPartnerChatState: Parsing amount: $amount (type: ${amount.runtimeType})');
     
-    if (amount is String) return amount;
-    if (amount is double) return amount.toStringAsFixed(2);
-    if (amount is int) return amount.toStringAsFixed(2);
+    if (amount == null) {
+      debugPrint('DeliveryPartnerChatState: Amount is null, returning 0.00');
+      return '0.00';
+    }
     
+    if (amount is String) {
+      debugPrint('DeliveryPartnerChatState: Amount is string: $amount');
+      return amount;
+    }
+    if (amount is double) {
+      debugPrint('DeliveryPartnerChatState: Amount is double: $amount');
+      return amount.toStringAsFixed(2);
+    }
+    if (amount is int) {
+      debugPrint('DeliveryPartnerChatState: Amount is int: $amount');
+      return amount.toStringAsFixed(2);
+    }
+    
+    debugPrint('DeliveryPartnerChatState: Amount is unknown type, converting to string: ${amount.toString()}');
     return amount.toString();
   }
 
@@ -410,29 +435,49 @@ class OrderItem {
   });
 
   factory OrderItem.fromJson(Map<String, dynamic> json) {
+    debugPrint('DeliveryPartnerChatState: Parsing order item JSON: $json');
+    
+    // Handle different possible field names for item price
+    dynamic itemPrice = json['item_price'] ?? json['price'] ?? json['unit_price'] ?? 0;
+    
+    debugPrint('DeliveryPartnerChatState: Raw item_price: $itemPrice');
+    
     return OrderItem(
       menuId: json['menu_id'] ?? '',
       quantity: json['quantity'] ?? 0,
-      itemPrice: _parsePrice(json['item_price']),
+      itemPrice: _parsePrice(itemPrice),
       attributes: json['attributes'] != null ? Map<String, dynamic>.from(json['attributes']) : null,
     );
   }
 
   static double _parsePrice(dynamic price) {
-    if (price == null) return 0.0;
+    debugPrint('DeliveryPartnerChatState: Parsing price: $price (type: ${price.runtimeType})');
     
-    if (price is double) return price;
-    if (price is int) return price.toDouble();
+    if (price == null) {
+      debugPrint('DeliveryPartnerChatState: Price is null, returning 0.0');
+      return 0.0;
+    }
+    
+    if (price is double) {
+      debugPrint('DeliveryPartnerChatState: Price is double: $price');
+      return price;
+    }
+    if (price is int) {
+      debugPrint('DeliveryPartnerChatState: Price is int: $price');
+      return price.toDouble();
+    }
     if (price is String) {
       try {
-        return double.parse(price);
+        final parsedPrice = double.parse(price);
+        debugPrint('DeliveryPartnerChatState: Price parsed from string: $parsedPrice');
+        return parsedPrice;
       } catch (e) {
-        print('OrderItem: Error parsing price "$price": $e');
+        debugPrint('DeliveryPartnerChatState: Error parsing price "$price": $e');
         return 0.0;
       }
     }
     
-    print('OrderItem: Unknown price type: ${price.runtimeType}');
+    debugPrint('DeliveryPartnerChatState: Unknown price type: ${price.runtimeType}, returning 0.0');
     return 0.0;
   }
 

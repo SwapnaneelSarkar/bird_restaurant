@@ -2,20 +2,17 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../../../services/restaurant_info_service.dart';
 import '../../resources/colors.dart';
 import '../../resources/font.dart';
-import '../homePage/sidebar/sidebar_drawer.dart';
-import '../../resources/router/router.dart';
 
-class TermsConditionsView extends StatefulWidget {
-  const TermsConditionsView({Key? key}) : super(key: key);
+class TermsConditionsView2 extends StatefulWidget {
+  const TermsConditionsView2({Key? key}) : super(key: key);
 
   @override
-  State<TermsConditionsView> createState() => _TermsConditionsViewState();
+  State<TermsConditionsView2> createState() => _TermsConditionsViewState();
 }
 
-class _TermsConditionsViewState extends State<TermsConditionsView>
+class _TermsConditionsViewState extends State<TermsConditionsView2>
     with TickerProviderStateMixin {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   late AnimationController _animationController;
@@ -61,28 +58,16 @@ class _TermsConditionsViewState extends State<TermsConditionsView>
 
     return WillPopScope(
       onWillPop: () async {
-        Navigator.of(context).pushNamedAndRemoveUntil(Routes.homePage, (route) => false);
+        Navigator.of(context).pop();
         return false;
       },
       child: Scaffold(
         key: _scaffoldKey,
         backgroundColor: ColorManager.background,
-        drawer: FutureBuilder<Map<String, String>>(
-          future: RestaurantInfoService.getRestaurantInfo(),
-          builder: (context, snapshot) {
-            final info = snapshot.data ?? {};
-            return SidebarDrawer(
-              activePage: 'terms',
-              restaurantName: info['name'],
-              restaurantSlogan: info['slogan'],
-              restaurantImageUrl: info['imageUrl'],
-            );
-          },
-        ),
         body: SafeArea(
           child: Column(
             children: [
-              // Custom App Bar with sidebar and title
+              // Custom App Bar with back button and title
               _buildCustomAppBar(),
               
               // Content
@@ -122,9 +107,9 @@ class _TermsConditionsViewState extends State<TermsConditionsView>
       ),
       child: Row(
         children: [
-          // Sidebar menu button
+          // Back button
           GestureDetector(
-            onTap: () => _scaffoldKey.currentState?.openDrawer(),
+            onTap: () => Navigator.of(context).pop(),
             child: Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
@@ -132,7 +117,7 @@ class _TermsConditionsViewState extends State<TermsConditionsView>
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(
-                Icons.menu,
+                Icons.arrow_back,
                 color: ColorManager.primary,
                 size: 24,
               ),

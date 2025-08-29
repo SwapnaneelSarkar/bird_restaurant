@@ -212,6 +212,13 @@ class RestaurantDetailsBloc
     // Set isAttemptedSubmit to true regardless of validation state
     emit(state.copyWith(isAttemptedSubmit: true));
     
+    // Validate restaurant name character limit
+    if (state.name.length > 30) {
+      debugPrint('Restaurant name exceeds 30 character limit: ${state.name.length} characters');
+      // Don't proceed with navigation, just show validation error
+      return;
+    }
+    
     if (state.isFormValid) {
       debugPrint('Form Data:');
       debugPrint('Name: ${state.name}');
@@ -433,6 +440,7 @@ class RestaurantDetailsBloc
     final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
     
     return name.isNotEmpty &&
+        name.length <= 30 &&
         address.isNotEmpty &&
         email.isNotEmpty &&
         emailRegex.hasMatch(email) &&

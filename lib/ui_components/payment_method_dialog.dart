@@ -114,7 +114,7 @@ class PaymentMethodDialog extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
-                      side: BorderSide(color: ColorManager.grey.withOpacity(0.3)),
+                      side: BorderSide(color: ColorManager.signUpRed.withOpacity(0.8)),
                     ),
                   ),
                   child: Text(
@@ -122,7 +122,7 @@ class PaymentMethodDialog extends StatelessWidget {
                     style: TextStyle(
                       fontSize: FontSize.s16,
                       fontWeight: FontWeightManager.medium,
-                      color: ColorManager.grey,
+                      color: ColorManager.signUpRed,
                     ),
                   ),
                 ),

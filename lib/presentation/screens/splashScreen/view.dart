@@ -24,7 +24,6 @@ class _SplashViewState extends State<SplashView> with TickerProviderStateMixin {
   // Animation controllers - reduced complexity
   late final AnimationController _logoAnimationController;
   late final AnimationController _textAnimationController;
-  late final AnimationController _loadingAnimationController;
   late final AnimationController _gradientController;
   late final Animation<Color?> _gradientColor1;
   late final Animation<Color?> _gradientColor2;
@@ -32,8 +31,6 @@ class _SplashViewState extends State<SplashView> with TickerProviderStateMixin {
   late final Animation<double> _glowAnimation;
   late final AnimationController _typewriterController;
   int _typewriterLength = 0;
-  late final AnimationController _underlineController;
-  late final Animation<double> _underlineAnimation;
   late final AnimationController _versionController;
   late final Animation<Offset> _versionOffset;
   
@@ -42,7 +39,6 @@ class _SplashViewState extends State<SplashView> with TickerProviderStateMixin {
   late Animation<double> _logoOpacityAnimation;
   late Animation<double> _textOpacityAnimation;
   late Animation<Offset> _textSlideAnimation;
-  late Animation<double> _loadingOpacityAnimation;
   
   // Performance monitoring
   late Timer _performanceTimer;
@@ -128,18 +124,7 @@ class _SplashViewState extends State<SplashView> with TickerProviderStateMixin {
         ),
       );
       
-      // Initialize loading animation
-      _loadingAnimationController = AnimationController(
-        vsync: this,
-        duration: const Duration(milliseconds: 800),
-      );
-      
-      _loadingOpacityAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-        CurvedAnimation(
-          parent: _loadingAnimationController,
-          curve: Curves.easeIn,
-        ),
-      );
+
       
       // Animated gradient background
       _gradientController = AnimationController(
@@ -183,22 +168,6 @@ class _SplashViewState extends State<SplashView> with TickerProviderStateMixin {
       });
       
       _typewriterController.forward();
-      
-      // Animated underline for slogan
-      _underlineController = AnimationController(
-        vsync: this,
-        duration: const Duration(milliseconds: 900),
-      );
-      
-      _underlineAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-        CurvedAnimation(parent: _underlineController, curve: Curves.easeOutCubic)
-      );
-      
-      Future.delayed(const Duration(milliseconds: 900), () {
-        if (!_isDisposed) {
-          _underlineController.forward();
-        }
-      });
       
       // Version animation
       _versionController = AnimationController(
@@ -267,12 +236,7 @@ class _SplashViewState extends State<SplashView> with TickerProviderStateMixin {
         }
       });
       
-      // Start loading animation after text
-      Future.delayed(const Duration(milliseconds: 1400), () {
-        if (!_isDisposed) {
-          _loadingAnimationController.forward();
-        }
-      });
+
     } catch (e) {
       developer.log('❌ Error in animation sequence: $e', name: 'BirdRestaurant');
     }
@@ -286,11 +250,9 @@ class _SplashViewState extends State<SplashView> with TickerProviderStateMixin {
     try {
       _logoAnimationController.dispose();
       _textAnimationController.dispose();
-      _loadingAnimationController.dispose();
       _gradientController.dispose();
       _glowController.dispose();
       _typewriterController.dispose();
-      _underlineController.dispose();
       _versionController.dispose();
       _performanceTimer.cancel();
     } catch (e) {
@@ -566,41 +528,19 @@ class _SplashViewState extends State<SplashView> with TickerProviderStateMixin {
                   ),
                 ),
                 const SizedBox(height: 10),
-                // Animated slogan with underline
+                // Animated slogan
                 FadeTransition(
                   opacity: _textOpacityAnimation,
                   child: SlideTransition(
                     position: _textSlideAnimation,
-                    child: Column(
-                      children: [
-                        Text(
-                          'Delivering Excellence',
-                          style: GoogleFonts.poppins(
-                            color: Colors.grey[700] ?? Colors.grey,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w300,
-                            letterSpacing: 1.5,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        AnimatedBuilder(
-                          animation: _underlineAnimation,
-                          builder: (context, child) {
-                            return Align(
-                              alignment: Alignment.centerLeft,
-                              child: Container(
-                                margin: const EdgeInsets.only(top: 2),
-                                height: 3,
-                                width: 160 * _underlineAnimation.value,
-                                decoration: BoxDecoration(
-                                  color: ColorManager.primary,
-                                  borderRadius: BorderRadius.circular(2),
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                      ],
+                    child: Text(
+                      'Delivering Excellence',
+                      style: GoogleFonts.poppins(
+                        color: Colors.grey[700] ?? Colors.grey,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w300,
+                        letterSpacing: 1.5,
+                      ),
                     ),
                   ),
                 ),
@@ -623,48 +563,15 @@ class _SplashViewState extends State<SplashView> with TickerProviderStateMixin {
                     ),
                   ),
                 ),
-                const SizedBox(height: 40),
-                FadeTransition(
-                  opacity: _loadingOpacityAnimation,
-                  child: Column(
-                    children: [
-                      Container(
-                        height: 50,
-                        width: 120,
-                        padding: const EdgeInsets.symmetric(vertical: 10),
-                        decoration: BoxDecoration(
-                          color: ColorManager.primary.withOpacity(0.08),
-                          borderRadius: BorderRadius.circular(25),
-                        ),
-                        child: DotPulseLoader(
-                          dotSize: 10,
-                          color: ColorManager.primary,
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                      TextLoadingAnimation(
-                        text: 'LOADING',
-                        style: TextStyle(
-                          color: ColorManager.primary,
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 3,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+
                 const SizedBox(height: 50),
                 SlideTransition(
                   position: _versionOffset,
-                  child: FadeTransition(
-                    opacity: _loadingOpacityAnimation,
-                    child: Text(
-                      'v1.0.0',
-                      style: GoogleFonts.poppins(
-                        color: Colors.grey[400] ?? Colors.grey,
-                        fontSize: 12,
-                      ),
+                  child: Text(
+                    'v1.0.0',
+                    style: GoogleFonts.poppins(
+                      color: Colors.grey[400] ?? Colors.grey,
+                      fontSize: 12,
                     ),
                   ),
                 ),

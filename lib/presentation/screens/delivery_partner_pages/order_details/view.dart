@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:maps_launcher/maps_launcher.dart';
 import '../../../../services/delivery_partner_services/delivery_partner_orders_service.dart';
+import '../../../../services/restaurant_details_service.dart';
 import '../../../resources/colors.dart';
 import '../../../resources/font.dart';
 import 'package:intl/intl.dart';
@@ -969,6 +970,19 @@ class _DeliveryPartnerOrderDetailsViewState extends State<DeliveryPartnerOrderDe
                                     icon: Icons.phone,
                                     iconColor: Colors.orange[700]!,
                                   ),
+                                  // Cooking Time - Only for Food Stores
+                                  if (restaurant['cooking_time'] != null && 
+                                      restaurant['cooking_time'].toString().isNotEmpty &&
+                                      (restaurant['supercategory_id'] == "7acc47a2fa5a4eeb906a753b3" || 
+                                       restaurant['supercategory_name']?.toString().toLowerCase() == "food")) ...[
+                                    const Divider(height: 24),
+                                    _DetailRow(
+                                      label: 'Average Cooking Time',
+                                      value: '${restaurant['cooking_time']} minutes',
+                                      icon: Icons.timer,
+                                      iconColor: Colors.purple[700]!,
+                                    ),
+                                  ],
                                 ],
                               );
                             }

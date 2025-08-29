@@ -4,6 +4,12 @@ All notable changes to the Bird Partner app will be documented in this file.
 
 ## [3.0.10] - 2024-12-19
 
+### 🔄 Version Update for Play Store
+- **Build Number**: Updated to version code 16 for Play Store release
+- **Version**: 3.0.10+15 (pubspec) / 3.0.10 (versionName) / 16 (versionCode)
+
+## [3.0.10] - 2024-12-19
+
 ### 🐛 Fixed
 - **Image Cropping Issues**: Fixed critical bug where the wrong portion of images was being selected during cropping
   - Corrected coordinate transformation logic for accurate image cropping
@@ -61,7 +67,8 @@ All notable changes to the Bird Partner app will be documented in this file.
 - **Version Code**: Internal build number for app stores (e.g., 15)
 
 ### Version History
-- 3.0.10+14: Current release with image cropping fixes
+- 3.0.10+15: Current release with image cropping fixes (Play Store build 16)
+- 3.0.10+14: Previous release with image cropping fixes
 - 3.0.9+13: Previous release
 - Earlier versions: Restaurant management app development
 

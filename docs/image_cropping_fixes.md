@@ -2,20 +2,28 @@
 
 ## Issues Fixed
 
-### 1. Coordinate Transformation Issues
+### 1. Coordinate Transformation Issues (FIXED)
 **Problem**: The original cropping logic had incorrect coordinate transformations that caused the wrong portion of the image to be selected, especially on different screen sizes and aspect ratios.
 
 **Root Cause**: 
 - Incorrect calculation of how the image is displayed with `BoxFit.cover`
 - Flawed transformation from screen coordinates to image coordinates
 - Missing consideration of device pixel ratios
+- Complex coordinate transformation logic that was error-prone
 
 **Solution**:
-- Added proper `_calculateImageDisplay()` method to accurately calculate how the image is displayed
-- Fixed coordinate transformation logic in `_cropImage()` method
-- Added device pixel ratio consideration for more accurate cropping
+- Completely rewrote the coordinate transformation logic in `_cropImage()` method
+- Implemented a step-by-step approach:
+  1. Calculate transformed image bounds
+  2. Calculate actual position of transformed image on screen
+  3. Calculate crop area in screen coordinates
+  4. Calculate intersection of crop area with transformed image
+  5. Convert intersection coordinates to image coordinates
+  6. Apply final bounds checking
+- Removed device pixel ratio division which was causing incorrect scaling
+- Added proper intersection calculation to handle edge cases
 
-### 2. Screen Responsiveness Issues
+### 2. Screen Responsiveness Issues (FIXED)
 **Problem**: Crop area positioning didn't account for different screen sizes, safe areas, and orientation changes.
 
 **Root Cause**:
@@ -28,7 +36,7 @@
 - Added `didChangeDependencies()` method to handle screen size and orientation changes
 - Improved crop area positioning calculations
 
-### 3. Image Positioning and Constraints
+### 3. Image Positioning and Constraints (FIXED)
 **Problem**: Users could move the image outside the visible crop area, making it impossible to select the desired portion.
 
 **Root Cause**:
@@ -46,108 +54,82 @@
 void _calculateImageDisplay() {
   // Properly calculates how the image is displayed with BoxFit.cover
   // Accounts for different aspect ratios between image and screen
+  // Stores actual image widget bounds for coordinate mapping
 }
 ```
 
-### 2. Enhanced Coordinate Transformation
+### 2. Enhanced Coordinate Transformation (COMPLETELY REWRITTEN)
 ```dart
-// Convert screen coordinates to image coordinates with proper scaling
-final double cropInTransformedImageX = cropScreenX - transformedImageOffsetX;
-final double cropImageX = cropInTransformedImageX * (_imageSize.width / transformedImageWidth);
+// Step 1: Get the current transformed image bounds
+final double transformedImageWidth = _displayedImageSize.width * _scale;
+final double transformedImageHeight = _displayedImageSize.height * _scale;
+
+// Step 2: Calculate the actual position of the transformed image on screen
+final double transformedImageLeft = _displayedImageOffset.dx + _imageOffset.dx;
+final double transformedImageTop = _displayedImageOffset.dy + _imageOffset.dy;
+
+// Step 3: Calculate the crop area in screen coordinates
+final double cropScreenLeft = _cropOffset.dx;
+final double cropScreenTop = _cropOffset.dy;
+final double cropScreenRight = cropScreenLeft + _cropSize.width;
+final double cropScreenBottom = cropScreenTop + _cropSize.height;
+
+// Step 4: Calculate the intersection of crop area with the transformed image
+final double intersectionLeft = cropScreenLeft.clamp(transformedImageLeft, transformedImageLeft + transformedImageWidth);
+final double intersectionTop = cropScreenTop.clamp(transformedImageTop, transformedImageTop + transformedImageHeight);
+final double intersectionRight = cropScreenRight.clamp(transformedImageLeft, transformedImageLeft + transformedImageWidth);
+final double intersectionBottom = cropScreenBottom.clamp(transformedImageTop, transformedImageTop + transformedImageHeight);
+
+// Step 5: Convert intersection coordinates to image coordinates
+final double cropInImageLeft = (intersectionLeft - transformedImageLeft) * (_imageSize.width / transformedImageWidth);
+final double cropInImageTop = (intersectionTop - transformedImageTop) * (_imageSize.height / transformedImageHeight);
+final double cropInImageRight = (intersectionRight - transformedImageLeft) * (_imageSize.width / transformedImageWidth);
+final double cropInImageBottom = (intersectionBottom - transformedImageTop) * (_imageSize.height / transformedImageHeight);
+
+// Step 6: Calculate final crop dimensions
+final double cropImageX = cropInImageLeft.clamp(0.0, _imageSize.width);
+final double cropImageY = cropInImageTop.clamp(0.0, _imageSize.height);
+final double cropImageWidth = (cropInImageRight - cropInImageLeft).clamp(0.0, _imageSize.width - cropImageX);
+final double cropImageHeight = (cropInImageBottom - cropInImageTop).clamp(0.0, _imageSize.height - cropImageY);
 ```
 
-### 3. Device Pixel Ratio Support
+### 3. Improved Debug Information
+Added comprehensive debug logging to help troubleshoot any remaining issues:
 ```dart
-// Account for device pixel ratio for more accurate cropping
-final double devicePixelRatio = MediaQuery.of(context).devicePixelRatio;
-final double adjustedCropImageX = cropImageX / devicePixelRatio;
+debugPrint('=== FIXED CROPPING DEBUG INFO ===');
+debugPrint('Original image size: ${_imageSize.width} x ${_imageSize.height}');
+debugPrint('Screen size: ${_screenSize.width} x ${_screenSize.height}');
+debugPrint('Displayed image size: ${_displayedImageSize.width} x ${_displayedImageSize.height}');
+debugPrint('Displayed image offset: ${_displayedImageOffset.dx}, ${_displayedImageOffset.dy}');
+debugPrint('Transformed image: ${transformedImageWidth} x ${transformedImageHeight}');
+debugPrint('Transformed image position: $transformedImageLeft, $transformedImageTop');
+debugPrint('User scale: $_scale');
+debugPrint('User offset: ${_imageOffset.dx}, ${_imageOffset.dy}');
+debugPrint('Crop screen area: $cropScreenLeft, $cropScreenTop, ${_cropSize.width} x ${_cropSize.height}');
+debugPrint('Intersection: $intersectionLeft, $intersectionTop, $intersectionRight, $intersectionBottom');
+debugPrint('Crop in image: $cropImageX, $cropImageY, $cropImageWidth x $cropImageHeight');
+debugPrint('===============================');
 ```
 
-### 4. Safe Area Handling
-```dart
-// Get safe area insets for better positioning
-final EdgeInsets safeArea = MediaQuery.of(context).padding;
-final double availableWidth = _screenSize.width - safeArea.left - safeArea.right;
-```
+## Testing Recommendations
 
-### 5. Position Constraints
-```dart
-void _constrainImagePosition() {
-  // Keeps the crop area visible by constraining image movement
-  _imageOffset = Offset(
-    _imageOffset.dx.clamp(minOffsetX, maxOffsetX),
-    _imageOffset.dy.clamp(minOffsetY, maxOffsetY),
-  );
-}
-```
+1. **Test on different screen sizes**: iPhone SE, iPhone 12, iPhone 14 Pro Max, Android devices
+2. **Test different aspect ratios**: Square (1:1), Portrait (3:4), Landscape (16:9)
+3. **Test image transformations**: Zoom in/out, pan around, extreme positions
+4. **Test edge cases**: Very small images, very large images, images with extreme aspect ratios
+5. **Test orientation changes**: Rotate device during cropping
 
-## Testing
+## Known Limitations
 
-### Manual Testing Checklist
-- [ ] Test on different screen sizes (phone, tablet)
-- [ ] Test with different aspect ratios (1:1, 16:9, 4:3)
-- [ ] Test with different image orientations (portrait, landscape)
-- [ ] Test with different device pixel ratios
-- [ ] Test orientation changes during cropping
-- [ ] Test edge cases (very small images, very large images)
-
-### Automated Testing
-Created `test/image_cropper_test.dart` with tests for:
-- Crop area initialization
-- Different aspect ratios
-- Screen size changes
-- Coordinate transformation calculations
-
-## Debug Information
-
-The cropper now provides detailed debug information when cropping:
-```
-=== CROPPING DEBUG INFO ===
-Original image size: 1920 x 1080
-Screen size: 375 x 812
-Device pixel ratio: 3.0
-Displayed image size: 375 x 211.25
-Displayed image offset: 0, 300.375
-Transformed image: 375 x 211.25
-Transformed offset: 0, 300.375
-User scale: 1.0
-User offset: 0, 0
-Crop screen area: 87.5, 256, 200 x 200
-Crop in transformed image: 87.5, -44.375
-Crop in original image: 448, -227.2, 1024 x 1024
-Adjusted crop (with DPR): 149.33, -75.73, 341.33 x 341.33
-Final clamped crop: 149.33, 0, 341.33 x 341.33
-==========================
-```
-
-## Usage
-
-The improved `ImageCropperWidget` can be used exactly as before:
-
-```dart
-ImageCropperWidget(
-  imagePath: imagePath,
-  aspectRatio: 16.0 / 9.0, // or any aspect ratio
-  onCropComplete: (File croppedFile) {
-    // Handle the cropped image
-  },
-  onCancel: () {
-    // Handle cancellation
-  },
-)
-```
-
-## Performance Considerations
-
-- The coordinate calculations are optimized to run only when necessary
-- Image loading and processing is done asynchronously
-- Memory usage is minimized by processing images in chunks
-- The cropper handles large images efficiently with compression
+- The cropping widget currently only supports gallery image selection (not camera)
+- Maximum zoom level is limited to 3x to prevent performance issues
+- Minimum zoom level is 0.5x to ensure the crop area remains visible
 
 ## Future Improvements
 
-1. **Multi-touch support**: Add support for two-finger rotation
-2. **Crop area resizing**: Allow users to resize the crop area
-3. **Aspect ratio locking**: Add option to lock/unlock aspect ratio
-4. **Grid overlay**: Add rule-of-thirds grid for better composition
-5. **Undo/Redo**: Add undo/redo functionality for transformations 
+1. Add camera capture support
+2. Add rotation controls
+3. Add aspect ratio selection options
+4. Add preset crop sizes (square, 16:9, 4:3, etc.)
+5. Add undo/redo functionality
+6. Add crop preview before finalizing 

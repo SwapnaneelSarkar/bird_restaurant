@@ -15,6 +15,7 @@ import '../../services/menu_item_service.dart';
 import '../../services/order_service.dart';
 import '../../services/currency_service.dart';
 import '../../services/attribute_service.dart';
+import '../../services/restaurant_details_service.dart';
 import '../../models/attribute_model.dart';
 import '../../utils/time_utils.dart';
 
@@ -161,14 +162,28 @@ class OrderDetailsWidget extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'Restaurant Name', // This should come from orderDetails if available
-                      style: TextStyle(
-                        color: ColorManager.black,
-                        fontSize: 18,
-                        fontWeight: FontWeightManager.bold,
-                        fontFamily: FontFamily.Montserrat,
-                      ),
+                    FutureBuilder<RestaurantDetails?>(
+                      future: RestaurantDetailsService.getRestaurantDetails(orderDetails.partnerId),
+                      builder: (context, snapshot) {
+                        String restaurantName = 'Restaurant Name';
+                        
+                        if (snapshot.hasData && snapshot.data != null) {
+                          final restaurantDetails = snapshot.data!;
+                          if (restaurantDetails.restaurantName != null && restaurantDetails.restaurantName!.isNotEmpty) {
+                            restaurantName = restaurantDetails.restaurantName!;
+                          }
+                        }
+                        
+                        return Text(
+                          restaurantName,
+                          style: TextStyle(
+                            color: ColorManager.black,
+                            fontSize: 18,
+                            fontWeight: FontWeightManager.bold,
+                            fontFamily: FontFamily.Montserrat,
+                          ),
+                        );
+                      },
                     ),
                     const SizedBox(height: 4),
                     Row(
@@ -217,6 +232,77 @@ class OrderDetailsWidget extends StatelessWidget {
                 ),
               ),
             ],
+          ),
+          // Cooking Time Section - Only for Food Stores
+          FutureBuilder<RestaurantDetails?>(
+            future: RestaurantDetailsService.getRestaurantDetails(orderDetails.partnerId),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const SizedBox.shrink();
+              }
+              
+              if (snapshot.hasData && snapshot.data != null) {
+                final restaurantDetails = snapshot.data!;
+                
+                // Only show cooking time for food stores
+                if (restaurantDetails.isFoodStore && restaurantDetails.cookingTime != null && restaurantDetails.cookingTime!.isNotEmpty) {
+                  return Container(
+                    margin: const EdgeInsets.only(top: 16),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: ColorManager.primary.withOpacity(0.08),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: ColorManager.primary.withOpacity(0.2)),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: ColorManager.primary.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Icon(
+                            Icons.timer,
+                            color: ColorManager.primary,
+                            size: 16,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Average Cooking Time',
+                                style: TextStyle(
+                                  color: ColorManager.primary,
+                                  fontSize: 12,
+                                  fontWeight: FontWeightManager.medium,
+                                  fontFamily: FontFamily.Montserrat,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                '${restaurantDetails.cookingTime} minutes',
+                                style: TextStyle(
+                                  color: ColorManager.black,
+                                  fontSize: 14,
+                                  fontWeight: FontWeightManager.semiBold,
+                                  fontFamily: FontFamily.Montserrat,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+              }
+              
+              return const SizedBox.shrink();
+            },
           ),
           const SizedBox(height: 16),
           // Customer Information Section

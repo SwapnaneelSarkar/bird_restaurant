@@ -397,38 +397,19 @@ class DeliveryPartnerChatBloc extends Bloc<DeliveryPartnerChatEvent, DeliveryPar
   // Helper method to fetch order details
   Future<Map<String, dynamic>?> _fetchOrderDetails(String orderId) async {
     try {
-      final token = await DeliveryPartnerAuthService.getDeliveryPartnerToken();
-      if (token == null) {
-        debugPrint('DeliveryPartnerChatBloc: ❌ No token available for fetching order details');
+      debugPrint('DeliveryPartnerChatBloc: 📋 Fetching order details for order: $orderId');
+      
+      final result = await DeliveryPartnerOrdersService.fetchOrderDetailsById(orderId);
+      
+      debugPrint('DeliveryPartnerChatBloc: 📋 Order details result: $result');
+      
+      if (result['success'] == true && result['data'] != null) {
+        debugPrint('DeliveryPartnerChatBloc: ✅ Order details fetched successfully');
+        return result['data'];
+      } else {
+        debugPrint('DeliveryPartnerChatBloc: ❌ Order details fetch failed: ${result['message']}');
         return null;
       }
-      
-      final url = 'https://api.bird.delivery/api/delivery-partner/orders/$orderId';
-      debugPrint('DeliveryPartnerChatBloc: 📋 Fetching order details from: $url');
-      
-      final response = await http.get(
-        Uri.parse(url),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-        },
-      );
-      
-      debugPrint('DeliveryPartnerChatBloc: 📋 Order details response status: ${response.statusCode}');
-      debugPrint('DeliveryPartnerChatBloc: 📋 Order details response body: ${response.body}');
-      
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        if (data['status'] == 'SUCCESS' && data['data'] != null) {
-          debugPrint('DeliveryPartnerChatBloc: ✅ Order details fetched successfully');
-          return data['data'];
-        } else {
-          debugPrint('DeliveryPartnerChatBloc: ❌ Order details API returned non-success status: ${data['status']}');
-        }
-      } else {
-        debugPrint('DeliveryPartnerChatBloc: ❌ Order details API returned error status: ${response.statusCode}');
-      }
-      return null;
     } catch (e) {
       debugPrint('DeliveryPartnerChatBloc: ❌ Error fetching order details: $e');
       return null;

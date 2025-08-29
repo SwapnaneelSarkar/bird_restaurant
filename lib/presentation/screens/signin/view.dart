@@ -134,7 +134,7 @@ class LoginView extends StatelessWidget {
                           ),
                           recognizer: TapGestureRecognizer()
                             ..onTap = () {
-                              Navigator.pushNamed(context, Routes.terms);
+                              Navigator.pushNamed(context, Routes.terms2);
                             },
                         ),
                         const TextSpan(text: ' and\n'),
@@ -148,7 +148,7 @@ class LoginView extends StatelessWidget {
                           ),
                           recognizer: TapGestureRecognizer()
                             ..onTap = () {
-                              Navigator.pushNamed(context, Routes.privacy);
+                              Navigator.pushNamed(context, Routes.privacy2);
                             },
                         ),
                       ],

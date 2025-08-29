@@ -33,7 +33,7 @@ android {
         applicationId = "com.birdpartner.app"
         minSdkVersion 23
         targetSdkVersion 35
-        versionCode = 15
+        versionCode = 16
         versionName = "3.0.10"
         multiDexEnabled true
     }

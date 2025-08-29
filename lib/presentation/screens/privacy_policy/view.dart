@@ -436,6 +436,7 @@ Website: www.bird.delivery''',
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Icon(
                 Icons.info_outline,
@@ -443,12 +444,15 @@ Website: www.bird.delivery''',
                 size: 20,
               ),
               const SizedBox(width: 8),
-              Text(
-                'Bird - Better Instant Real-Time Deliveries',
-                style: GoogleFonts.poppins(
-                  fontSize: FontSize.s14,
-                  fontWeight: FontWeightManager.semiBold,
-                  color: ColorManager.primary,
+              Expanded(
+                child: Text(
+                  'Bird - Better Instant Real-Time Deliveries',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.poppins(
+                    fontSize: FontSize.s14,
+                    fontWeight: FontWeightManager.semiBold,
+                    color: ColorManager.primary,
+                  ),
                 ),
               ),
             ],

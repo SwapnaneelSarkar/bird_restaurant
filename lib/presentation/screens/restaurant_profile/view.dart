@@ -28,6 +28,7 @@ import '../../../ui_components/cuisine_card.dart';
 import '../../../ui_components/cuisine_grid.dart';
 import '../../../models/cuisine_model.dart';
 import '../../../services/cuisine_service.dart';
+import '../../../ui_components/country_picker.dart';
 
 class RestaurantProfileView extends StatelessWidget {
   const RestaurantProfileView({Key? key}) : super(key: key);
@@ -92,6 +93,8 @@ class _BodyState extends State<_Body> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final bloc = context.read<RestaurantProfileBloc>();
       bloc.add(CheckLocationPermissionEvent());
+      // Clear any existing error messages when page is loaded
+      bloc.add(ClearSubmissionMessage());
     });
   }
 
@@ -367,6 +370,13 @@ class _BodyState extends State<_Body> {
                           label: 'Owner Name',
                           hintText: 'Enter owner name',
                           onChanged: (v) => bloc.add(OwnerNameChanged(v)),
+                          maxLength: 50,
+                          errorText: st.ownerNameError,
+                          counterText: '${_ownerNameCtrl.text.length}/50',
+                          inputFormatters: [
+                            FilteringTextInputFormatter.deny(RegExp(r'[0-9]')), // Deny numbers
+                            LengthLimitingTextInputFormatter(50), // Limit to 50 characters
+                          ],
                         ),
                         SizedBox(height: vert * .8),
                         // Phone Number with OTP Verification
@@ -397,166 +407,155 @@ class _BodyState extends State<_Body> {
                             ),
                             SizedBox(height: 6),
                                                         // Combined Phone Number Field with Country Code
-                            Row(
-                              children: [
-                                // Country Code Display
-                                Container(
-                                  padding: EdgeInsets.symmetric(horizontal: 12, vertical: 16),
-                                  decoration: BoxDecoration(
-                                    color: st.isPhoneVerified ? Colors.grey.shade100 : Colors.white,
-                                    borderRadius: BorderRadius.horizontal(left: Radius.circular(8)),
-                                    border: Border.all(
-                                      color: st.isPhoneVerified ? Colors.grey.shade300 : Colors.grey.shade400,
-                                      width: st.isPhoneVerified ? 2 : 1,
-                                    ),
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Text(
-                                        st.selectedCountry.flag,
-                                        style: TextStyle(fontSize: 16),
-                                      ),
-                                      SizedBox(width: 6),
-                                      Text(
-                                        st.selectedCountry.dialCode,
-                                        style: TextStyle(
-                                          fontSize: 14,
-                                          fontWeight: FontWeightManager.medium,
-                                          color: st.isPhoneVerified ? Colors.grey.shade500 : Colors.grey.shade700,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
+                                                        Container(
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                  color: ColorManager.grey,
+                                  width: 1,
                                 ),
-                                // Phone Number Input
-                                Expanded(
-                                  child: Stack(
-                                    children: [
-                                      Container(
-                                        decoration: BoxDecoration(
-                                          color: st.isPhoneVerified ? Colors.grey.shade100 : Colors.white,
-                                          borderRadius: BorderRadius.horizontal(right: Radius.circular(8)),
-                                          border: Border.all(
-                                            color: st.isPhoneVerified ? Colors.grey.shade300 : Colors.grey.shade400,
-                                            width: st.isPhoneVerified ? 2 : 1,
+                              ),
+                              child: Row(
+                                children: [
+                                  // Country Code Display with Picker (Always clickable)
+                                  GestureDetector(
+                                    onTap: () => _showCountryPicker(context),
+                                    child: Container(
+                                      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+                                      decoration: BoxDecoration(
+                                        border: Border(
+                                          right: BorderSide(
+                                            color: ColorManager.grey,
+                                            width: 1,
                                           ),
                                         ),
-                                        child: Tooltip(
-                                          message: st.isPhoneVerified 
-                                              ? 'Phone number is verified and protected from changes' 
-                                              : 'Enter your phone number',
-                                          child: CustomTextField(
-                          controller: _ownerMobileCtrl,
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Text(
+                                            st.selectedCountry.flag,
+                                            style: TextStyle(fontSize: 16),
+                                          ),
+                                          SizedBox(width: 6),
+                                          Text(
+                                            st.selectedCountry.dialCode,
+                                            style: TextStyle(
+                                              fontSize: 14,
+                                              fontWeight: FontWeightManager.medium,
+                                              color: Colors.grey.shade700,
+                                            ),
+                                          ),
+                                          SizedBox(width: 4),
+                                          Icon(
+                                            Icons.keyboard_arrow_down,
+                                            size: 16,
+                                            color: Colors.grey.shade700,
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                  // Phone Number Input
+                                  Expanded(
+                                    child: Container(
+                                      padding: EdgeInsets.symmetric(horizontal: 16),
+                                      child: Tooltip(
+                                        message: st.isPhoneVerified 
+                                            ? 'Phone number is verified. You can now edit it.' 
+                                            : 'Verify your phone number first to edit it',
+                                        child: TextField(
+                                          controller: _ownerMobileCtrl,
+                                          enabled: st.isPhoneVerified, // Only enable if phone is verified
+                                          keyboardType: TextInputType.phone,
+                                          inputFormatters: [
+                                            FilteringTextInputFormatter.digitsOnly,
+                                          ],
+                                          style: TextStyle(
+                                            fontSize: FontSize.s14,
+                                            fontWeight: FontWeightManager.regular,
+                                            color: ColorManager.black,
+                                          ),
+                                          decoration: InputDecoration(
                                             hintText: st.isPhoneVerified 
-                                                ? 'Phone number verified' 
-                                                : !st.hasLocationPermission
-                                                    ? 'Enable location to edit phone number'
-                                                    : 'Enter mobile number',
-                          keyboardType: TextInputType.phone,
-                                            enabled: false, // Field is read-only - only editable after OTP verification
-                                            inputFormatters: [
-                                              FilteringTextInputFormatter.digitsOnly,
-                                            ],
-                                            onChanged: (v) {
-                                              // Field is read-only - all changes are blocked
-                                              debugPrint('⚠️ BLOCKED: Phone field is read-only, attempted change: $v');
-                                              return;
-                                            },
-                                          ),
-                                        ),
-                                      ),
-                                      if (st.isPhoneVerified)
-                                        Positioned(
-                                          right: 8,
-                                          top: 8,
-                                          bottom: 8,
-                                          child: Container(
-                                            padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                            decoration: BoxDecoration(
-                                              color: Colors.green.withOpacity(0.1),
-                                              borderRadius: BorderRadius.circular(4),
-                                              border: Border.all(color: Colors.green.withOpacity(0.3)),
+                                                ? 'Phone number verified - click to edit' 
+                                                : 'Verify your phone number first',
+                                            hintStyle: TextStyle(
+                                              fontSize: FontSize.s14,
+                                              fontWeight: FontWeightManager.regular,
+                                              color: ColorManager.textGrey,
                                             ),
-                                            child: Row(
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                Icon(Icons.lock, color: Colors.green, size: 14),
-                                                SizedBox(width: 4),
-                                                Text(
-                                                  'Protected',
-                                                  style: TextStyle(
-                                                    color: Colors.green,
-                                                    fontSize: 10,
-                                                    fontWeight: FontWeightManager.medium,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
+                                            border: InputBorder.none,
+                                            contentPadding: EdgeInsets.zero,
                                           ),
+                                          onChanged: (v) {
+                                            bloc.add(OwnerMobileChanged(v));
+                                          },
                                         ),
-                                    ],
-                                  ),
-                                ),
-                                SizedBox(width: 8),
-                                // Verify Button - Only show if not verified
-                                if (!st.isPhoneVerified) ...[
-                                  ElevatedButton.icon(
-                                    onPressed: st.isPhoneVerificationInProgress || st.ownerMobile.isEmpty
-                                        ? null 
-                                        : () => bloc.add(InitializePhoneOtpEvent(st.ownerMobile)),
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: ColorManager.primary,
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(8),
                                       ),
                                     ),
-                                    icon: st.isPhoneVerificationInProgress
-                                        ? SizedBox(
-                                            width: 16,
-                                            height: 16,
-                                            child: CircularProgressIndicator(
-                                              strokeWidth: 2,
-                                              color: Colors.white,
-                                            ),
-                                          )
-                                        : Icon(Icons.verified_user, size: 16, color: Colors.white),
-                                    label: Text(
-                                      'Verify Number',
+                                  ),
+                                ],
+                              ),
+                            ),
+                            SizedBox(height: 8),
+                            // Verify Button - Only show if not verified
+                            if (!st.isPhoneVerified) ...[
+                              ElevatedButton.icon(
+                                onPressed: st.isPhoneVerificationInProgress || st.ownerMobile.isEmpty || !st.hasLocationPermission
+                                    ? null 
+                                    : () => bloc.add(InitializePhoneOtpEvent(st.ownerMobile)),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: ColorManager.primary,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                ),
+                                icon: st.isPhoneVerificationInProgress
+                                    ? SizedBox(
+                                        width: 16,
+                                        height: 16,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: Colors.white,
+                                        ),
+                                      )
+                                    : Icon(Icons.verified_user, size: 16, color: Colors.white),
+                                label: Text(
+                                  'Verify Number',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 12,
+                                    fontWeight: FontWeightManager.medium,
+                                  ),
+                                ),
+                              ),
+                            ] else ...[
+                              Container(
+                                padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: Colors.green.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: Colors.green),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.check_circle, color: Colors.green, size: 16),
+                                    SizedBox(width: 4),
+                                    Text(
+                                      'Verified',
                                       style: TextStyle(
-                                        color: Colors.white,
+                                        color: Colors.green,
                                         fontSize: 12,
                                         fontWeight: FontWeightManager.medium,
                                       ),
                                     ),
-                                  ),
-                                ] else ...[
-                                  Container(
-                                    padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                    decoration: BoxDecoration(
-                                      color: Colors.green.withOpacity(0.1),
-                                      borderRadius: BorderRadius.circular(8),
-                                      border: Border.all(color: Colors.green),
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Icon(Icons.check_circle, color: Colors.green, size: 16),
-                                        SizedBox(width: 4),
-                                        Text(
-                                          'Verified',
-                                          style: TextStyle(
-                                            color: Colors.green,
-                                            fontSize: 12,
-                                            fontWeight: FontWeightManager.medium,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ],
-                            ),
+                                  ],
+                                ),
+                              ),
+                            ],
                             // Location Permission Warning
                             if (!st.hasLocationPermission) ...[
                               SizedBox(height: 8),
@@ -573,7 +572,7 @@ class _BodyState extends State<_Body> {
                                     SizedBox(width: 8),
                                     Expanded(
                                       child: Text(
-                                        'Location access is required to edit phone number. This helps us detect your country and ensure proper formatting.',
+                                        'Location access is required to verify your phone number. This helps us detect your country and ensure proper formatting.',
                                         style: TextStyle(
                                           color: Colors.orange.shade800,
                                           fontSize: 12,
@@ -774,9 +773,9 @@ class _BodyState extends State<_Body> {
                         CustomTextField(
                           controller: _restNameCtrl,
                           label: 'Store Name',
-                          hintText: 'Enter store name (max 40 characters)',
-                          maxLength: 40,
-                          counterText: '${_restNameCtrl.text.length}/40',
+                          hintText: 'Enter store name (max 30 characters)',
+                          maxLength: 30,
+                          counterText: '${_restNameCtrl.text.length}/30',
                           onChanged: (v) {
                             // Capitalize first letter of each word
                             final capitalized = v.split(' ').map((word) {
@@ -1302,6 +1301,22 @@ class _BodyState extends State<_Body> {
         ),
       );
     }
+  }
+
+  void _showCountryPicker(BuildContext context) {
+    final restaurantProfileBloc = context.read<RestaurantProfileBloc>();
+    
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (modalContext) => CountryPickerBottomSheet(
+        selectedCountry: restaurantProfileBloc.state.selectedCountry,
+        onCountrySelected: (country) {
+          restaurantProfileBloc.add(CountryChanged(country));
+        },
+      ),
+    );
   }
   
 }

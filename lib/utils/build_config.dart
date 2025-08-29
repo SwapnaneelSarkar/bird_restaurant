@@ -15,13 +15,18 @@ class BuildConfig {
   /// Determine if we should force reCAPTCHA flow
   /// This helps avoid Play Integrity API issues in debug builds
   static bool get shouldForceRecaptcha {
-    // Force reCAPTCHA for debug builds to avoid Play Integrity issues
-    if (isDebugOnDevice) {
-      return true;
-    }
+    // TEMPORARY FIX: Force reCAPTCHA for all builds to avoid missing-client-identifier error
+    // TODO: Remove this after adding Play Store SHA to Firebase Console
+    return true;
     
-    // For release builds, let Firebase decide
-    return false;
+    // Original logic (commented out for now):
+    // // Force reCAPTCHA for debug builds to avoid Play Integrity issues
+    // if (isDebugOnDevice) {
+    //   return true;
+    // }
+    // 
+    // // For release builds, let Firebase decide
+    // return false;
   }
   
   /// Determine if app verification should be disabled for testing

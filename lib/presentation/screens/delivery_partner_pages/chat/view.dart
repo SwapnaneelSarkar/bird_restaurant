@@ -730,6 +730,9 @@ class _DeliveryPartnerChatViewState extends State<DeliveryPartnerChatView> with 
                       ...orderDetails.items.take(3).map((item) {
                         final menuItem = menuItems[item.menuId];
                         final itemName = menuItem?.name ?? 'Unknown Item';
+                        final itemTotalPrice = item.itemPrice * item.quantity;
+                        
+                        debugPrint('DeliveryPartnerChatView: Item $itemName - Price: ${item.itemPrice}, Quantity: ${item.quantity}, Total: $itemTotalPrice');
                         
                         return Padding(
                           padding: const EdgeInsets.only(bottom: 6),
@@ -749,7 +752,7 @@ class _DeliveryPartnerChatViewState extends State<DeliveryPartnerChatView> with 
                                 ),
                               ),
                               Text(
-                                '₹${(item.itemPrice * item.quantity).toStringAsFixed(2)}',
+                                '₹${itemTotalPrice.toStringAsFixed(2)}',
                                 style: TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeightManager.bold,
@@ -780,76 +783,91 @@ class _DeliveryPartnerChatViewState extends State<DeliveryPartnerChatView> with 
                       const Divider(height: 12, thickness: 1),
                       
                       // Price summary
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            'Subtotal',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey.shade600,
-                              fontFamily: FontFamily.Montserrat,
-                            ),
-                          ),
-                          Text(
-                            orderDetails.formattedTotal('₹'),
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeightManager.medium,
-                              color: ColorManager.black,
-                              fontFamily: FontFamily.Montserrat,
-                            ),
-                          ),
-                        ],
-                      ),
-                      if (orderDetails.deliveryFeesDouble > 0) ...[
-                        const SizedBox(height: 2),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            // Text(
-                            //   'Delivery Fee',
-                            //   style: TextStyle(
-                            //     fontSize: 12,
-                            //     color: Colors.grey.shade600,
-                            //     fontFamily: FontFamily.Montserrat,
-                            //   ),
-                            // ),
-                            Text(
-                              orderDetails.formattedDeliveryFees('₹'),
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeightManager.medium,
-                                color: ColorManager.black,
-                                fontFamily: FontFamily.Montserrat,
+                      Builder(
+                        builder: (context) {
+                          final subtotal = orderDetails.subtotal;
+                          final deliveryFees = orderDetails.deliveryFeesDouble;
+                          final grandTotal = orderDetails.grandTotal;
+                          
+                          debugPrint('DeliveryPartnerChatView: Price Summary - Subtotal: $subtotal, Delivery Fees: $deliveryFees, Grand Total: $grandTotal');
+                          debugPrint('DeliveryPartnerChatView: Raw totalAmount: ${orderDetails.totalAmount}, Raw deliveryFees: ${orderDetails.deliveryFees}');
+                          
+                          return Column(
+                            children: [
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    'Subtotal',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.grey.shade600,
+                                      fontFamily: FontFamily.Montserrat,
+                                    ),
+                                  ),
+                                  Text(
+                                    orderDetails.formattedTotal('₹'),
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeightManager.medium,
+                                      color: ColorManager.black,
+                                      fontFamily: FontFamily.Montserrat,
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ),
-                          ],
-                        ),
-                      ],
-                      const SizedBox(height: 4),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            'Total',
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeightManager.bold,
-                              color: ColorManager.black,
-                              fontFamily: FontFamily.Montserrat,
-                            ),
-                          ),
-                          Text(
-                            orderDetails.formattedGrandTotal('₹'),
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeightManager.bold,
-                              color: ColorManager.primary,
-                              fontFamily: FontFamily.Montserrat,
-                            ),
-                          ),
-                        ],
+                              if (orderDetails.deliveryFeesDouble > 0) ...[
+                                const SizedBox(height: 2),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    // Text(
+                                    //   'Delivery Fee',
+                                    //   style: TextStyle(
+                                    //         fontSize: 12,
+                                    //         color: Colors.grey.shade600,
+                                    //         fontFamily: FontFamily.Montserrat,
+                                    //       ),
+                                    //   ),
+                                    Text(
+                                      orderDetails.formattedDeliveryFees('₹'),
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeightManager.medium,
+                                        color: ColorManager.black,
+                                        fontFamily: FontFamily.Montserrat,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                              const SizedBox(height: 4),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    'Total',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeightManager.bold,
+                                      color: ColorManager.black,
+                                      fontFamily: FontFamily.Montserrat,
+                                    ),
+                                  ),
+                                  Text(
+                                    orderDetails.formattedGrandTotal('₹'),
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeightManager.bold,
+                                      color: ColorManager.primary,
+                                      fontFamily: FontFamily.Montserrat,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          );
+                        },
                       ),
                       
                       const SizedBox(height: 8),

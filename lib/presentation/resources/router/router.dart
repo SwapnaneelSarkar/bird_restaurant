@@ -18,6 +18,8 @@ import 'package:bird_restaurant/presentation/screens/reviewPage/view.dart';
 import 'package:bird_restaurant/presentation/screens/signin/view.dart';
 import 'package:bird_restaurant/presentation/screens/privacy_policy/view.dart';
 import 'package:bird_restaurant/presentation/screens/terms_conditions/view.dart';
+import 'package:bird_restaurant/presentation/screens/privacy_policy/view2.dart';
+import 'package:bird_restaurant/presentation/screens/terms_conditions/view2.dart';
 import 'package:bird_restaurant/presentation/screens/contact_us/view.dart';
 import 'package:bird_restaurant/presentation/screens/delivery_partner_pages/dashboard/view.dart';
 import 'package:bird_restaurant/presentation/screens/delivery_partner_pages/profile/view.dart';
@@ -69,6 +71,8 @@ class Routes {
   static const String reviews = '/reviews';
   static const String privacy = '/privacy';
   static const String terms = '/terms';
+  static const String privacy2 = '/privacy2';
+  static const String terms2 = '/terms2';
   static const String contact = '/contact';
   static const String deliveryPartners = '/deliveryPartners';
   static const String orderAction = '/orderAction';
@@ -217,6 +221,18 @@ class RouteGenerator {
         case Routes.terms:
           return MaterialPageRoute(
             builder: (_) => const TermsConditionsView(),
+            settings: routeSettings,
+          );
+
+        case Routes.privacy2:
+          return MaterialPageRoute(
+            builder: (_) => const PrivacyPolicyView2(),
+            settings: routeSettings,
+          );
+
+        case Routes.terms2:
+          return MaterialPageRoute(
+            builder: (_) => const TermsConditionsView2(),
             settings: routeSettings,
           );
 

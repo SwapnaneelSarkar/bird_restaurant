@@ -1,21 +1,18 @@
-// lib/presentation/screens/terms_conditions/view.dart
+// lib/presentation/screens/privacy_policy/view.dart
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../../../services/restaurant_info_service.dart';
 import '../../resources/colors.dart';
 import '../../resources/font.dart';
-import '../homePage/sidebar/sidebar_drawer.dart';
-import '../../resources/router/router.dart';
 
-class TermsConditionsView extends StatefulWidget {
-  const TermsConditionsView({Key? key}) : super(key: key);
+class PrivacyPolicyView2 extends StatefulWidget {
+  const PrivacyPolicyView2({Key? key}) : super(key: key);
 
   @override
-  State<TermsConditionsView> createState() => _TermsConditionsViewState();
+  State<PrivacyPolicyView2> createState() => _PrivacyPolicyViewState();
 }
 
-class _TermsConditionsViewState extends State<TermsConditionsView>
+class _PrivacyPolicyViewState extends State<PrivacyPolicyView2>
     with TickerProviderStateMixin {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   late AnimationController _animationController;
@@ -61,28 +58,16 @@ class _TermsConditionsViewState extends State<TermsConditionsView>
 
     return WillPopScope(
       onWillPop: () async {
-        Navigator.of(context).pushNamedAndRemoveUntil(Routes.homePage, (route) => false);
+        Navigator.of(context).pop();
         return false;
       },
       child: Scaffold(
         key: _scaffoldKey,
         backgroundColor: ColorManager.background,
-        drawer: FutureBuilder<Map<String, String>>(
-          future: RestaurantInfoService.getRestaurantInfo(),
-          builder: (context, snapshot) {
-            final info = snapshot.data ?? {};
-            return SidebarDrawer(
-              activePage: 'terms',
-              restaurantName: info['name'],
-              restaurantSlogan: info['slogan'],
-              restaurantImageUrl: info['imageUrl'],
-            );
-          },
-        ),
         body: SafeArea(
           child: Column(
             children: [
-              // Custom App Bar with sidebar and title
+              // Custom App Bar with back button and title
               _buildCustomAppBar(),
               
               // Content
@@ -122,9 +107,9 @@ class _TermsConditionsViewState extends State<TermsConditionsView>
       ),
       child: Row(
         children: [
-          // Sidebar menu button
+          // Back button
           GestureDetector(
-            onTap: () => _scaffoldKey.currentState?.openDrawer(),
+            onTap: () => Navigator.of(context).pop(),
             child: Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
@@ -132,7 +117,7 @@ class _TermsConditionsViewState extends State<TermsConditionsView>
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(
-                Icons.menu,
+                Icons.arrow_back,
                 color: ColorManager.primary,
                 size: 24,
               ),
@@ -144,7 +129,7 @@ class _TermsConditionsViewState extends State<TermsConditionsView>
           // Title
           Expanded(
             child: Text(
-              'Terms & Conditions',
+              'Privacy Policy',
               style: GoogleFonts.poppins(
                 fontSize: FontSize.s22,
                 fontWeight: FontWeightManager.bold,
@@ -161,7 +146,7 @@ class _TermsConditionsViewState extends State<TermsConditionsView>
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(
-              Icons.article_outlined,
+              Icons.privacy_tip,
               color: ColorManager.primary,
               size: 24,
             ),
@@ -184,116 +169,84 @@ class _TermsConditionsViewState extends State<TermsConditionsView>
           
           // Content sections
           _buildSection(
-            title: '1. Acceptance of Terms',
-            content: 'By downloading, accessing, or using the Bird application, you agree to be bound by these Terms and Conditions. If you do not agree to these terms, please do not use our service.',
+            title: '1. About Bird',
+            content: 'Bird is a food delivery application that allows customers to place orders and communicate directly with restaurants via real-time chat. Our goal is to provide a simple, transparent, and user-friendly delivery experience.',
           ),
           
           _buildSection(
-            title: '2. Description of Service',
-            content: '''Bird is a food delivery platform that connects customers with restaurant partners. Our service includes:
-• Order placement and management
-• Real-time communication between customers and restaurants
-• Delivery coordination and tracking
-• Payment processing (where applicable)
-• Customer support and dispute resolution''',
+            title: '2. Information We Collect',
+            content: '''For Customers:
+• Personal Information: Name, phone number, email (optional), delivery location
+• Chat Data: Messages exchanged with restaurants after order placement
+• Order Information: Order history, restaurant preferences, delivery method
+• Device Information: IP address, device ID, operating system version, app usage data
+• Optional: Profile picture (if uploaded), reviews or feedback
+
+For Restaurants:
+• Business Information: Restaurant name, phone number, email address, location
+• Menu and Order Data: Menu listings, order records, delivery status
+• Chat Data: Communication with customers
+• Device Information: Same as above''',
           ),
           
           _buildSection(
-            title: '3. User Accounts and Registration',
-            content: '''• You must provide accurate, current, and complete information during registration
-• You are responsible for maintaining the security of your account credentials
-• You must notify us immediately of any unauthorized use of your account
-• One account per user/restaurant is permitted
-• You must be at least 13 years old to use our service''',
+            title: '3. How We Use Your Information',
+            content: '''• To process and manage food orders
+• To facilitate real-time communication between customers and restaurants
+• To improve application performance and user experience
+• To personalize services based on user preferences
+• To ensure account security and prevent unauthorized access''',
           ),
           
           _buildSection(
-            title: '4. Acceptable Use Policy',
-            content: '''You agree NOT to use the service to:
-• Violate any applicable laws or regulations
-• Harass, abuse, or harm other users
-• Post false, misleading, or fraudulent information
-• Interfere with the proper functioning of the app
-• Use automated systems to access the service
-• Share inappropriate content in chat communications
-• Attempt to bypass security measures''',
+            title: '4. Information Sharing and Disclosure',
+            content: '''We do not sell or rent your personal information to third parties.
+
+We may share data in the following circumstances:
+• With restaurants you place orders with, for the purpose of delivery and communication
+• With third-party service providers such as analytics and infrastructure tools (only limited and non-sensitive data)
+• When legally required to do so under applicable law or in response to legal process''',
           ),
           
           _buildSection(
-            title: '5. Privacy and Data Protection',
-            content: 'Your privacy is important to us. Our collection, use, and protection of your personal information is governed by our Privacy Policy, which is incorporated into these Terms by reference. By using Bird, you consent to our data practices as described in the Privacy Policy.',
+            title: '5. Data Security',
+            content: 'We implement reasonable security measures to protect your data from unauthorized access, disclosure, or misuse. These measures include secure servers, encrypted communication channels, and access control. However, no system can be completely secure. You use Bird at your own risk.',
           ),
           
           _buildSection(
-            title: '6. Orders and Payments',
-            content: '''• All orders are subject to restaurant acceptance
-• Prices are set by individual restaurant partners
-• Payment methods and processing are handled according to our payment policies
-• You are responsible for any taxes applicable to your orders
-• Delivery fees may apply and will be clearly disclosed
-• Refunds and cancellations are handled according to our refund policy''',
+            title: '6. Your Rights and Choices',
+            content: '''• You may edit or delete your personal profile at any time
+• You may request deletion of your account and related data
+• You have control over permissions such as location access and notifications
+• Chat history is retained to support communication and delivery history''',
           ),
           
           _buildSection(
-            title: '7. Restaurant Partner Responsibilities',
-            content: '''Restaurant partners agree to:
-• Provide accurate menu information and pricing
-• Maintain food safety and quality standards
-• Respond promptly to customer communications
-• Honor accepted orders in a timely manner
-• Comply with all applicable health and safety regulations
-• Provide accurate business information and documentation''',
+            title: '7. Use of Third-Party Services',
+            content: '''Bird may use third-party services for:
+• Real-time messaging infrastructure
+• App analytics (e.g., Firebase, Google Analytics)
+• Basic tracking of optional payment confirmations
+
+These third-party providers operate under their own privacy policies. We encourage users to review those separately.''',
           ),
           
           _buildSection(
-            title: '8. Intellectual Property',
-            content: '''• Bird and its logos are trademarks of our company
-• You retain rights to content you create (reviews, messages)
-• You grant us license to use your content for service operation
-• Respect the intellectual property rights of others
-• Report any suspected intellectual property violations''',
+            title: '8. Children\'s Privacy',
+            content: 'Bird is not designed for users under the age of 5. We do not knowingly collect personal information from children. If we discover such information has been collected, we will take steps to delete it promptly.',
           ),
           
           _buildSection(
-            title: '9. Limitation of Liability',
-            content: '''• Bird provides the platform "as is" without warranties
-• We are not liable for food quality, safety, or delivery issues beyond our control
-• Our liability is limited to the maximum extent permitted by law
-• We are not responsible for disputes between customers and restaurants
-• Use of third-party services is at your own risk''',
+            title: '9. Changes to This Policy',
+            content: 'This Privacy Policy may be updated from time to time. We will notify users of any material changes by updating the policy within the app and/or on our website. Continued use of the application after updates indicates your acceptance of the revised policy.',
           ),
           
           _buildSection(
-            title: '10. Dispute Resolution',
-            content: '''• First, try to resolve issues through our customer support
-• Mediation may be required for certain disputes
-• Any legal disputes will be governed by applicable local laws
-• Class action waivers may apply where legally permitted
-• Arbitration may be required for certain types of disputes''',
-          ),
-          
-          _buildSection(
-            title: '11. Service Modifications and Termination',
-            content: '''• We may modify, suspend, or terminate the service with notice
-• You may terminate your account at any time
-• We may suspend accounts for violations of these terms
-• Certain provisions survive account termination
-• We will provide reasonable notice for major service changes''',
-          ),
-          
-          _buildSection(
-            title: '12. Updates to Terms',
-            content: 'We may update these Terms and Conditions from time to time. We will notify users of material changes through the app or other communication methods. Continued use of the service after changes constitutes acceptance of the updated terms.',
-          ),
-          
-          _buildSection(
-            title: '13. Contact Information',
-            content: '''For questions about these Terms and Conditions, please contact us:
+            title: '10. Contact Us',
+            content: '''For questions or concerns about this Privacy Policy, please contact us at:
 
 Email: env.bird@gmail.com
-Website: www.bird.delivery
-
-We aim to respond to all inquiries within 24-48 hours.''',
+Website: www.bird.delivery''',
           ),
           
           // Footer
@@ -334,7 +287,7 @@ We aim to respond to all inquiries within 24-48 hours.''',
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: const Icon(
-                  Icons.article,
+                  Icons.privacy_tip,
                   color: Colors.white,
                   size: 28,
                 ),
@@ -345,7 +298,7 @@ We aim to respond to all inquiries within 24-48 hours.''',
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Terms & Conditions',
+                      'Privacy Policy for Bird',
                       style: GoogleFonts.poppins(
                         fontSize: FontSize.s20,
                         fontWeight: FontWeightManager.bold,
@@ -353,7 +306,7 @@ We aim to respond to all inquiries within 24-48 hours.''',
                       ),
                     ),
                     Text(
-                      'Bird - Better Instant Real-Time Deliveries',
+                      'Better Instant Real-Time Deliveries',
                       style: GoogleFonts.poppins(
                         fontSize: FontSize.s14,
                         fontWeight: FontWeightManager.medium,
@@ -375,7 +328,7 @@ We aim to respond to all inquiries within 24-48 hours.''',
           const SizedBox(height: 20),
           
           Text(
-            'These Terms and Conditions ("Terms") govern your use of the Bird food delivery application and services. By accessing or using our platform, you agree to be bound by these Terms.',
+            'At Bird, we respect your privacy and are committed to protecting the personal information you share with us. This Privacy Policy describes how we collect, use, and protect your information when you use our platform—whether as a customer or a restaurant partner.',
             style: GoogleFonts.poppins(
               fontSize: FontSize.s14,
               fontWeight: FontWeightManager.regular,

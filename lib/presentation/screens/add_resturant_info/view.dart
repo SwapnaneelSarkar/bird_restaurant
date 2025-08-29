@@ -156,24 +156,38 @@ class _RestaurantDetailsBodyState extends State<_RestaurantDetailsBody> {
                 SizedBox(height: h * 0.01),
                 CustomTextField(
                   controller: _nameCtrl,
-                  hintText: 'Enter store name',
+                  hintText: 'Enter store name (max 30 characters)',
+                  maxLength: 30,
+                  counterText: '${_nameCtrl.text.length}/30',
                   onChanged: (v) => bloc.add(RestaurantNameChanged(v)),
                 ),
                 BlocBuilder<RestaurantDetailsBloc, RestaurantDetailsState>(
                   buildWhen: (p, c) => p.isAttemptedSubmit != c.isAttemptedSubmit,
                   builder: (context, state) {
-                    return state.name.isEmpty && state.isAttemptedSubmit
-                        ? Padding(
-                            padding: EdgeInsets.only(top: 5),
-                            child: Text(
-                              'Store name is required',
-                              style: TextStyle(
-                                color: Colors.red,
-                                fontSize: FontSize.s12,
-                              ),
-                            ),
-                          )
-                        : SizedBox.shrink();
+                    if (state.name.isEmpty && state.isAttemptedSubmit) {
+                      return Padding(
+                        padding: EdgeInsets.only(top: 5),
+                        child: Text(
+                          'Store name is required',
+                          style: TextStyle(
+                            color: Colors.red,
+                            fontSize: FontSize.s12,
+                          ),
+                        ),
+                      );
+                    } else if (state.name.length > 30 && state.isAttemptedSubmit) {
+                      return Padding(
+                        padding: EdgeInsets.only(top: 5),
+                        child: Text(
+                          'Store name cannot exceed 30 characters',
+                          style: TextStyle(
+                            color: Colors.red,
+                            fontSize: FontSize.s12,
+                          ),
+                        ),
+                      );
+                    }
+                    return SizedBox.shrink();
                   },
                 ),
                 SizedBox(height: h * 0.025),
