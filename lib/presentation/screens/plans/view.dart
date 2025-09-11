@@ -18,6 +18,7 @@ import 'state.dart';
 import 'package:bird_restaurant/constants/api_constants.dart';
 import 'package:bird_restaurant/utils/time_utils.dart';
 import '../../resources/router/router.dart';
+import '../../../main.dart';
 
 class PlanSelectionView extends StatelessWidget {
   const PlanSelectionView({Key? key}) : super(key: key);
@@ -187,7 +188,7 @@ class _PlanSelectionScreenState extends State<PlanSelectionScreen> {
                 'Cancel',
                 style: TextStyle(
                   fontSize: MediaQuery.of(context).size.width < 360 ? 14 : 16,
-                  color: Colors.grey,
+                  color: Colors.black54,
                 ),
               ),
             ),
@@ -388,7 +389,22 @@ class _PlanSelectionScreenState extends State<PlanSelectionScreen> {
 
     return WillPopScope(
       onWillPop: () async {
-        Navigator.of(context).pushNamedAndRemoveUntil(Routes.homePage, (route) => false);
+        debugPrint('🔄 Back button pressed on plans page');
+        
+        try {
+          // Always navigate to home page when back button is pressed
+          navigatorKey.currentState?.pushReplacementNamed(Routes.homePage);
+          debugPrint('✅ Navigation to home page successful');
+        } catch (e) {
+          debugPrint('❌ Navigation error: $e');
+          // Fallback: try to push replacement
+          try {
+            Navigator.of(context).pushReplacementNamed(Routes.homePage);
+            debugPrint('✅ Fallback navigation successful');
+          } catch (fallbackError) {
+            debugPrint('❌ Fallback navigation also failed: $fallbackError');
+          }
+        }
         return false;
       },
       child: Scaffold(

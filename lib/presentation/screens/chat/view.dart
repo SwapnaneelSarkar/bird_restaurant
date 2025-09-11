@@ -9,6 +9,7 @@ import '../../../ui_components/universal_widget/topbar.dart';
 import '../../resources/colors.dart';
 import '../../resources/font.dart';
 import '../../../services/menu_item_service.dart';
+import '../../../services/order_service.dart';
 import 'bloc.dart';
 import 'event.dart';
 import 'event.dart' as chat_event;
@@ -68,14 +69,14 @@ class _ChatViewState extends State<ChatView> with WidgetsBindingObserver {
         context.read<ChatBloc>().add(LoadChatData(widget.orderId));
         
         // Mark messages as read after a short delay to ensure chat is loaded
-        Future.delayed(const Duration(milliseconds: 1000), () {
+        Future.delayed(const Duration(milliseconds: 500), () {
           if (mounted) {
             _markMessagesAsReadOnView();
           }
         });
         
         // NEW: Emit typing when chat page opens to trigger blue tick updates for previous messages
-        Future.delayed(const Duration(milliseconds: 500), () {
+        Future.delayed(const Duration(milliseconds: 300), () {
           if (mounted) {
             _emitTypingOnPageOpen();
           }
@@ -1568,28 +1569,43 @@ class _ChatViewState extends State<ChatView> with WidgetsBindingObserver {
       ),
       child: Row(
         children: [
-          // Status change icon button
-          GestureDetector(
-            onTap: () => _showStatusChangeBottomSheet(context),
-            child: Container(
-              width: MediaQuery.of(context).size.width * 0.11,
-              height: MediaQuery.of(context).size.width * 0.11,
-              decoration: BoxDecoration(
-                color: Colors.grey.shade100,
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: Colors.grey.shade300,
-                  width: 1,
-                ),
-              ),
-              child: Center(
-                child: Icon(
-                  Icons.edit_note,
-                  color: Colors.grey.shade600,
-                  size: MediaQuery.of(context).size.width * 0.045,
-                ),
-              ),
-            ),
+          // Status change icon button - only show when status updates are available
+          BlocBuilder<ChatBloc, chat_state.ChatState>(
+            builder: (context, state) {
+              if (state is chat_state.ChatLoaded && state.orderDetails != null) {
+                final currentStatus = state.orderDetails!.orderStatus.toUpperCase();
+                final availableStatuses = OrderService.getPartnerAvailableStatusOptions(currentStatus);
+                
+                // Only show the button if there are valid status transitions
+                if (availableStatuses.isNotEmpty) {
+                  return GestureDetector(
+                    onTap: () => _showStatusChangeBottomSheet(context),
+                    child: Container(
+                      width: MediaQuery.of(context).size.width * 0.11,
+                      height: MediaQuery.of(context).size.width * 0.11,
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade100,
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: Colors.grey.shade300,
+                          width: 1,
+                        ),
+                      ),
+                      child: Center(
+                        child: Icon(
+                          Icons.edit_note,
+                          color: Colors.grey.shade600,
+                          size: MediaQuery.of(context).size.width * 0.045,
+                        ),
+                      ),
+                    ),
+                  );
+                }
+              }
+              
+              // Return empty container if no status updates available
+              return SizedBox(width: MediaQuery.of(context).size.width * 0.11);
+            },
           ),
           SizedBox(width: MediaQuery.of(context).size.width * 0.028),
           Expanded(

@@ -34,6 +34,8 @@ class EditProductFormState extends EditProductState {
   final bool isSubmitting;
   final bool isSuccess;
   final String? errorMessage;
+  final String? timingError;
+  final String? descriptionError;
   // New timing fields
   final bool timingEnabled;
   final TimingSchedule timingSchedule;
@@ -59,13 +61,33 @@ class EditProductFormState extends EditProductState {
     this.timingEnabled = true,
     TimingSchedule? timingSchedule,
     this.timezone = 'Asia/Kolkata',
+    this.timingError,
+    this.descriptionError,
   }) : timingSchedule = timingSchedule ?? TimingSchedule.defaultSchedule();
   
   @override
   List<Object?> get props => [
-    menuId, name, description, category, categoryId, price, isVeg, 
-    image, imageUrl, categories, foodTypes, selectedFoodType, isLoadingFoodTypes,
-    isSubmitting, isSuccess, errorMessage, timingEnabled, timingSchedule, timezone
+    menuId,
+    name,
+    description,
+    category,
+    categoryId,
+    price,
+    isVeg,
+    image,
+    imageUrl,
+    categories,
+    foodTypes,
+    selectedFoodType,
+    isLoadingFoodTypes,
+    isSubmitting,
+    isSuccess,
+    errorMessage,
+    timingEnabled,
+    timingSchedule,
+    timezone,
+    timingError,
+    descriptionError,
   ];
   
   EditProductFormState copyWith({
@@ -88,6 +110,8 @@ class EditProductFormState extends EditProductState {
     bool? timingEnabled,
     TimingSchedule? timingSchedule,
     String? timezone,
+    String? timingError,
+    String? descriptionError,
   }) {
     return EditProductFormState(
       menuId: menuId ?? this.menuId,
@@ -105,10 +129,12 @@ class EditProductFormState extends EditProductState {
       isLoadingFoodTypes: isLoadingFoodTypes ?? this.isLoadingFoodTypes,
       isSubmitting: isSubmitting ?? this.isSubmitting,
       isSuccess: isSuccess ?? this.isSuccess,
-      errorMessage: errorMessage ?? this.errorMessage,
+      errorMessage: errorMessage,
       timingEnabled: timingEnabled ?? this.timingEnabled,
       timingSchedule: timingSchedule ?? this.timingSchedule,
       timezone: timezone ?? this.timezone,
+      timingError: timingError ?? this.timingError,
+      descriptionError: descriptionError ?? this.descriptionError,
     );
   }
 }

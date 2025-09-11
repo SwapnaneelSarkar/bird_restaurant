@@ -47,6 +47,7 @@ class RestaurantProfileState extends Equatable {
   final String? submissionMessage;
   final String? errorMessage;
   final String? ownerNameError; // Specific error for owner name validation
+  final String? restaurantNameError; // Specific error for restaurant name validation
 
   final List<CuisineType> selectedCuisines;
   
@@ -93,6 +94,7 @@ class RestaurantProfileState extends Equatable {
     this.submissionMessage,
     this.errorMessage,
     this.ownerNameError,
+    this.restaurantNameError,
     this.selectedCuisines = const [],
     this.selectedSupercategoryId,
     this.selectedSupercategoryName,
@@ -131,6 +133,9 @@ class RestaurantProfileState extends Equatable {
     String? submissionMessage,
     String? errorMessage,
     String? ownerNameError,
+    String? restaurantNameError,
+    bool clearOwnerNameError = false,
+    bool clearRestaurantNameError = false,
     List<CuisineType>? selectedCuisines,
     String? selectedSupercategoryId,
     String? selectedSupercategoryName,
@@ -167,7 +172,8 @@ class RestaurantProfileState extends Equatable {
         submissionSuccess: submissionSuccess ?? this.submissionSuccess,
         submissionMessage: submissionMessage ?? this.submissionMessage,
         errorMessage: errorMessage ?? this.errorMessage,
-        ownerNameError: ownerNameError ?? this.ownerNameError,
+        ownerNameError: clearOwnerNameError ? null : (ownerNameError ?? this.ownerNameError),
+        restaurantNameError: clearRestaurantNameError ? null : (restaurantNameError ?? this.restaurantNameError),
         selectedCuisines: selectedCuisines ?? this.selectedCuisines,
         selectedSupercategoryId: selectedSupercategoryId ?? this.selectedSupercategoryId,
         selectedSupercategoryName: selectedSupercategoryName ?? this.selectedSupercategoryName,
@@ -226,6 +232,7 @@ class RestaurantProfileState extends Equatable {
         submissionMessage,
         errorMessage,
         ownerNameError,
+        restaurantNameError,
         selectedCuisines,
         selectedSupercategoryId,
         selectedSupercategoryName,

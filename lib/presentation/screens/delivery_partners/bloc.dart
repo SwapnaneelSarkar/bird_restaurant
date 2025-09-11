@@ -18,6 +18,7 @@ class DeliveryPartnersBloc extends Bloc<DeliveryPartnersEvent, DeliveryPartnersS
     on<RefreshDeliveryPartners>(_onRefreshDeliveryPartners);
     on<AddDeliveryPartner>(_onAddDeliveryPartner);
     on<EditDeliveryPartner>(_onEditDeliveryPartner);
+    on<DeleteDeliveryPartner>(_onDeleteDeliveryPartner);
   }
 
   Future<void> _onLoadDeliveryPartners(
@@ -27,12 +28,16 @@ class DeliveryPartnersBloc extends Bloc<DeliveryPartnersEvent, DeliveryPartnersS
     emit(DeliveryPartnersLoading());
 
     try {
-      final response = await _deliveryPartnersService.getDeliveryPartners();
+      final response = await _deliveryPartnersService.getDeliveryPartnersLegacy();
       
       if (response.success && response.data != null) {
-        emit(DeliveryPartnersLoaded(response.data!));
+        // Convert the data back to DeliveryPartner objects
+        final partners = (response.data as List)
+            .map((json) => DeliveryPartner.fromJson(json))
+            .toList();
+        emit(DeliveryPartnersLoaded(partners));
       } else {
-        emit(DeliveryPartnersError(response.message));
+        emit(DeliveryPartnersError(response.message ?? 'Failed to load delivery partners'));
       }
     } catch (e) {
       emit(DeliveryPartnersError('Failed to load delivery partners: $e'));
@@ -51,12 +56,16 @@ class DeliveryPartnersBloc extends Bloc<DeliveryPartnersEvent, DeliveryPartnersS
     }
 
     try {
-      final response = await _deliveryPartnersService.getDeliveryPartners();
+      final response = await _deliveryPartnersService.getDeliveryPartnersLegacy();
       
       if (response.success && response.data != null) {
-        emit(DeliveryPartnersLoaded(response.data!));
+        // Convert the data back to DeliveryPartner objects
+        final partners = (response.data as List)
+            .map((json) => DeliveryPartner.fromJson(json))
+            .toList();
+        emit(DeliveryPartnersLoaded(partners));
       } else {
-        emit(DeliveryPartnersError(response.message, partners: currentPartners));
+        emit(DeliveryPartnersError(response.message ?? 'Failed to refresh delivery partners', partners: currentPartners));
       }
     } catch (e) {
       emit(DeliveryPartnersError('Failed to refresh delivery partners: $e', partners: currentPartners));
@@ -186,11 +195,6 @@ class DeliveryPartnersBloc extends Bloc<DeliveryPartnersEvent, DeliveryPartnersS
     EditDeliveryPartner event,
     Emitter<DeliveryPartnersState> emit,
   ) async {
-    List<DeliveryPartner> currentPartners = [];
-    if (state is DeliveryPartnersLoaded) {
-      final currentState = state as DeliveryPartnersLoaded;
-      currentPartners = currentState.partners;
-    }
     emit(DeliveryPartnersLoading());
     try {
       final token = await TokenService.getToken();
@@ -217,6 +221,46 @@ class DeliveryPartnersBloc extends Bloc<DeliveryPartnersEvent, DeliveryPartnersS
       }
     } catch (e) {
       emit(DeliveryPartnerEditError(e.toString()));
+    }
+  }
+
+  Future<void> _onDeleteDeliveryPartner(
+    DeleteDeliveryPartner event,
+    Emitter<DeliveryPartnersState> emit,
+  ) async {
+    List<DeliveryPartner> currentPartners = [];
+    if (state is DeliveryPartnersLoaded) {
+      final currentState = state as DeliveryPartnersLoaded;
+      currentPartners = currentState.partners;
+    }
+    
+    // Show loading state while deleting
+    emit(DeliveryPartnersLoading());
+    
+    try {
+      final token = await TokenService.getToken();
+      if (token == null) {
+        emit(DeliveryPartnersError('No token found. Please login again.', partners: currentPartners));
+        return;
+      }
+      
+      final response = await _deliveryPartnersService.deleteDeliveryPartner(
+        event.deliveryPartnerId,
+        token,
+      );
+      
+      if (response.success) {
+        // Show success state briefly, then refresh
+        emit(DeliveryPartnerDeleted());
+        // Add a small delay to show the success state
+        await Future.delayed(const Duration(milliseconds: 100));
+        // Refresh the partners list
+        add(RefreshDeliveryPartners());
+      } else {
+        emit(DeliveryPartnersError(response.message ?? 'Failed to delete delivery partner', partners: currentPartners));
+      }
+    } catch (e) {
+      emit(DeliveryPartnersError('Failed to delete delivery partner: $e', partners: currentPartners));
     }
   }
 } 

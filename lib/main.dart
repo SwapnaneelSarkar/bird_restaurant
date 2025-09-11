@@ -231,6 +231,23 @@ class _MyAppState extends State<MyApp> {
   }
 }
 
+// Helper classes to convert different exception types to Error
+class _ExceptionAsError extends Error {
+  final Exception exception;
+  _ExceptionAsError(this.exception);
+  
+  @override
+  String toString() => exception.toString();
+}
+
+class _StringAsError extends Error {
+  final String message;
+  _StringAsError(this.message);
+  
+  @override
+  String toString() => message;
+}
+
 // Error boundary widget to catch widget tree errors
 class ErrorBoundary extends StatefulWidget {
   final Widget child;
@@ -250,7 +267,16 @@ class _ErrorBoundaryState extends State<ErrorBoundary> {
     // Set up error handling for this widget tree
     FlutterError.onError = (FlutterErrorDetails details) {
       setState(() {
-        _error = details.exception as Error?;
+        // Handle both Error and Exception types properly
+        if (details.exception is Error) {
+          _error = details.exception as Error;
+        } else if (details.exception is Exception) {
+          // Convert Exception to Error for display purposes
+          _error = _ExceptionAsError(details.exception as Exception);
+        } else {
+          // Handle other types by converting to string representation
+          _error = _StringAsError(details.exception.toString());
+        }
       });
       developer.log('🚨 WIDGET ERROR: ${details.exception}', name: 'BirdRestaurant');
     };

@@ -333,7 +333,17 @@ class OrderDetails {
     return amount.toString();
   }
 
-  double get subtotal => items.fold(0.0, (sum, item) => sum + (item.itemPrice * item.quantity));
+  double get subtotal {
+    // First try to use the totalAmount from API response
+    final totalAmountDouble = double.tryParse(totalAmount) ?? 0.0;
+    if (totalAmountDouble > 0) {
+      return totalAmountDouble;
+    }
+    
+    // Fallback to calculating from individual items
+    return items.fold(0.0, (sum, item) => sum + (item.itemPrice * item.quantity));
+  }
+  
   double get deliveryFeesDouble => double.tryParse(deliveryFees) ?? 0.0;
   double get grandTotal => subtotal + deliveryFeesDouble;
 

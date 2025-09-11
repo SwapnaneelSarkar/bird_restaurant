@@ -19,6 +19,7 @@ class RestaurantDetailsBloc
     on<PhoneNumberChanged>(_onPhoneNumberChanged);
     on<EmailChanged>(_onEmailChanged);
     on<UseCurrentLocationPressed>(_onUseCurrentLocation);
+    on<DismissEnableLocationPrompt>((event, emit) => emit(state.copyWith(shouldPromptEnableLocation: false)));
     on<LocationSelected>(_onLocationSelected);
     on<NextPressed>(_onNextPressed);
     on<LoadSavedDataEvent>(_onLoadSavedData);
@@ -135,7 +136,7 @@ class RestaurantDetailsBloc
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
         debugPrint('Location services are disabled.');
-        emit(state.copyWith(isLocationLoading: false));
+        emit(state.copyWith(isLocationLoading: false, shouldPromptEnableLocation: true));
         return;
       }
 
@@ -145,14 +146,14 @@ class RestaurantDetailsBloc
         permission = await Geolocator.requestPermission();
         if (permission == LocationPermission.denied) {
           debugPrint('Location permissions are denied');
-          emit(state.copyWith(isLocationLoading: false));
+          emit(state.copyWith(isLocationLoading: false, shouldPromptEnableLocation: true));
           return;
         }
       }
 
       if (permission == LocationPermission.deniedForever) {
         debugPrint('Location permissions are permanently denied');
-        emit(state.copyWith(isLocationLoading: false));
+        emit(state.copyWith(isLocationLoading: false, shouldPromptEnableLocation: true));
         return;
       }
 

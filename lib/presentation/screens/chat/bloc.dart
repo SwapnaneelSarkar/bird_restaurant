@@ -381,9 +381,14 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       _fullOrderId = event.orderId;
       debugPrint('ChatBloc: 📊 Stored full order ID: $_fullOrderId');
       
-      // Get current user ID and partner ID
-      _currentUserId = await TokenService.getUserId();
-      _currentPartnerId = await OrderService.getPartnerId();
+      // Get current user ID and partner ID in parallel
+      final futures = await Future.wait([
+        TokenService.getUserId(),
+        OrderService.getPartnerId(),
+      ]);
+      
+      _currentUserId = futures[0];
+      _currentPartnerId = futures[1];
       
       debugPrint('ChatBloc: 👤 User ID: $_currentUserId, Partner ID: $_currentPartnerId');
       
@@ -490,8 +495,6 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
         await _loadUserDetailsFromChatRoom(event.orderId, emit);
       }
       
-      // Small delay to prevent immediate update cycle
-      await Future.delayed(const Duration(milliseconds: 100));
       debugPrint('ChatBloc: ✅ _onLoadChatData completed successfully');
     } catch (e) {
       debugPrint('ChatBloc: ❌ Error in _onLoadChatData: $e');

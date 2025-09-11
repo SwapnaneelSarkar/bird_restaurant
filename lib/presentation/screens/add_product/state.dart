@@ -245,6 +245,7 @@ class AddProductFormState extends AddProductState {
   final String? descriptionError;
   final String? priceError;
   final String? tagsError;
+  final String? timingError;
   
   const AddProductFormState({
     required this.product,
@@ -259,10 +260,11 @@ class AddProductFormState extends AddProductState {
     this.descriptionError,
     this.priceError,
     this.tagsError,
+    this.timingError,
   });
   
   @override
-  List<Object?> get props => [product, categories, foodTypes, selectedFoodType, isLoadingFoodTypes, isSubmitting, isSuccess, errorMessage, nameError, descriptionError, priceError, tagsError];
+  List<Object?> get props => [product, categories, foodTypes, selectedFoodType, isLoadingFoodTypes, isSubmitting, isSuccess, errorMessage, nameError, descriptionError, priceError, tagsError, timingError];
   
   AddProductFormState copyWith({
     ProductModel? product,
@@ -277,6 +279,7 @@ class AddProductFormState extends AddProductState {
     String? descriptionError,
     String? priceError,
     String? tagsError,
+    String? timingError,
   }) {
     return AddProductFormState(
       product: product ?? this.product,
@@ -291,6 +294,7 @@ class AddProductFormState extends AddProductState {
       descriptionError: descriptionError,
       priceError: priceError,
       tagsError: tagsError,
+      timingError: timingError,
     );
   }
 }

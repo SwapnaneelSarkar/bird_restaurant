@@ -25,7 +25,6 @@ class AddDeliveryPartner extends DeliveryPartnersEvent {
     this.vehicleDocumentPath,
   });
 
-  @override
   List<Object?> get props => [partnerId, phone, name, email, username, password, licensePhotoPath, vehicleDocumentPath];
 }
 
@@ -50,6 +49,13 @@ class EditDeliveryPartner extends DeliveryPartnersEvent {
     this.vehicleDocumentPath,
   });
 
-  @override
   List<Object?> get props => [deliveryPartnerId, name, phone, email, vehicleType, vehicleNumber, licensePhotoPath, vehicleDocumentPath];
+}
+
+class DeleteDeliveryPartner extends DeliveryPartnersEvent {
+  final String deliveryPartnerId;
+
+  DeleteDeliveryPartner({required this.deliveryPartnerId});
+
+  List<Object?> get props => [deliveryPartnerId];
 } 

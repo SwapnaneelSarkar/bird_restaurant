@@ -14,14 +14,55 @@ class AttributeResponse {
   });
 
   factory AttributeResponse.fromJson(Map<String, dynamic> json) {
+    List<AttributeGroup>? attributeGroups;
+    
+    if (json['data'] != null) {
+      final rawGroups = List<AttributeGroup>.from(
+        json['data'].map((x) => AttributeGroup.fromJson(x))
+      );
+      
+      // Filter out groups with no valid data
+      final validGroups = rawGroups.where((group) => group.hasValidData).toList();
+      
+      // Handle duplicate attribute groups by merging them
+      final Map<String, AttributeGroup> uniqueGroups = {};
+      
+      for (final group in validGroups) {
+        if (uniqueGroups.containsKey(group.name)) {
+          // Merge duplicate groups - combine their values
+          final existingGroup = uniqueGroups[group.name]!;
+          final mergedValues = [
+            ...existingGroup.attributeValues,
+            ...group.attributeValues,
+          ];
+          
+          // Create a new group with merged values
+          final mergedGroup = AttributeGroup(
+            attributeId: group.attributeId, // Use the newer group's ID
+            menuId: group.menuId,
+            name: group.name,
+            type: group.type,
+            isRequired: group.isRequired,
+            createdAt: group.createdAt,
+            updatedAt: group.updatedAt,
+            attributeValues: mergedValues,
+          );
+          
+          uniqueGroups[group.name] = mergedGroup;
+          debugPrint('🔄 Merged duplicate attribute group: ${group.name}');
+        } else {
+          uniqueGroups[group.name] = group;
+        }
+      }
+      
+      attributeGroups = uniqueGroups.values.toList();
+      debugPrint('📊 Processed ${rawGroups.length} raw groups -> ${validGroups.length} valid groups -> ${attributeGroups.length} unique groups');
+    }
+    
     return AttributeResponse(
       status: json['status'] ?? '',
       message: json['message'] ?? '',
-      data: json['data'] != null 
-          ? List<AttributeGroup>.from(
-              json['data'].map((x) => AttributeGroup.fromJson(x))
-            )
-          : null,
+      data: attributeGroups,
     );
   }
 }
@@ -97,6 +138,15 @@ class AttributeGroup {
       type: type,
     );
   }
+  
+  // Check if this attribute group has valid data
+  bool get hasValidData {
+    // Check if we have at least one valid attribute value
+    return attributeValues.any((value) => 
+      value.name != null && 
+      value.name!.trim().isNotEmpty
+    );
+  }
 }
 
 class AttributeValue {
@@ -125,9 +175,9 @@ class AttributeValue {
     String? nameString;
     if (name != null) {
       final nameStr = name.toString();
-      // Only use the string if it's not the literal "null" string
-      if (nameStr != 'null') {
-        nameString = nameStr;
+      // Only use the string if it's not the literal "null" string and not empty
+      if (nameStr != 'null' && nameStr.trim().isNotEmpty) {
+        nameString = nameStr.trim();
       }
     }
     

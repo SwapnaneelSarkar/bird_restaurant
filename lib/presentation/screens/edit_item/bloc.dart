@@ -1,4 +1,4 @@
-// lib/presentation/screens/edit_product/edit_product_bloc.dart
+// lib/presentation/screens/edit_item/edit_product_bloc.dart
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
@@ -12,6 +12,8 @@ import '../../../services/token_service.dart';
 import '../add_product/state.dart'; // Import timing schedule models
 import 'event.dart';
 import 'state.dart';
+import '../../../utils/time_validation.dart';
+import '../../../utils/validation_utils.dart';
 
 class EditProductBloc extends Bloc<EditProductEvent, EditProductState> {
   EditProductBloc() : super(EditProductInitial()) {
@@ -27,26 +29,32 @@ class EditProductBloc extends Bloc<EditProductEvent, EditProductState> {
     on<UpdateDayScheduleEvent>(_onUpdateDaySchedule);
     on<UpdateTimezoneEvent>(_onUpdateTimezone);
     on<SubmitEditProductEvent>(_onSubmitProduct);
+    on<ValidateTimingScheduleEvent>(_onValidateTimingSchedule);
+    on<ValidateDescriptionEvent>(_onValidateDescription);
   }
 
   void _onInitialize(EditProductInitEvent event, Emitter<EditProductState> emit) async {
-    final menuItem = event.menuItem;
-    // Initially emit a state with current product data and empty categories list
-          emit(EditProductFormState(
-        menuId: menuItem.menuId,
-        name: menuItem.name,
-        description: menuItem.description,
-        category: menuItem.category,
-        categoryId: null,
-        price: menuItem.price.toString(),
-        isVeg: menuItem.isVeg,
-        imageUrl: menuItem.imageUrl,
-        categories: [],
-        timingEnabled: menuItem.timingEnabled,
-        timingSchedule: menuItem.timingSchedule ?? TimingSchedule.defaultSchedule(),
-        timezone: menuItem.timezone ?? 'Asia/Kolkata',
-      ));
+    if (isClosed) return;
     try {
+      final menuItem = event.menuItem;
+      // Initially emit a state with current product data and empty categories list
+      if (!isClosed) {
+        emit(EditProductFormState(
+          menuId: menuItem.menuId,
+          name: menuItem.name,
+          description: menuItem.description,
+          category: menuItem.category,
+          categoryId: null,
+          price: menuItem.price.toString(),
+          isVeg: menuItem.isVeg,
+          imageUrl: menuItem.imageUrl,
+          categories: [],
+          timingEnabled: menuItem.timingEnabled,
+          timingSchedule: menuItem.timingSchedule ?? TimingSchedule.defaultSchedule(),
+          timezone: menuItem.timezone ?? 'Asia/Kolkata',
+        ));
+      }
+      
       // Fetch categories from API
       final categories = await _fetchCategories();
       // Find the category id for the current menu item
@@ -72,36 +80,42 @@ class EditProductBloc extends Bloc<EditProductEvent, EditProductState> {
       if (selectedCategoryId == null) {
         selectedCategoryId = '';
       }
-      emit(EditProductFormState(
-        menuId: menuItem.menuId,
-        name: menuItem.name,
-        description: menuItem.description,
-        category: menuItem.category,
-        categoryId: selectedCategoryId,
-        price: menuItem.price.toString(),
-        isVeg: menuItem.isVeg,
-        imageUrl: menuItem.imageUrl,
-        categories: finalCategories,
-        timingEnabled: menuItem.timingEnabled,
-        timingSchedule: menuItem.timingSchedule ?? TimingSchedule.defaultSchedule(),
-        timezone: menuItem.timezone ?? 'Asia/Kolkata',
-      ));
+      if (!isClosed) {
+        emit(EditProductFormState(
+          menuId: menuItem.menuId,
+          name: menuItem.name,
+          description: menuItem.description,
+          category: menuItem.category,
+          categoryId: selectedCategoryId,
+          price: menuItem.price.toString(),
+          isVeg: menuItem.isVeg,
+          imageUrl: menuItem.imageUrl,
+          categories: finalCategories,
+          timingEnabled: menuItem.timingEnabled,
+          timingSchedule: menuItem.timingSchedule ?? TimingSchedule.defaultSchedule(),
+          timezone: menuItem.timezone ?? 'Asia/Kolkata',
+        ));
+      }
     } catch (e) {
-      emit(EditProductFormState(
-        menuId: menuItem.menuId,
-        name: menuItem.name,
-        description: menuItem.description,
-        category: menuItem.category,
-        categoryId: null,
-        price: menuItem.price.toString(),
-        isVeg: menuItem.isVeg,
-        imageUrl: menuItem.imageUrl,
-        categories: [],
-        errorMessage: 'Failed to load categories:  [31m${e.toString()} [0m',
-        timingEnabled: menuItem.timingEnabled,
-        timingSchedule: menuItem.timingSchedule ?? TimingSchedule.defaultSchedule(),
-        timezone: menuItem.timezone ?? 'Asia/Kolkata',
-      ));
+      // If there's an error, emit a state with error message
+      if (!isClosed) {
+        final menuItem = event.menuItem;
+        emit(EditProductFormState(
+          menuId: menuItem.menuId,
+          name: menuItem.name,
+          description: menuItem.description,
+          category: menuItem.category,
+          categoryId: null,
+          price: menuItem.price.toString(),
+          isVeg: menuItem.isVeg,
+          imageUrl: menuItem.imageUrl,
+          categories: [],
+          errorMessage: 'Failed to load categories: ${e.toString()}',
+          timingEnabled: menuItem.timingEnabled,
+          timingSchedule: menuItem.timingSchedule ?? TimingSchedule.defaultSchedule(),
+          timezone: menuItem.timezone ?? 'Asia/Kolkata',
+        ));
+      }
     }
   }
 
@@ -182,70 +196,100 @@ class EditProductBloc extends Bloc<EditProductEvent, EditProductState> {
   }
 
   void _onNameChanged(ProductNameChangedEvent event, Emitter<EditProductState> emit) {
-    if (state is EditProductFormState) {
+    if (state is EditProductFormState && !isClosed) {
       final currentState = state as EditProductFormState;
       emit(currentState.copyWith(name: event.name));
     }
   }
 
   void _onDescriptionChanged(ProductDescriptionChangedEvent event, Emitter<EditProductState> emit) {
-    if (state is EditProductFormState) {
+    if (state is EditProductFormState && !isClosed) {
       final currentState = state as EditProductFormState;
       emit(currentState.copyWith(description: event.description));
     }
   }
 
   void _onCategoryChanged(ProductCategoryChangedEvent event, Emitter<EditProductState> emit) {
-    if (state is EditProductFormState) {
+    if (state is EditProductFormState && !isClosed) {
       final currentState = state as EditProductFormState;
       emit(currentState.copyWith(category: event.categoryName, categoryId: event.categoryId));
     }
   }
 
   void _onPriceChanged(ProductPriceChangedEvent event, Emitter<EditProductState> emit) {
-    if (state is EditProductFormState) {
+    if (state is EditProductFormState && !isClosed) {
       final currentState = state as EditProductFormState;
       emit(currentState.copyWith(price: event.price));
     }
   }
 
   void _onIsVegChanged(ProductIsVegChangedEvent event, Emitter<EditProductState> emit) {
-    if (state is EditProductFormState) {
+    if (state is EditProductFormState && !isClosed) {
       final currentState = state as EditProductFormState;
       emit(currentState.copyWith(isVeg: event.isVeg));
     }
   }
 
   void _onImageSelected(ProductImageSelectedEvent event, Emitter<EditProductState> emit) {
-    if (state is EditProductFormState) {
+    if (state is EditProductFormState && !isClosed) {
       final currentState = state as EditProductFormState;
       emit(currentState.copyWith(image: event.image));
     }
   }
 
   Future<void> _onSubmitProduct(SubmitEditProductEvent event, Emitter<EditProductState> emit) async {
-    if (state is EditProductFormState) {
+    if (state is EditProductFormState && !isClosed) {
       final currentState = state as EditProductFormState;
       // Validation
       if (currentState.name.trim().isEmpty) {
-        emit(currentState.copyWith(errorMessage: 'Product name is required'));
+        if (!isClosed) {
+          emit(currentState.copyWith(errorMessage: 'Product name is required'));
+        }
+        return;
+      }
+      
+      final descriptionError = ValidationUtils.validateDescription(currentState.description);
+      if (descriptionError != null) {
+        if (!isClosed) {
+          emit(currentState.copyWith(errorMessage: descriptionError));
+        }
         return;
       }
       if (currentState.categoryId == null || currentState.categoryId!.isEmpty) {
-        emit(currentState.copyWith(errorMessage: 'Please select a category'));
+        if (!isClosed) {
+          emit(currentState.copyWith(errorMessage: 'Please select a category'));
+        }
         return;
       }
       if (currentState.price.trim().isEmpty) {
-        emit(currentState.copyWith(errorMessage: 'Please enter a price'));
+        if (!isClosed) {
+          emit(currentState.copyWith(errorMessage: 'Please enter a price'));
+        }
         return;
       }
       final priceValue = double.tryParse(currentState.price);
       if (priceValue == null || priceValue <= 0) {
-        emit(currentState.copyWith(errorMessage: 'Please enter a valid price greater than 0'));
+        if (!isClosed) {
+          emit(currentState.copyWith(errorMessage: 'Please enter a valid price greater than 0'));
+        }
         return;
       }
+      
+      // Validate timing schedule if enabled
+      if (currentState.timingEnabled) {
+        final timingError = TimeValidationUtils.validateTimingSchedule(currentState.timingSchedule);
+        if (timingError != null) {
+          if (!isClosed) {
+            emit(currentState.copyWith(errorMessage: timingError));
+          }
+          return;
+        }
+      }
+      
       // Start submission
-      emit(currentState.copyWith(isSubmitting: true, errorMessage: null));
+      if (!isClosed) {
+        emit(currentState.copyWith(isSubmitting: true, errorMessage: null));
+      }
       try {
         final response = await _updateMenuItem(
           menuId: currentState.menuId,
@@ -261,20 +305,26 @@ class EditProductBloc extends Bloc<EditProductEvent, EditProductState> {
         );
         if (response.status == 'SUCCESS') {
           // Success
-          emit(currentState.copyWith(isSubmitting: false, isSuccess: true));
+          if (!isClosed) {
+            emit(currentState.copyWith(isSubmitting: false, isSuccess: true));
+          }
         } else {
           // API returned an error
-          emit(currentState.copyWith(
-            isSubmitting: false,
-            errorMessage: response.message,
-          ));
+          if (!isClosed) {
+            emit(currentState.copyWith(
+              isSubmitting: false,
+              errorMessage: response.message,
+            ));
+          }
         }
       } catch (e) {
         // Error
-        emit(currentState.copyWith(
-          isSubmitting: false,
-          errorMessage: 'Failed to update product: ${e.toString()}',
-        ));
+        if (!isClosed) {
+          emit(currentState.copyWith(
+            isSubmitting: false,
+            errorMessage: 'Failed to update product: ${e.toString()}',
+          ));
+        }
       }
     }
   }
@@ -520,14 +570,14 @@ class EditProductBloc extends Bloc<EditProductEvent, EditProductState> {
 
   // Timing schedule event handlers
   void _onToggleTimingEnabled(ToggleTimingEnabledEvent event, Emitter<EditProductState> emit) {
-    if (state is EditProductFormState) {
+    if (state is EditProductFormState && !isClosed) {
       final currentState = state as EditProductFormState;
       emit(currentState.copyWith(timingEnabled: event.enabled));
     }
   }
 
   void _onUpdateDaySchedule(UpdateDayScheduleEvent event, Emitter<EditProductState> emit) {
-    if (state is EditProductFormState) {
+    if (state is EditProductFormState && !isClosed) {
       final currentState = state as EditProductFormState;
       final updatedSchedule = currentState.timingSchedule.copyWith(
         monday: event.day == 'monday' ? DaySchedule(enabled: event.enabled, start: event.start, end: event.end) : currentState.timingSchedule.monday,
@@ -543,9 +593,31 @@ class EditProductBloc extends Bloc<EditProductEvent, EditProductState> {
   }
 
   void _onUpdateTimezone(UpdateTimezoneEvent event, Emitter<EditProductState> emit) {
-    if (state is EditProductFormState) {
+    if (state is EditProductFormState && !isClosed) {
       final currentState = state as EditProductFormState;
       emit(currentState.copyWith(timezone: event.timezone));
+    }
+  }
+
+  void _onValidateTimingSchedule(ValidateTimingScheduleEvent event, Emitter<EditProductState> emit) {
+    if (state is EditProductFormState && !isClosed) {
+      final currentState = state as EditProductFormState;
+      String? timingError;
+      
+      if (currentState.timingEnabled) {
+        timingError = TimeValidationUtils.validateTimingSchedule(currentState.timingSchedule);
+      }
+      
+      emit(currentState.copyWith(timingError: timingError));
+    }
+  }
+
+  void _onValidateDescription(ValidateDescriptionEvent event, Emitter<EditProductState> emit) {
+    if (state is EditProductFormState && !isClosed) {
+      final currentState = state as EditProductFormState;
+      String? descriptionError = ValidationUtils.validateDescription(event.description);
+      
+      emit(currentState.copyWith(descriptionError: descriptionError));
     }
   }
 }

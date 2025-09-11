@@ -12,6 +12,9 @@ class RestaurantDetailsState {
   final double latitude;
   final double longitude;
   
+  // UI prompt flags
+  final bool shouldPromptEnableLocation;
+  
   // New fields for supercategory
   final List<SupercategoryModel> supercategories;
   final SupercategoryModel? selectedSupercategory;
@@ -35,6 +38,7 @@ class RestaurantDetailsState {
     required this.isAttemptedSubmit,
     required this.latitude,
     required this.longitude,
+    required this.shouldPromptEnableLocation,
     required this.supercategories,
     this.selectedSupercategory,
     required this.isLoadingSupercategories,
@@ -56,6 +60,7 @@ class RestaurantDetailsState {
       isAttemptedSubmit: false,
       latitude: 0.0,
       longitude: 0.0,
+      shouldPromptEnableLocation: false,
       supercategories: [],
       selectedSupercategory: null,
       isLoadingSupercategories: false,
@@ -77,6 +82,7 @@ class RestaurantDetailsState {
     bool? isAttemptedSubmit,
     double? latitude,
     double? longitude,
+    bool? shouldPromptEnableLocation,
     List<SupercategoryModel>? supercategories,
     SupercategoryModel? selectedSupercategory,
     bool? isLoadingSupercategories,
@@ -96,6 +102,7 @@ class RestaurantDetailsState {
       isAttemptedSubmit: isAttemptedSubmit ?? this.isAttemptedSubmit,
       latitude: latitude ?? this.latitude,
       longitude: longitude ?? this.longitude,
+      shouldPromptEnableLocation: shouldPromptEnableLocation ?? this.shouldPromptEnableLocation,
       supercategories: supercategories ?? this.supercategories,
       selectedSupercategory: selectedSupercategory ?? this.selectedSupercategory,
       isLoadingSupercategories: isLoadingSupercategories ?? this.isLoadingSupercategories,

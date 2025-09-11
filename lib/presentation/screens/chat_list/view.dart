@@ -8,6 +8,7 @@ import '../../../models/chat_room_model.dart';
 import '../../../ui_components/universal_widget/nav_bar.dart';
 import '../../resources/colors.dart';
 import '../../resources/font.dart';
+import '../../resources/router/router.dart';
 import '../chat/view.dart';
 import '../homePage/view.dart';
 import 'bloc.dart';
@@ -78,56 +79,65 @@ class _ChatListViewState extends State<ChatListView> with TickerProviderStateMix
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider.value(
-      value: _chatListBloc,
-      child: BlocConsumer<ChatListBloc, ChatListState>(
-        listener: (context, state) {
-          // Handle navigation when a chat room is selected
-          if (state is ChatListLoaded) {
-            // This would be handled by the SelectChatRoom event in the UI
-          }
-        },
-        builder: (context, state) {
-          return Scaffold(
-            key: _scaffoldKey,
-            backgroundColor: Colors.grey[50],
-            appBar: AppBar(
-              backgroundColor: Colors.white,
-              elevation: 0,
-              title: Padding(
-                padding: const EdgeInsets.only(left: 0.0),
-                child: Image.asset(
-                  'assets/svg/logo_text.png',
-                  height: 80,
+    return WillPopScope(
+      onWillPop: () async {
+        Navigator.of(context).pushNamedAndRemoveUntil(
+          Routes.homePage,
+          (route) => false,
+        );
+        return false;
+      },
+      child: BlocProvider.value(
+        value: _chatListBloc,
+        child: BlocConsumer<ChatListBloc, ChatListState>(
+          listener: (context, state) {
+            // Handle navigation when a chat room is selected
+            if (state is ChatListLoaded) {
+              // This would be handled by the SelectChatRoom event in the UI
+            }
+          },
+          builder: (context, state) {
+            return Scaffold(
+              key: _scaffoldKey,
+              backgroundColor: Colors.grey[50],
+              appBar: AppBar(
+                backgroundColor: Colors.white,
+                elevation: 0,
+                title: Padding(
+                  padding: const EdgeInsets.only(left: 0.0),
+                  child: Image.asset(
+                    'assets/svg/logo_text.png',
+                    height: 80,
+                  ),
                 ),
               ),
-            ),
-            body: Stack(
-              children: [
-                SafeArea(
-                  child: Column(
-                    children: [
-                      _buildHeader(),
-                      Expanded(
-                        child: _buildBody(state),
-                      ),
-                    ],
+              body: Stack(
+                children: [
+                  SafeArea(
+                    child: Column(
+                      children: [
+                        _buildHeader(),
+                        Expanded(
+                          child: _buildBody(state),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-                // Bottom Navigation Bar
-                Positioned(
-                  bottom: 0,
-                  left: 0,
-                  right: 0,
-                  child: BottomNavigationWidget(
-                    selectedIndex: _selectedIndex,
-                    onItemTapped: _onBottomNavTapped,
+                  // Bottom Navigation Bar
+                  Positioned(
+                    bottom: 0,
+                    left: 0,
+                    right: 0,
+                    child: BottomNavigationWidget(
+                      selectedIndex: _selectedIndex,
+                      onItemTapped: _onBottomNavTapped,
+                    ),
                   ),
-                ),
-              ],
-            ),
-          );
-        },
+                ],
+              ),
+            );
+          },
+        ),
       ),
     );
   }

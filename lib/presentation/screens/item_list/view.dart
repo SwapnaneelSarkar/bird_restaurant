@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 import '../../../ui_components/edit_item_card.dart';
 import '../../../ui_components/shimmer_loading.dart';
 import '../../../ui_components/product_card.dart';
+import '../../../ui_components/confirmation_dialog.dart';
 import '../add_product/view.dart';
 import '../edit_item/view.dart';
 import '../update_product_from_catalog/view.dart';
@@ -909,33 +910,20 @@ class _EditMenuViewState extends State<EditMenuView> {
                       // Show confirmation dialog before deleting
                       showDialog(
                         context: context,
-                        builder: (dialogContext) => AlertDialog(
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          title: const Text('Delete Menu Item'),
-                          content: Text(
-                              'Are you sure you want to delete "${menuItem.name}"?'),
-                          actions: [
-                            TextButton(
-                              onPressed: () => Navigator.of(dialogContext).pop(),
-                              child: const Text(
-                                'Cancel',
-                                style: TextStyle(color: Colors.grey),
-                              ),
-                            ),
-                            TextButton(
-                              onPressed: () {
-                                Navigator.of(dialogContext).pop();
-                                _menuItemsBloc.add(DeleteMenuItemEvent(menuItem.menuId));
-                              },
-                              child: const Text(
-                                'Delete',
-                                style: TextStyle(color: Colors.red),
-                              ),
-                            ),
-                          ],
-                        ),
+                        barrierDismissible: false,
+                        builder: (BuildContext context) {
+                          return ConfirmationDialog(
+                            title: 'Delete Menu Item',
+                            message: 'Are you sure you want to delete "${menuItem.name}"? This action cannot be undone.',
+                            confirmText: 'Delete',
+                            cancelText: 'Cancel',
+                            icon: Icons.delete_outline,
+                            confirmColor: Colors.red,
+                            onConfirm: () {
+                              _menuItemsBloc.add(DeleteMenuItemEvent(menuItem.menuId));
+                            },
+                          );
+                        },
                       );
                     },
                   );
@@ -965,34 +953,20 @@ class _EditMenuViewState extends State<EditMenuView> {
                       // Show confirmation dialog before deleting
                       showDialog(
                         context: context,
-                        builder: (dialogContext) => AlertDialog(
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          title: const Text('Delete Product'),
-                          content: Text(
-                              'Are you sure you want to delete "${product.name}"?'),
-                          actions: [
-                            TextButton(
-                              onPressed: () => Navigator.of(dialogContext).pop(),
-                              child: const Text(
-                                'Cancel',
-                                style: TextStyle(color: Colors.grey),
-                              ),
-                            ),
-                            TextButton(
-                              onPressed: () {
-                                Navigator.of(dialogContext).pop();
-                                // Implement product deletion
-                                _deleteProduct(product);
-                              },
-                              child: const Text(
-                                'Delete',
-                                style: TextStyle(color: Colors.red),
-                              ),
-                            ),
-                          ],
-                        ),
+                        barrierDismissible: false,
+                        builder: (BuildContext context) {
+                          return ConfirmationDialog(
+                            title: 'Delete Product',
+                            message: 'Are you sure you want to delete "${product.name}"? This action cannot be undone.',
+                            confirmText: 'Delete',
+                            cancelText: 'Cancel',
+                            icon: Icons.delete_outline,
+                            confirmColor: Colors.red,
+                            onConfirm: () {
+                              _deleteProduct(product);
+                            },
+                          );
+                        },
                       );
                     },
                   );

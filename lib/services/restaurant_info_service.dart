@@ -95,12 +95,25 @@ class RestaurantInfoService {
           // Handle restaurant photos
           if (data['restaurant_photos'] != null) {
             if (data['restaurant_photos'] is List && data['restaurant_photos'].isNotEmpty) {
-              imageUrl = data['restaurant_photos'][0];
+              // Safely get the first non-null photo
+              final photos = data['restaurant_photos'] as List;
+              for (var photo in photos) {
+                if (photo != null && photo.toString().isNotEmpty) {
+                  imageUrl = photo.toString();
+                  break;
+                }
+              }
             } else if (data['restaurant_photos'] is String && data['restaurant_photos'].isNotEmpty) {
               try {
                 final decoded = jsonDecode(data['restaurant_photos']);
                 if (decoded is List && decoded.isNotEmpty) {
-                  imageUrl = decoded[0];
+                  // Safely get the first non-null photo from decoded list
+                  for (var photo in decoded) {
+                    if (photo != null && photo.toString().isNotEmpty) {
+                      imageUrl = photo.toString();
+                      break;
+                    }
+                  }
                 } else if (decoded is String) {
                   imageUrl = decoded;
                 } else {

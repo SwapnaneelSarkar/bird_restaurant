@@ -832,16 +832,22 @@ class _HomeViewState extends State<HomeView> with TickerProviderStateMixin {
     // Smart interval calculation based on sales range
     double interval = _calculateSmartInterval(salesRange, maxSales);
     
+    // Smart interval calculation for x-axis based on number of data points
+    double xInterval = _calculateSmartXInterval(days.length);
+    
     return LineChart(
       LineChartData(
+        minY: 0,
+        maxY: maxSales + (interval * 0.5), // Add some padding above the max value
         gridData: FlGridData(
           show: true,
           drawVerticalLine: false,
           horizontalInterval: interval,
           getDrawingHorizontalLine: (value) {
             return FlLine(
-              color: Colors.grey[200],
+              color: Colors.grey[200]!,
               strokeWidth: 1,
+              dashArray: [5, 5], // Add dashed lines for better visual appeal
             );
           },
         ),
@@ -850,19 +856,23 @@ class _HomeViewState extends State<HomeView> with TickerProviderStateMixin {
           leftTitles: AxisTitles(
             sideTitles: SideTitles(
               showTitles: true,
-              reservedSize: 40,
+              reservedSize: 50,
               getTitlesWidget: (value, meta) {
-                if (value == 0) return const SizedBox();
-                return Padding(
-                  padding: const EdgeInsets.only(right: 8.0),
-                  child: Text(
-                    value.toInt().toString(),
-                    style: GoogleFonts.poppins(
-                      color: Colors.grey[600],
-                      fontSize: 10,
+                // Show all interval values clearly
+                if (value == 0 || value % interval == 0) {
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 8.0),
+                    child: Text(
+                      value.toInt().toString(),
+                      style: GoogleFonts.poppins(
+                        color: Colors.grey[700],
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
-                  ),
-                );
+                  );
+                }
+                return const SizedBox();
               },
               interval: interval,
             ),
@@ -870,19 +880,26 @@ class _HomeViewState extends State<HomeView> with TickerProviderStateMixin {
           bottomTitles: AxisTitles(
             sideTitles: SideTitles(
               showTitles: true,
+              reservedSize: 30,
               getTitlesWidget: (value, meta) {
                 if (value < 0 || value >= days.length) return const SizedBox();
-                return Padding(
-                  padding: const EdgeInsets.only(top: 8.0),
-                  child: Text(
-                    days[value.toInt()],
-                    style: GoogleFonts.poppins(
-                      color: Colors.grey[600],
-                      fontSize: 10,
+                // Show titles only at smart intervals
+                if (value % xInterval == 0) {
+                  return Padding(
+                    padding: const EdgeInsets.only(top: 8.0),
+                    child: Text(
+                      days[value.toInt()],
+                      style: GoogleFonts.poppins(
+                        color: Colors.grey[600],
+                        fontSize: 10,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
-                  ),
-                );
+                  );
+                }
+                return const SizedBox();
               },
+              interval: xInterval,
             ),
           ),
           rightTitles: AxisTitles(
@@ -892,15 +909,31 @@ class _HomeViewState extends State<HomeView> with TickerProviderStateMixin {
             sideTitles: SideTitles(showTitles: false),
           ),
         ),
-        borderData: FlBorderData(show: false),
+        borderData: FlBorderData(
+          show: true,
+          border: Border(
+            left: BorderSide(color: Colors.grey[300]!, width: 1),
+            bottom: BorderSide(color: Colors.grey[300]!, width: 1),
+          ),
+        ),
         lineBarsData: [
           LineChartBarData(
             spots: spots,
             isCurved: true,
             color: ColorManager.primary,
-            barWidth: 3,
+            barWidth: 4, // Slightly thicker line for better visibility
             isStrokeCapRound: true,
-            dotData: FlDotData(show: true),
+            dotData: FlDotData(
+              show: true,
+              getDotPainter: (spot, percent, barData, index) {
+                return FlDotCirclePainter(
+                  radius: 4,
+                  color: ColorManager.primary,
+                  strokeWidth: 2,
+                  strokeColor: Colors.white,
+                );
+              },
+            ),
             belowBarData: BarAreaData(
               show: true,
               color: ColorManager.primary.withOpacity(0.15),
@@ -916,45 +949,103 @@ class _HomeViewState extends State<HomeView> with TickerProviderStateMixin {
                     ? days[dayIndex] 
                     : '';
                 return LineTooltipItem(
-                  '$day: ${barSpot.y.toInt()}',
-                  const TextStyle(color: Colors.white),
+                  '$day\n${barSpot.y.toInt()} sales',
+                  GoogleFonts.poppins(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
                 );
               }).toList();
             },
           ),
         ),
+        // Add some visual polish
+        backgroundColor: Colors.transparent,
       ),
     );
   }
 
-  /// Calculates smart interval for Y-axis based on sales range
-  /// This ensures the graph looks pleasant with appropriate spacing
+  /// Calculates smart interval for Y-axis based on sales data
+  /// Implements optimized scaling for better UI/UX with small datasets
   double _calculateSmartInterval(double salesRange, double maxSales) {
-    // If all sales are 0, use a small default interval
-    if (maxSales == 0) return 100;
+    // If no sales data, use default small range
+    if (maxSales == 0) return 2;
     
-    // If sales range is very small, use a small interval
-    if (salesRange <= 200) return 100;
+    // For very small datasets (0-10), use 2 intervals (0, 2, 4, 6, 8, 10)
+    if (maxSales <= 10) return 2;
     
-    // For small ranges (200-500), use 200 interval
-    if (salesRange <= 500) return 200;
+    // For small datasets (10-25), use 5 intervals (0, 5, 10, 15, 20, 25)
+    if (maxSales <= 25) return 5;
     
-    // For medium ranges (500-1000), use 300 interval
-    if (salesRange <= 1000) return 300;
+    // For medium datasets (25-50), use 10 intervals (0, 10, 20, 30, 40, 50)
+    if (maxSales <= 50) return 10;
     
-    // For larger ranges (1000-2000), use 500 interval
-    if (salesRange <= 2000) return 500;
+    // For larger datasets (50-100), use 25 intervals (0, 25, 50, 75, 100)
+    if (maxSales <= 100) return 25;
     
-    // For even larger ranges (2000-5000), use 1000 interval
-    if (salesRange <= 5000) return 1000;
+    // For datasets (100-200), use 50 intervals (0, 50, 100, 150, 200)
+    if (maxSales <= 200) return 50;
     
-    // For very large ranges (5000-10000), use 2000 interval
-    if (salesRange <= 10000) return 2000;
+    // For datasets (200-500), use 100 intervals (0, 100, 200, 300, 400, 500)
+    if (maxSales <= 500) return 100;
     
-    // For extremely large ranges (10000+), use 5000 interval
-    if (salesRange <= 50000) return 5000;
+    // For datasets (500-1000), use 200 intervals
+    if (maxSales <= 1000) return 200;
     
-    // For massive ranges (50000+), use 10000 interval
+    // For datasets (1000-2000), use 500 intervals
+    if (maxSales <= 2000) return 500;
+    
+    // For datasets (2000-5000), use 1000 intervals
+    if (maxSales <= 5000) return 1000;
+    
+    // For datasets (5000-10000), use 2000 intervals
+    if (maxSales <= 10000) return 2000;
+    
+    // For very large values, use 5000 intervals
+    if (maxSales <= 50000) return 5000;
+    
+    // For massive values, use 10000 intervals
     return 10000;
+  }
+
+  /// Calculates smart interval for X-axis based on number of data points
+  /// Implements optimized scaling for better UI/UX with date ranges
+  double _calculateSmartXInterval(int dataLength) {
+    // If no data, show all points
+    if (dataLength <= 0) return 1;
+    
+    // For very small datasets (1-3), show all points
+    if (dataLength <= 3) return 1;
+    
+    // For small datasets (4-7), show every point
+    if (dataLength <= 7) return 1;
+    
+    // For medium datasets (8-14), show every 2nd point
+    if (dataLength <= 14) return 2;
+    
+    // For larger datasets (15-21), show every 3rd point
+    if (dataLength <= 21) return 3;
+    
+    // For datasets (22-30), show every 4th point
+    if (dataLength <= 30) return 4;
+    
+    // For datasets (31-45), show every 5th point
+    if (dataLength <= 45) return 5;
+    
+    // For datasets (46-60), show every 6th point
+    if (dataLength <= 60) return 6;
+    
+    // For datasets (61-90), show every 7th point
+    if (dataLength <= 90) return 7;
+    
+    // For larger datasets, show every 10th point
+    if (dataLength <= 120) return 10;
+    
+    // For very large datasets, show every 15th point
+    if (dataLength <= 180) return 15;
+    
+    // For massive datasets, show every 20th point
+    return 20;
   }
 }

@@ -201,3 +201,7 @@ class ValidateTagsEvent extends AddProductEvent {
 class ValidateAllFieldsEvent extends AddProductEvent {
   const ValidateAllFieldsEvent();
 }
+
+class ValidateTimingScheduleEvent extends AddProductEvent {
+  const ValidateTimingScheduleEvent();
+}

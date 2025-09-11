@@ -9,12 +9,16 @@ class OrderSummarySlider extends StatefulWidget {
   final OrderStats allTimeStats;
   final TodayOrderSummaryData? todayStats;
   final void Function(OrderStatus, {bool filterByToday}) onFilterTap;
+  final OrderStatus? selectedStatus;
+  final bool filterByToday;
 
   const OrderSummarySlider({
     Key? key,
     required this.allTimeStats,
     this.todayStats,
     required this.onFilterTap,
+    this.selectedStatus,
+    this.filterByToday = false,
   }) : super(key: key);
 
   @override
@@ -133,6 +137,7 @@ class _OrderSummarySliderState extends State<OrderSummarySlider>
                   iconColor: Colors.indigo,
                   icon: Icons.shopping_bag_outlined,
                   onTap: () => widget.onFilterTap(OrderStatus.all, filterByToday: false),
+                  isSelected: widget.selectedStatus == OrderStatus.all && !widget.filterByToday,
                 ),
               ),
               SizedBox(width: cardSpacing),
@@ -143,6 +148,7 @@ class _OrderSummarySliderState extends State<OrderSummarySlider>
                   iconColor: Colors.orange,
                   icon: Icons.access_time,
                   onTap: () => widget.onFilterTap(OrderStatus.pending, filterByToday: false),
+                  isSelected: widget.selectedStatus == OrderStatus.pending && !widget.filterByToday,
                 ),
               ),
               SizedBox(width: cardSpacing),
@@ -153,6 +159,7 @@ class _OrderSummarySliderState extends State<OrderSummarySlider>
                   iconColor: Colors.blue,
                   icon: Icons.check_circle_outline,
                   onTap: () => widget.onFilterTap(OrderStatus.confirmed, filterByToday: false),
+                  isSelected: widget.selectedStatus == OrderStatus.confirmed && !widget.filterByToday,
                 ),
               ),
             ],
@@ -170,6 +177,7 @@ class _OrderSummarySliderState extends State<OrderSummarySlider>
                   iconColor: Colors.purple,
                   icon: Icons.restaurant,
                   onTap: () => widget.onFilterTap(OrderStatus.preparing, filterByToday: false),
+                  isSelected: widget.selectedStatus == OrderStatus.preparing && !widget.filterByToday,
                 ),
               ),
               SizedBox(width: cardSpacing),
@@ -180,6 +188,7 @@ class _OrderSummarySliderState extends State<OrderSummarySlider>
                   iconColor: Colors.green,
                   icon: Icons.done_all,
                   onTap: () => widget.onFilterTap(OrderStatus.readyForDelivery, filterByToday: false),
+                  isSelected: widget.selectedStatus == OrderStatus.readyForDelivery && !widget.filterByToday,
                 ),
               ),
               SizedBox(width: cardSpacing),
@@ -190,6 +199,7 @@ class _OrderSummarySliderState extends State<OrderSummarySlider>
                   iconColor: Colors.cyan,
                   icon: Icons.delivery_dining,
                   onTap: () => widget.onFilterTap(OrderStatus.outForDelivery, filterByToday: false),
+                  isSelected: widget.selectedStatus == OrderStatus.outForDelivery && !widget.filterByToday,
                 ),
               ),
             ],
@@ -207,6 +217,7 @@ class _OrderSummarySliderState extends State<OrderSummarySlider>
                   iconColor: Colors.teal,
                   icon: Icons.check_circle,
                   onTap: () => widget.onFilterTap(OrderStatus.delivered, filterByToday: false),
+                  isSelected: widget.selectedStatus == OrderStatus.delivered && !widget.filterByToday,
                 ),
               ),
               SizedBox(width: cardSpacing),
@@ -217,6 +228,7 @@ class _OrderSummarySliderState extends State<OrderSummarySlider>
                   iconColor: Colors.red,
                   icon: Icons.cancel_outlined,
                   onTap: () => widget.onFilterTap(OrderStatus.cancelled, filterByToday: false),
+                  isSelected: widget.selectedStatus == OrderStatus.cancelled && !widget.filterByToday,
                 ),
               ),
               SizedBox(width: cardSpacing),
@@ -289,6 +301,7 @@ class _OrderSummarySliderState extends State<OrderSummarySlider>
                   iconColor: Colors.indigo,
                   icon: Icons.shopping_bag_outlined,
                   onTap: () => widget.onFilterTap(OrderStatus.all, filterByToday: true),
+                  isSelected: widget.selectedStatus == OrderStatus.all && widget.filterByToday,
                 ),
               ),
               SizedBox(width: cardSpacing),
@@ -300,6 +313,7 @@ class _OrderSummarySliderState extends State<OrderSummarySlider>
                   iconColor: Colors.green,
                   icon: Icons.attach_money,
                   onTap: () => widget.onFilterTap(OrderStatus.all, filterByToday: true),
+                  isSelected: widget.selectedStatus == OrderStatus.all && widget.filterByToday,
                 ),
               ),
               SizedBox(width: cardSpacing),
@@ -311,6 +325,7 @@ class _OrderSummarySliderState extends State<OrderSummarySlider>
                   iconColor: Colors.amber,
                   icon: Icons.analytics,
                   onTap: () => widget.onFilterTap(OrderStatus.all, filterByToday: true),
+                  isSelected: widget.selectedStatus == OrderStatus.all && widget.filterByToday,
                 ),
               ),
             ],
@@ -329,6 +344,7 @@ class _OrderSummarySliderState extends State<OrderSummarySlider>
                   iconColor: Colors.teal,
                   icon: Icons.check_circle,
                   onTap: () => widget.onFilterTap(OrderStatus.delivered, filterByToday: true),
+                  isSelected: widget.selectedStatus == OrderStatus.delivered && widget.filterByToday,
                 ),
               ),
               SizedBox(width: cardSpacing),
@@ -340,6 +356,7 @@ class _OrderSummarySliderState extends State<OrderSummarySlider>
                   iconColor: Colors.red,
                   icon: Icons.cancel,
                   onTap: () => widget.onFilterTap(OrderStatus.cancelled, filterByToday: true),
+                  isSelected: widget.selectedStatus == OrderStatus.cancelled && widget.filterByToday,
                 ),
               ),
               SizedBox(width: cardSpacing),
@@ -351,6 +368,7 @@ class _OrderSummarySliderState extends State<OrderSummarySlider>
                   iconColor: Colors.blue,
                   icon: Icons.check_circle_outline,
                   onTap: () => widget.onFilterTap(OrderStatus.confirmed, filterByToday: true),
+                  isSelected: widget.selectedStatus == OrderStatus.confirmed && widget.filterByToday,
                 ),
               ),
             ],
@@ -369,6 +387,7 @@ class _OrderSummarySliderState extends State<OrderSummarySlider>
                   iconColor: Colors.purple,
                   icon: Icons.restaurant,
                   onTap: () => widget.onFilterTap(OrderStatus.preparing, filterByToday: true),
+                  isSelected: widget.selectedStatus == OrderStatus.preparing && widget.filterByToday,
                 ),
               ),
               SizedBox(width: cardSpacing),
@@ -380,6 +399,7 @@ class _OrderSummarySliderState extends State<OrderSummarySlider>
                   iconColor: Colors.green,
                   icon: Icons.done_all,
                   onTap: () => widget.onFilterTap(OrderStatus.readyForDelivery, filterByToday: true),
+                  isSelected: widget.selectedStatus == OrderStatus.readyForDelivery && widget.filterByToday,
                 ),
               ),
               SizedBox(width: cardSpacing),
@@ -391,6 +411,7 @@ class _OrderSummarySliderState extends State<OrderSummarySlider>
                   iconColor: Colors.teal,
                   icon: Icons.check_circle,
                   onTap: () => widget.onFilterTap(OrderStatus.delivered, filterByToday: true),
+                  isSelected: widget.selectedStatus == OrderStatus.delivered && widget.filterByToday,
                 ),
               ),
             ],
@@ -408,6 +429,7 @@ class _OrderSummarySliderState extends State<OrderSummarySlider>
     required Color iconColor,
     required IconData icon,
     required VoidCallback onTap,
+    bool isSelected = false,
   }) {
     return GestureDetector(
       onTap: onTap,
@@ -415,18 +437,20 @@ class _OrderSummarySliderState extends State<OrderSummarySlider>
         height: 108, // Increased to accommodate today's stats content
         padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: isSelected ? iconColor.withValues(alpha: 0.1) : Colors.white,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: Colors.grey[200]!,
-            width: 1,
+            color: isSelected ? iconColor : Colors.grey[200]!,
+            width: isSelected ? 2 : 1,
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.04),
-              blurRadius: 8,
+              color: isSelected 
+                  ? iconColor.withValues(alpha: 0.2)
+                  : Colors.black.withValues(alpha: 0.04),
+              blurRadius: isSelected ? 12 : 8,
               offset: const Offset(0, 2),
-              spreadRadius: 0,
+              spreadRadius: isSelected ? 1 : 0,
             ),
           ],
         ),
@@ -480,6 +504,7 @@ class _OrderSummarySliderState extends State<OrderSummarySlider>
     required Color iconColor,
     required IconData icon,
     VoidCallback? onTap,
+    bool isSelected = false,
   }) {
     return GestureDetector(
       onTap: onTap,
@@ -487,18 +512,20 @@ class _OrderSummarySliderState extends State<OrderSummarySlider>
         height: 108, // Increased to accommodate today's stats content
         padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: isSelected ? iconColor.withValues(alpha: 0.1) : Colors.white,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: Colors.grey[200]!,
-            width: 1,
+            color: isSelected ? iconColor : Colors.grey[200]!,
+            width: isSelected ? 2 : 1,
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.04),
-              blurRadius: 8,
+              color: isSelected 
+                  ? iconColor.withValues(alpha: 0.2)
+                  : Colors.black.withValues(alpha: 0.04),
+              blurRadius: isSelected ? 12 : 8,
               offset: const Offset(0, 2),
-              spreadRadius: 0,
+              spreadRadius: isSelected ? 1 : 0,
             ),
           ],
         ),

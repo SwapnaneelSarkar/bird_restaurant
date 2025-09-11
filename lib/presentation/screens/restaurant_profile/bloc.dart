@@ -73,9 +73,10 @@ class RestaurantProfileBloc
       }
       
       emit(state.copyWith(
-        ownerName: e.value, 
-        submissionMessage: null, 
-        ownerNameError: errorMessage
+        ownerName: e.value,
+        submissionMessage: null,
+        ownerNameError: errorMessage,
+        clearOwnerNameError: errorMessage == null,
       ));
     });
     on<OwnerMobileChanged>((e, emit) {
@@ -90,7 +91,28 @@ class RestaurantProfileBloc
     on<OwnerAddressChanged>((e, emit) => emit(state.copyWith(ownerAddress: e.v, submissionMessage: null, errorMessage: null)));
 
     // Restaurant fields
-    on<RestaurantNameChanged>((e, emit) => emit(state.copyWith(restaurantName: e.value, submissionMessage: null, errorMessage: null)));
+    on<RestaurantNameChanged>((e, emit) {
+      // Real-time validation and character tracking
+      String? errorMessage;
+      final name = e.value.trim();
+      
+      if (name.isEmpty) {
+        errorMessage = 'Restaurant name is required';
+      } else if (name.length < 2) {
+        errorMessage = 'Restaurant name must be at least 2 characters long';
+      } else if (name.length > 30) {
+        errorMessage = 'Restaurant name cannot exceed 30 characters';
+      }
+      // Clear error if validation passes
+      
+      emit(state.copyWith(
+        restaurantName: e.value,
+        submissionMessage: null,
+        errorMessage: null,
+        restaurantNameError: errorMessage,
+        clearRestaurantNameError: errorMessage == null,
+      ));
+    });
     on<DescriptionChanged>((e, emit) => emit(state.copyWith(description: e.v, submissionMessage: null, errorMessage: null)));
     on<CookingTimeChanged>((e, emit) => emit(state.copyWith(cookingTime: e.v, submissionMessage: null, errorMessage: null)));
     on<DeliveryRadiusChanged>((e, emit) => emit(state.copyWith(deliveryRadius: e.v, submissionMessage: null, errorMessage: null)));
@@ -242,7 +264,23 @@ class RestaurantProfileBloc
       }
     } catch (e) {
       debugPrint('Error loading restaurant types: $e');
-      emit(state.copyWith(isLoadingRestaurantTypes: false));
+      String errorMessage = 'Failed to load restaurant types';
+      
+      // Handle specific exception types
+      if (e is HttpException) {
+        errorMessage = 'Network error: ${e.message}';
+      } else if (e is SocketException) {
+        errorMessage = 'Connection error: Unable to connect to server';
+      } else if (e is FormatException) {
+        errorMessage = 'Data format error: Invalid response from server';
+      } else if (e is TimeoutException) {
+        errorMessage = 'Request timeout: Server took too long to respond';
+      }
+      
+      emit(state.copyWith(
+        isLoadingRestaurantTypes: false,
+        errorMessage: errorMessage,
+      ));
     }
   }
 
@@ -513,9 +551,22 @@ class RestaurantProfileBloc
       }
     } catch (e) {
       debugPrint('Error loading initial data: $e');
+      String errorMessage = 'Failed to load restaurant data';
+      
+      // Handle specific exception types
+      if (e is HttpException) {
+        errorMessage = 'Network error: ${e.message}';
+      } else if (e is SocketException) {
+        errorMessage = 'Connection error: Unable to connect to server';
+      } else if (e is FormatException) {
+        errorMessage = 'Data format error: Invalid response from server';
+      } else if (e is TimeoutException) {
+        errorMessage = 'Request timeout: Server took too long to respond';
+      }
+      
       emit(state.copyWith(
         isLoading: false,
-        errorMessage: 'Error loading data: ${e.toString()}',
+        errorMessage: errorMessage,
       ));
     }
 
@@ -905,10 +956,25 @@ class RestaurantProfileBloc
       }
     } catch (e) {
       debugPrint('Error updating profile: $e');
+      String errorMessage = 'Failed to update profile';
+      
+      // Handle specific exception types
+      if (e is HttpException) {
+        errorMessage = 'Network error: ${e.message}';
+      } else if (e is SocketException) {
+        errorMessage = 'Connection error: Unable to connect to server';
+      } else if (e is FormatException) {
+        errorMessage = 'Data format error: Invalid response from server';
+      } else if (e is TimeoutException) {
+        errorMessage = 'Request timeout: Server took too long to respond';
+      } else if (e is Exception) {
+        errorMessage = 'Server error: ${e.toString()}';
+      }
+      
       emit(state.copyWith(
         isSubmitting: false,
         submissionSuccess: false,
-        errorMessage: 'Failed to update profile: ${e.toString()}',
+        errorMessage: errorMessage,
       ));
     }
   }
@@ -1023,9 +1089,24 @@ class RestaurantProfileBloc
       );
     } catch (e) {
       debugPrint('❌ Error in _onInitializePhoneOtp: $e');
+      String errorMessage = 'Failed to send OTP';
+      
+      // Handle specific exception types
+      if (e is HttpException) {
+        errorMessage = 'Network error: ${e.message}';
+      } else if (e is SocketException) {
+        errorMessage = 'Connection error: Unable to connect to server';
+      } else if (e is FormatException) {
+        errorMessage = 'Data format error: Invalid response from server';
+      } else if (e is TimeoutException) {
+        errorMessage = 'Request timeout: Server took too long to respond';
+      } else if (e is Exception) {
+        errorMessage = 'Verification error: ${e.toString()}';
+      }
+      
       emit(state.copyWith(
         isPhoneVerificationInProgress: false,
-        phoneVerificationError: 'Failed to send OTP: $e',
+        phoneVerificationError: errorMessage,
       ));
     }
   }
@@ -1268,7 +1349,25 @@ class RestaurantProfileBloc
       emit(state.copyWith(isCountryDetectionInProgress: false));
     } catch (e) {
       debugPrint('Auto-detect country failed: $e');
-      emit(state.copyWith(isCountryDetectionInProgress: false));
+      String errorMessage = 'Failed to detect country';
+      
+      // Handle specific exception types
+      if (e is HttpException) {
+        errorMessage = 'Network error: ${e.message}';
+      } else if (e is SocketException) {
+        errorMessage = 'Connection error: Unable to connect to location services';
+      } else if (e is FormatException) {
+        errorMessage = 'Data format error: Invalid location data';
+      } else if (e is TimeoutException) {
+        errorMessage = 'Location request timeout: Service took too long to respond';
+      } else if (e is Exception) {
+        errorMessage = 'Location error: ${e.toString()}';
+      }
+      
+      emit(state.copyWith(
+        isCountryDetectionInProgress: false,
+        errorMessage: errorMessage,
+      ));
     }
   }
 
@@ -1331,10 +1430,25 @@ class RestaurantProfileBloc
       }
     } catch (e) {
       debugPrint('Error checking location permission: $e');
+      String errorMessage = 'Failed to check location permission';
+      
+      // Handle specific exception types
+      if (e is HttpException) {
+        errorMessage = 'Network error: ${e.message}';
+      } else if (e is SocketException) {
+        errorMessage = 'Connection error: Unable to connect to location services';
+      } else if (e is FormatException) {
+        errorMessage = 'Data format error: Invalid location data';
+      } else if (e is TimeoutException) {
+        errorMessage = 'Location request timeout: Service took too long to respond';
+      } else if (e is Exception) {
+        errorMessage = 'Location permission error: ${e.toString()}';
+      }
+      
       emit(state.copyWith(
         hasLocationPermission: false,
         isCountryDetectionInProgress: false,
-        phoneVerificationError: 'Failed to check location permission: $e',
+        phoneVerificationError: errorMessage,
       ));
     }
   }

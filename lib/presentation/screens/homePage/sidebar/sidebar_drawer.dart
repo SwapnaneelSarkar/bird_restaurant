@@ -6,10 +6,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:ui';
 import 'dart:math';
 import '../../../../services/restaurant_info_service.dart';
-import '../../../../services/subscription_lock_service.dart';
-import '../../../../ui_components/subscription_lock_dialog.dart';
 import '../../../../services/subscription_plans_service.dart';
 import '../../../../services/token_service.dart';
+import '../../../../services/currency_service.dart';
+import '../../../../ui_components/currency_selection_dialog.dart';
 import '../../../resources/router/router.dart';
 import '../event.dart';
 
@@ -61,7 +61,7 @@ class _SidebarDrawerState extends State<SidebarDrawer> with SingleTickerProvider
   
   // For menu item staggered animation
   late List<Animation<double>> _menuItemAnimations;
-  final int _menuItemCount = 16; // Total number of menu items including logout and accepting orders toggle (max possible)
+  final int _menuItemCount = 17; // Total number of menu items including logout, currency button, and accepting orders toggle
 
   // Minimal subscription check utility - now handled dynamically
 
@@ -586,6 +586,11 @@ class AnimatedSidebarContent extends StatelessWidget {
             
             const Divider(height: 1, thickness: 1, color: Color(0xFFEEEEEE)),
             
+            // Currency Change Button
+            _buildAnimatedCurrencyButton(context, animations[12]),
+            
+            const Divider(height: 1, thickness: 1, color: Color(0xFFEEEEEE)),
+            
             // Animated logout button
             _buildAnimatedLogoutButton(context, animations[13]),
             
@@ -904,6 +909,90 @@ class AnimatedSidebarContent extends StatelessWidget {
     );
   }
 
+  Widget _buildAnimatedCurrencyButton(BuildContext context, Animation<double> animation) {
+    return AnimatedBuilder(
+      animation: animation,
+      builder: (context, child) {
+        return Transform.translate(
+          offset: Offset(0, 15 * (1 - animation.value)),
+          child: Opacity(
+            opacity: animation.value,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 8.0),
+              child: Material(
+                color: Colors.transparent,
+                borderRadius: BorderRadius.circular(10),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(10),
+                  onTap: () => _handleCurrencyChange(context),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 14,
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.currency_exchange_outlined,
+                          size: 22,
+                          color: Colors.blue[700],
+                        ),
+                        const SizedBox(width: 16),
+                        Text(
+                          'Currency',
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w500,
+                            color: Colors.blue[700],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _handleCurrencyChange(BuildContext context) async {
+    try {
+      // Get current currency code
+      final currentCurrency = await CurrencyService().getCurrencyCode();
+      
+      if (context.mounted) {
+        final result = await showDialog<bool>(
+          context: context,
+          builder: (BuildContext context) {
+            return CurrencySelectionDialog(
+              currentCurrency: currentCurrency,
+            );
+          },
+        );
+        
+        // If currency was successfully updated, you might want to refresh the UI
+        if (result == true && context.mounted) {
+          // Optionally refresh any currency-dependent widgets
+          debugPrint('Currency updated successfully');
+        }
+      }
+    } catch (e) {
+      debugPrint('Error showing currency selection dialog: $e');
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error opening currency selection: $e'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    }
+  }
+
   Widget _buildAnimatedLogoutButton(BuildContext context, Animation<double> animation) {
     return AnimatedBuilder(
       animation: animation,
@@ -996,6 +1085,9 @@ class AnimatedSidebarContent extends StatelessWidget {
       
       // Clear restaurant info cache first
       RestaurantInfoService.clearCache();
+      
+      // Clear currency cache
+      await CurrencyService().clearCache();
       
       // Clear authentication data
       final prefs = await SharedPreferences.getInstance();

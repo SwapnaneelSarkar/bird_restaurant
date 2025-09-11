@@ -37,6 +37,9 @@ class EmailChanged extends RestaurantDetailsEvent {
 
 class UseCurrentLocationPressed extends RestaurantDetailsEvent {}
 
+// UI: reset enable-location prompt flag after dialog handled
+class DismissEnableLocationPrompt extends RestaurantDetailsEvent {}
+
 class LocationSelected extends RestaurantDetailsEvent {
   final String address;
   final double latitude;

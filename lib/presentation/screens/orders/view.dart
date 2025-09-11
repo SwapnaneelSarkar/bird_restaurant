@@ -333,6 +333,8 @@ class _OrdersViewState extends State<OrdersView> {
               allTimeStats: state.stats,
               todayStats: state.todaySummary,
               onFilterTap: (status, {filterByToday = false}) => bloc.add(FilterOrdersEvent(status, filterByToday: filterByToday)),
+              selectedStatus: state.filterStatus,
+              filterByToday: state.filterByToday,
             ),
           ),
           

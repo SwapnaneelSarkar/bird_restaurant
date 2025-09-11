@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter/services.dart';
 import '../../../ui_components/custom_textField.dart';
+import '../../../ui_components/confirmation_dialog.dart';
 import '../../resources/colors.dart';
 import '../../resources/font.dart';
 import '../homePage/sidebar/sidebar_drawer.dart';
@@ -18,6 +19,7 @@ import '../../../services/attribute_service.dart';
 import '../../../models/attribute_model.dart';
 import '../../../services/restaurant_info_service.dart';
 import '../../resources/router/router.dart';
+import '../../../main.dart';
 
 class AttributesScreen extends StatefulWidget {
   const AttributesScreen({Key? key}) : super(key: key);
@@ -94,10 +96,22 @@ class _AttributesScreenState extends State<AttributesScreen> {
   Widget build(BuildContext context) {
     return WillPopScope(
       onWillPop: () async {
-        Navigator.of(context).pushNamedAndRemoveUntil(
-          Routes.homePage,
-          (route) => false,
-        );
+        debugPrint('🔄 Back button pressed on attributes page');
+        
+        try {
+          // Always navigate to home page when back button is pressed
+          navigatorKey.currentState?.pushReplacementNamed(Routes.homePage);
+          debugPrint('✅ Navigation to home page successful');
+        } catch (e) {
+          debugPrint('❌ Navigation error: $e');
+          // Fallback: try to push replacement
+          try {
+            Navigator.of(context).pushReplacementNamed(Routes.homePage);
+            debugPrint('✅ Fallback navigation successful');
+          } catch (fallbackError) {
+            debugPrint('❌ Fallback navigation also failed: $fallbackError');
+          }
+        }
         return false;
       },
       child: MultiBlocProvider(
@@ -1094,7 +1108,9 @@ class _AttributesScreenState extends State<AttributesScreen> {
                                     itemCount: group.attributeValues.length,
                                     itemBuilder: (context, index) {
                                       final value = group.attributeValues[index].toValueWithPrice();
-                                      final nameController = TextEditingController(text: value.name);
+                                      // Handle null values by showing empty string in the UI
+                                      final displayName = value.name == 'null' ? '' : value.name;
+                                      final nameController = TextEditingController(text: displayName);
                                       final priceController = TextEditingController(text: value.priceAdjustment.toString());
                                       bool isDefault = value.isDefault;
                                       bool isDeleted = false;
@@ -1129,14 +1145,20 @@ class _AttributesScreenState extends State<AttributesScreen> {
                                                       ),
                                                     ),
                                                     onChanged: (newValue) {
-                                                      // Track changes for bulk save
-                                                      final updatedValue = AttributeValueWithPrice(
-                                                        valueId: value.valueId,
-                                                        name: newValue,
-                                                        priceAdjustment: int.tryParse(priceController.text.trim()) ?? 0,
-                                                        isDefault: isDefault,
-                                                      );
-                                                      _updateOrAddToUpdatedValues(updatedValues, updatedValue);
+                                                      // Only track changes if the name is not empty and not "null"
+                                                      final trimmedValue = newValue.trim();
+                                                      if (trimmedValue.isNotEmpty && trimmedValue != 'null') {
+                                                        final updatedValue = AttributeValueWithPrice(
+                                                          valueId: value.valueId,
+                                                          name: trimmedValue,
+                                                          priceAdjustment: int.tryParse(priceController.text.trim()) ?? 0,
+                                                          isDefault: isDefault,
+                                                        );
+                                                        _updateOrAddToUpdatedValues(updatedValues, updatedValue);
+                                                      } else {
+                                                        // If name is empty or "null", remove from updated values
+                                                        updatedValues.removeWhere((v) => v.valueId == value.valueId);
+                                                      }
                                                     },
                                                   ),
                                                   SizedBox(height: isSmallScreen ? 8 : 10),
@@ -1159,14 +1181,20 @@ class _AttributesScreenState extends State<AttributesScreen> {
                                                     ),
                                                     keyboardType: TextInputType.number,
                                                     onChanged: (newValue) {
-                                                      // Track changes for bulk save
-                                                      final updatedValue = AttributeValueWithPrice(
-                                                        valueId: value.valueId,
-                                                        name: nameController.text.trim(),
-                                                        priceAdjustment: int.tryParse(newValue.trim()) ?? 0,
-                                                        isDefault: isDefault,
-                                                      );
-                                                      _updateOrAddToUpdatedValues(updatedValues, updatedValue);
+                                                      // Only track changes if the name is not empty and not "null"
+                                                      final trimmedName = nameController.text.trim();
+                                                      if (trimmedName.isNotEmpty && trimmedName != 'null') {
+                                                        final updatedValue = AttributeValueWithPrice(
+                                                          valueId: value.valueId,
+                                                          name: trimmedName,
+                                                          priceAdjustment: int.tryParse(newValue.trim()) ?? 0,
+                                                          isDefault: isDefault,
+                                                        );
+                                                        _updateOrAddToUpdatedValues(updatedValues, updatedValue);
+                                                      } else {
+                                                        // If name is empty or "null", remove from updated values
+                                                        updatedValues.removeWhere((v) => v.valueId == value.valueId);
+                                                      }
                                                     },
                                                   ),
                                                   SizedBox(height: isSmallScreen ? 8 : 10),
@@ -1180,14 +1208,20 @@ class _AttributesScreenState extends State<AttributesScreen> {
                                                           setState(() {
                                                             isDefault = val ?? false;
                                                           });
-                                                          // Track changes for bulk save
-                                                          final updatedValue = AttributeValueWithPrice(
-                                                            valueId: value.valueId,
-                                                            name: nameController.text.trim(),
-                                                            priceAdjustment: int.tryParse(priceController.text.trim()) ?? 0,
-                                                            isDefault: val ?? false,
-                                                          );
-                                                          _updateOrAddToUpdatedValues(updatedValues, updatedValue);
+                                                          // Only track changes if the name is not empty and not "null"
+                                                          final trimmedName = nameController.text.trim();
+                                                          if (trimmedName.isNotEmpty && trimmedName != 'null') {
+                                                            final updatedValue = AttributeValueWithPrice(
+                                                              valueId: value.valueId,
+                                                              name: trimmedName,
+                                                              priceAdjustment: int.tryParse(priceController.text.trim()) ?? 0,
+                                                              isDefault: val ?? false,
+                                                            );
+                                                            _updateOrAddToUpdatedValues(updatedValues, updatedValue);
+                                                          } else {
+                                                            // If name is empty or "null", remove from updated values
+                                                            updatedValues.removeWhere((v) => v.valueId == value.valueId);
+                                                          }
                                                         },
                                                       ),
                                                       Text(
@@ -1269,6 +1303,21 @@ class _AttributesScreenState extends State<AttributesScreen> {
                         height: buttonHeight,
                         child: ElevatedButton(
                           onPressed: () {
+                            // Validate that no updated values have empty names or "null" strings
+                            final hasInvalidNames = updatedValues.any((value) => 
+                              value.name.trim().isEmpty || value.name.trim() == 'null');
+                            
+                            if (hasInvalidNames) {
+                              ScaffoldMessenger.of(parentContext).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Cannot save: Attribute values must have valid names'),
+                                  backgroundColor: Colors.red,
+                                  duration: Duration(seconds: 3),
+                                ),
+                              );
+                              return;
+                            }
+                            
                             Navigator.pop(dialogContext);
                             parentContext.read<AttributeBloc>().add(
                               BulkUpdateAttributeValuesEvent(
@@ -1328,46 +1377,25 @@ class _AttributesScreenState extends State<AttributesScreen> {
   void _showDeleteAttributeDialog(BuildContext context, Attribute attribute) {
     showDialog(
       context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          title: const Row(
-            children: [
-              Icon(
-                Icons.warning_amber_rounded,
-                color: Colors.red,
-                size: 24,
-              ),
-              SizedBox(width: 8),
-              Text("Delete Attribute"),
-            ],
-          ),
-          content: Text(
-            "Are you sure you want to delete the '${attribute.name}' attribute? This action cannot be undone.",
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: const Text("Cancel"),
-            ),
-            IconButton(
-              tooltip: 'Delete attribute',
-              icon: Icon(Icons.delete_outline, color: Colors.red),
-              onPressed: () {
-                if (attribute.attributeId != null && _selectedMenuItem != null) {
-                  context.read<AttributeBloc>().add(
-                    DeleteAttributeEvent(
-                      menuId: _selectedMenuItem!.menuId,
-                      attributeId: attribute.attributeId!,
-                    ),
-                  );
-                }
-                Navigator.pop(dialogContext);
-              },
-            ),
-          ],
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return ConfirmationDialog(
+          title: 'Delete Attribute',
+          message: "Are you sure you want to delete the '${attribute.name}' attribute? This action cannot be undone.",
+          confirmText: 'Delete',
+          cancelText: 'Cancel',
+          icon: Icons.delete_outline,
+          confirmColor: Colors.red,
+          onConfirm: () {
+            if (attribute.attributeId != null && _selectedMenuItem != null) {
+              context.read<AttributeBloc>().add(
+                DeleteAttributeEvent(
+                  menuId: _selectedMenuItem!.menuId,
+                  attributeId: attribute.attributeId!,
+                ),
+              );
+            }
+          },
         );
       },
     );

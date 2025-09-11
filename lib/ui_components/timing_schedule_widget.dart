@@ -11,6 +11,7 @@ class TimingScheduleWidget extends StatefulWidget {
   final Function(bool) onTimingEnabledChanged;
   final String timezone;
   final Function(String) onTimezoneChanged;
+  final String? timingError;
 
   const TimingScheduleWidget({
     Key? key,
@@ -20,6 +21,7 @@ class TimingScheduleWidget extends StatefulWidget {
     required this.onTimingEnabledChanged,
     required this.timezone,
     required this.onTimezoneChanged,
+    this.timingError,
   }) : super(key: key);
 
   @override
@@ -135,6 +137,38 @@ class _TimingScheduleWidgetState extends State<TimingScheduleWidget> {
 
           // Days List
           ...days.map((day) => _buildDayScheduleItem(day)).toList(),
+          
+          // Timing Error Display
+          if (widget.timingError != null) ...[
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.red[50],
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.red[200]!),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.error_outline,
+                    color: Colors.red[600],
+                    size: 20,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      widget.timingError!,
+                      style: TextStyle(
+                        color: Colors.red[700],
+                        fontSize: FontSize.s12,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ],
       ],
     );
@@ -224,7 +258,13 @@ class _TimingScheduleWidgetState extends State<TimingScheduleWidget> {
                       const SizedBox(height: 4),
                       _buildTimePickerField(
                         schedule.start,
-                        (time) => widget.onDayScheduleChanged(day.toLowerCase(), schedule.enabled, time, schedule.end),
+                        (time) {
+                          widget.onDayScheduleChanged(day.toLowerCase(), schedule.enabled, time, schedule.end);
+                          // Trigger validation after time change
+                          Future.delayed(const Duration(milliseconds: 100), () {
+                            // This will be handled by the parent widget
+                          });
+                        },
                       ),
                     ],
                   ),
@@ -245,7 +285,13 @@ class _TimingScheduleWidgetState extends State<TimingScheduleWidget> {
                       const SizedBox(height: 4),
                       _buildTimePickerField(
                         schedule.end,
-                        (time) => widget.onDayScheduleChanged(day.toLowerCase(), schedule.enabled, schedule.start, time),
+                        (time) {
+                          widget.onDayScheduleChanged(day.toLowerCase(), schedule.enabled, schedule.start, time);
+                          // Trigger validation after time change
+                          Future.delayed(const Duration(milliseconds: 100), () {
+                            // This will be handled by the parent widget
+                          });
+                        },
                       ),
                     ],
                   ),

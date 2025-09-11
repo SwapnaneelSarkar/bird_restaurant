@@ -3,6 +3,7 @@ import 'package:bird_restaurant/presentation/resources/font.dart';
 import 'package:bird_restaurant/presentation/resources/router/router.dart';
 import 'package:bird_restaurant/services/delivery_partner_services/delivery_partner_auth_service.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
@@ -40,16 +41,27 @@ class _DeliveryPartnerOnboardingViewState extends State<DeliveryPartnerOnboardin
   }
 
   Future<void> _pickFile(bool isLicense) async {
-    final picker = ImagePicker();
-    final picked = await picker.pickImage(source: ImageSource.gallery);
-    if (picked != null) {
-      setState(() {
-        if (isLicense) {
-          _licenseFile = File(picked.path);
-        } else {
-          _vehicleDocFile = File(picked.path);
-        }
-      });
+    try {
+      final picker = ImagePicker();
+      final picked = await picker.pickImage(source: ImageSource.gallery);
+      if (picked != null && mounted) {
+        setState(() {
+          if (isLicense) {
+            _licenseFile = File(picked.path);
+          } else {
+            _vehicleDocFile = File(picked.path);
+          }
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to pick image: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
@@ -174,7 +186,18 @@ class _DeliveryPartnerOnboardingViewState extends State<DeliveryPartnerOnboardin
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                         contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 14),
                       ),
-                      validator: (v) => v == null || v.isEmpty ? 'Name is required' : null,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.deny(RegExp(r'[0-9]')), // Deny any numbers
+                      ],
+                      validator: (v) {
+                        if (v == null || v.isEmpty) {
+                          return 'Name is required';
+                        }
+                        if (RegExp(r'[0-9]').hasMatch(v)) {
+                          return 'Name cannot contain numbers';
+                        }
+                        return null;
+                      },
                     ),
                     SizedBox(height: h * 0.02),
                     _asteriskLabel('Email'),

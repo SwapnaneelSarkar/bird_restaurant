@@ -122,3 +122,15 @@ class UpdateTimezoneEvent extends EditProductEvent {
 class SubmitEditProductEvent extends EditProductEvent {
   const SubmitEditProductEvent();
 }
+
+class ValidateTimingScheduleEvent extends EditProductEvent {
+  const ValidateTimingScheduleEvent();
+}
+
+class ValidateDescriptionEvent extends EditProductEvent {
+  final String description;
+  const ValidateDescriptionEvent(this.description);
+  
+  @override
+  List<Object?> get props => [description];
+}

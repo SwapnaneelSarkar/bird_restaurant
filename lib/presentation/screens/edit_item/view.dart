@@ -12,6 +12,7 @@ import '../../../ui_components/image_picker_with_crop.dart';
 import '../../../ui_components/timing_schedule_widget.dart';
 import '../../../presentation/resources/colors.dart';
 import '../../../ui_components/universal_widget/topbar.dart';
+import '../../../presentation/resources/router/router.dart';
 import 'bloc.dart';
 import 'event.dart';
 import 'state.dart';
@@ -35,44 +36,71 @@ class _EditProductViewState extends State<EditProductView> {
   final TextEditingController _descriptionController = TextEditingController();
   final TextEditingController _priceController = TextEditingController();
 
+  late EditProductBloc _editProductBloc;
+
+  @override
+  void initState() {
+    super.initState();
+    _editProductBloc = EditProductBloc();
+    // Initialize the bloc after the widget is fully initialized
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _editProductBloc.add(EditProductInitEvent(widget.menuItem));
+    });
+  }
+
   @override
   void dispose() {
     _nameController.dispose();
     _descriptionController.dispose();
     _priceController.dispose();
+    _editProductBloc.close();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (context) => EditProductBloc()..add(EditProductInitEvent(widget.menuItem)),
-      child: BlocConsumer<EditProductBloc, EditProductState>(
+    return WillPopScope(
+      onWillPop: () async {
+        Navigator.of(context).pushNamedAndRemoveUntil(
+          Routes.homePage,
+          (route) => false,
+        );
+        return false;
+      },
+      child: BlocProvider.value(
+        value: _editProductBloc,
+        child: BlocConsumer<EditProductBloc, EditProductState>(
         listener: (context, state) {
           if (state is EditProductFormState) {
             if (state.errorMessage != null) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(state.errorMessage!),
-                  backgroundColor: Colors.red,
-                  duration: const Duration(seconds: 5),
-                ),
-              );
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(state.errorMessage!),
+                    backgroundColor: Colors.red,
+                    duration: const Duration(seconds: 5),
+                  ),
+                );
+              }
             }
             
             if (state.isSuccess) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Product updated successfully!'),
-                  backgroundColor: Colors.green,
-                  duration: Duration(seconds: 2),
-                ),
-              );
-              
-              // Go back to previous screen after showing success message
-              Future.delayed(const Duration(seconds: 1), () {
-                Navigator.of(context).pop(true); // Return true to indicate success
-              });
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Product updated successfully!'),
+                    backgroundColor: Colors.green,
+                    duration: Duration(seconds: 2),
+                  ),
+                );
+                
+                // Go back to previous screen after showing success message
+                Future.delayed(const Duration(seconds: 1), () {
+                  if (mounted && Navigator.of(context).canPop()) {
+                    Navigator.of(context).pop(true); // Return true to indicate success
+                  }
+                });
+              }
             }
           }
         },
@@ -109,8 +137,9 @@ class _EditProductViewState extends State<EditProductView> {
           );
         },
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildForm(BuildContext context, EditProductFormState state) {
     return SingleChildScrollView(
@@ -169,7 +198,9 @@ class _EditProductViewState extends State<EditProductView> {
               ImagePickerWithCropWidget(
                 selectedImage: state.image,
                 onImageSelected: (file) {
-                  context.read<EditProductBloc>().add(ProductImageSelectedEvent(file));
+                  if (mounted) {
+                    context.read<EditProductBloc>().add(ProductImageSelectedEvent(file));
+                  }
                 },
                 title: state.imageUrl != null && state.image == null ? '' : 'Product Image',
                 subtitle: state.imageUrl != null && state.image == null ? '' : 'Click to upload or drag and drop',
@@ -186,8 +217,13 @@ class _EditProductViewState extends State<EditProductView> {
             label: 'Product Name',
             hintText: 'Enter product name',
             controller: _nameController,
+            inputFormatters: [
+              FilteringTextInputFormatter.deny(RegExp(r'^[0-9\s]+$')), // Deny only numbers and spaces
+            ],
             onChanged: (value) {
-              context.read<EditProductBloc>().add(ProductNameChangedEvent(value));
+              if (mounted) {
+                context.read<EditProductBloc>().add(ProductNameChangedEvent(value));
+              }
             },
           ),
           const SizedBox(height: 16),
@@ -199,7 +235,9 @@ class _EditProductViewState extends State<EditProductView> {
             controller: _priceController,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             onChanged: (value) {
-              context.read<EditProductBloc>().add(ProductPriceChangedEvent(value));
+              if (mounted) {
+                context.read<EditProductBloc>().add(ProductPriceChangedEvent(value));
+              }
             },
           ),
           const SizedBox(height: 16),
@@ -268,7 +306,7 @@ class _EditProductViewState extends State<EditProductView> {
                             );
                           }).toList(),
                           onChanged: (String? newId) {
-                            if (newId != null) {
+                            if (newId != null && mounted) {
                               final selected = allCategories.firstWhere((cat) => cat.id == newId);
                               debugPrint('Dropdown: User selected id $newId, name ${selected.name}');
                               context.read<EditProductBloc>().add(ProductCategoryChangedEvent(selected.name, selected.id));
@@ -308,19 +346,44 @@ class _EditProductViewState extends State<EditProductView> {
             timingSchedule: state.timingSchedule,
             timingEnabled: state.timingEnabled,
             timezone: state.timezone,
+            timingError: state.timingError,
             onTimingEnabledChanged: (enabled) {
-              context.read<EditProductBloc>().add(ToggleTimingEnabledEvent(enabled));
+              if (mounted) {
+                context.read<EditProductBloc>().add(ToggleTimingEnabledEvent(enabled));
+                // Trigger timing validation after toggle
+                Future.delayed(const Duration(milliseconds: 100), () {
+                  if (mounted) {
+                    context.read<EditProductBloc>().add(const ValidateTimingScheduleEvent());
+                  }
+                });
+              }
             },
             onDayScheduleChanged: (day, enabled, start, end) {
-              context.read<EditProductBloc>().add(UpdateDayScheduleEvent(
-                day: day,
-                enabled: enabled,
-                start: start,
-                end: end,
-              ));
+              if (mounted) {
+                context.read<EditProductBloc>().add(UpdateDayScheduleEvent(
+                  day: day,
+                  enabled: enabled,
+                  start: start,
+                  end: end,
+                ));
+                // Trigger timing validation after update
+                Future.delayed(const Duration(milliseconds: 100), () {
+                  if (mounted) {
+                    context.read<EditProductBloc>().add(const ValidateTimingScheduleEvent());
+                  }
+                });
+              }
             },
             onTimezoneChanged: (timezone) {
-              context.read<EditProductBloc>().add(UpdateTimezoneEvent(timezone));
+              if (mounted) {
+                context.read<EditProductBloc>().add(UpdateTimezoneEvent(timezone));
+                // Trigger timing validation after timezone change
+                Future.delayed(const Duration(milliseconds: 100), () {
+                  if (mounted) {
+                    context.read<EditProductBloc>().add(const ValidateTimingScheduleEvent());
+                  }
+                });
+              }
             },
           ),
           const SizedBox(height: 16),
@@ -328,11 +391,22 @@ class _EditProductViewState extends State<EditProductView> {
           // Description
           CustomTextField(
             label: 'Description',
-            hintText: 'Enter product description',
+            hintText: 'Enter product description (must contain at least one alphabet character)',
             controller: _descriptionController,
             maxLines: 3,
+            errorText: state.descriptionError,
+            inputFormatters: [
+              FilteringTextInputFormatter.deny(RegExp(r'^[0-9\s]+$')), // Deny only numbers and spaces
+            ],
             onChanged: (value) {
-              context.read<EditProductBloc>().add(ProductDescriptionChangedEvent(value));
+              if (mounted) {
+                context.read<EditProductBloc>().add(ProductDescriptionChangedEvent(value));
+                // Also validate on change for immediate feedback
+                context.read<EditProductBloc>().add(ValidateDescriptionEvent(value));
+              }
+            },
+            onEditingComplete: () {
+              context.read<EditProductBloc>().add(ValidateDescriptionEvent(_descriptionController.text));
             },
           ),
           const SizedBox(height: 16),
@@ -359,7 +433,9 @@ class _EditProductViewState extends State<EditProductView> {
                 Switch(
                   value: state.isVeg,
                   onChanged: (value) {
-                    context.read<EditProductBloc>().add(ProductIsVegChangedEvent(value));
+                    if (mounted) {
+                      context.read<EditProductBloc>().add(ProductIsVegChangedEvent(value));
+                    }
                   },
                   activeColor: Colors.white,
                   activeTrackColor: const Color(0xFF4CAF50),
@@ -374,9 +450,13 @@ class _EditProductViewState extends State<EditProductView> {
           // Submit Button
           NextButton(
             label: state.isSubmitting ? 'Updating...' : 'Update Menu Item',
-            onPressed: (state.isSubmitting || state.name.isEmpty || state.categoryId == null || state.categoryId!.isEmpty || state.price.isEmpty)
+            onPressed: (state.isSubmitting || state.name.isEmpty || state.categoryId == null || state.categoryId!.isEmpty || state.price.isEmpty || state.descriptionError != null)
                 ? null
-                : () => context.read<EditProductBloc>().add(const SubmitEditProductEvent()),
+                : () {
+                    if (mounted) {
+                      context.read<EditProductBloc>().add(const SubmitEditProductEvent());
+                    }
+                  },
           ),
           
           // Show retry info if there's an error

@@ -5,6 +5,7 @@ import '../chat/bloc.dart';
 import '../chat/event.dart';
 import '../chat/state.dart';
 import '../../../services/token_service.dart';
+import '../../resources/router/router.dart';
 
 class RestaurantOrderDetailsView extends StatefulWidget {
   const RestaurantOrderDetailsView({Key? key}) : super(key: key);
@@ -36,6 +37,19 @@ class _RestaurantOrderDetailsViewState extends State<RestaurantOrderDetailsView>
 
   @override
   Widget build(BuildContext context) {
+    return WillPopScope(
+      onWillPop: () async {
+        Navigator.of(context).pushNamedAndRemoveUntil(
+          Routes.homePage,
+          (route) => false,
+        );
+        return false;
+      },
+      child: _buildContent(),
+    );
+  }
+
+  Widget _buildContent() {
     if (orderId == null) {
       return Scaffold(
         backgroundColor: Colors.white,

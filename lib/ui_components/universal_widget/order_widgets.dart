@@ -16,6 +16,7 @@ import '../../services/order_service.dart';
 import '../../services/currency_service.dart';
 import '../../services/attribute_service.dart';
 import '../../services/restaurant_details_service.dart';
+import '../../services/token_service.dart';
 import '../../models/attribute_model.dart';
 import '../../utils/time_utils.dart';
 
@@ -345,10 +346,23 @@ class OrderDetailsWidget extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           FutureBuilder<Map<String, dynamic>?>(
-            future: OrderService.fetchOrderReview(
-              partnerId: orderDetails.partnerId,
-              orderId: orderDetails.orderId,
-            ),
+            future: () async {
+              // Use current user's partner ID instead of order's partner ID
+              final currentPartnerId = await TokenService.getUserId();
+              debugPrint('🔄 OrderDetailsWidget: Fetching review for order ${orderDetails.orderId}');
+              debugPrint('🔄 OrderDetailsWidget: Using current partner ID: $currentPartnerId');
+              debugPrint('🔄 OrderDetailsWidget: Order partner ID: ${orderDetails.partnerId}');
+              
+              if (currentPartnerId == null || currentPartnerId.isEmpty) {
+                debugPrint('❌ OrderDetailsWidget: No current partner ID available');
+                return null;
+              }
+              
+              return OrderService.fetchOrderReview(
+                partnerId: currentPartnerId,
+                orderId: orderDetails.orderId,
+              );
+            }(),
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const Center(
@@ -1059,6 +1073,59 @@ class _StatusChangeBottomSheetState extends State<StatusChangeBottomSheet> {
 
     // Compute allowed next statuses for partner (removes previous statuses automatically)
     final availableStatuses = OrderService.getPartnerAvailableStatusOptions(currentStatus);
+
+    // If no status updates are available, don't show the bottom sheet
+    if (availableStatuses.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(20),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Handle bar
+            Container(
+              width: 40,
+              height: 4,
+              margin: const EdgeInsets.only(bottom: 20),
+              decoration: BoxDecoration(
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            
+            // Title
+            Text(
+              'Order Status',
+              style: TextStyle(
+                color: ColorManager.black,
+                fontSize: 20,
+                fontWeight: FontWeightManager.bold,
+                fontFamily: FontFamily.Montserrat,
+              ),
+            ),
+            
+            const SizedBox(height: 20),
+            
+            // Message that no status updates are available
+            Text(
+              'No status updates available for current status: ${OrderService.formatOrderStatus(currentStatus)}',
+              style: TextStyle(
+                color: Colors.grey[600],
+                fontSize: 16,
+                fontWeight: FontWeightManager.medium,
+                fontFamily: FontFamily.Montserrat,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            
+            const SizedBox(height: 20),
+          ],
+        ),
+      );
+    }
 
     return Container(
       padding: const EdgeInsets.all(20),

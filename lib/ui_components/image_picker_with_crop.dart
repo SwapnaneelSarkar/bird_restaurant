@@ -1,14 +1,12 @@
 // lib/ui_components/image_picker_with_crop.dart
 import 'dart:io';
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:flutter_image_compress/flutter_image_compress.dart';
 import '../presentation/resources/colors.dart';
 import '../presentation/resources/font.dart';
 import 'image_cropper_widget.dart';
 
-class ImagePickerWithCropWidget extends StatelessWidget {
+class ImagePickerWithCropWidget extends StatefulWidget {
   final File? selectedImage;
   final Function(File) onImageSelected;
   final String title;
@@ -29,9 +27,18 @@ class ImagePickerWithCropWidget extends StatelessWidget {
   }) : super(key: key);
 
   @override
+  State<ImagePickerWithCropWidget> createState() => _ImagePickerWithCropWidgetState();
+}
+
+class _ImagePickerWithCropWidgetState extends State<ImagePickerWithCropWidget> {
+  // Flag to prevent multiple simultaneous image picking operations
+  bool _isPickingImage = false;
+  bool _isNavigatorPopping = false;
+
+  @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: () => _pickImage(context),
+      onTap: _isPickingImage ? null : () => _pickImage(context),
       child: Container(
         width: double.infinity,
         padding: const EdgeInsets.all(16),
@@ -43,7 +50,7 @@ class ImagePickerWithCropWidget extends StatelessWidget {
             style: BorderStyle.solid,
           ),
         ),
-        child: selectedImage != null
+        child: widget.selectedImage != null
             ? _buildSelectedImagePreview()
             : _buildPlaceholder(),
       ),
@@ -55,7 +62,7 @@ class ImagePickerWithCropWidget extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         Text(
-          title,
+          widget.title,
           style: TextStyle(
             fontSize: FontSize.s14,
             fontWeight: FontWeightManager.medium,
@@ -66,9 +73,9 @@ class ImagePickerWithCropWidget extends StatelessWidget {
         ClipRRect(
           borderRadius: BorderRadius.circular(8),
           child: AspectRatio(
-            aspectRatio: aspectRatio,
+            aspectRatio: widget.aspectRatio,
             child: Image.file(
-              selectedImage!,
+              widget.selectedImage!,
               width: double.infinity,
               fit: BoxFit.cover,
             ),
@@ -90,14 +97,23 @@ class ImagePickerWithCropWidget extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(
-          Icons.image_outlined,
-          size: 48,
-          color: Colors.grey[400],
-        ),
+        _isPickingImage 
+          ? SizedBox(
+              width: 48,
+              height: 48,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                valueColor: AlwaysStoppedAnimation<Color>(Colors.grey[400]!),
+              ),
+            )
+          : Icon(
+              Icons.image_outlined,
+              size: 48,
+              color: Colors.grey[400],
+            ),
         const SizedBox(height: 12),
         Text(
-          subtitle,
+          _isPickingImage ? 'Processing...' : widget.subtitle,
           style: TextStyle(
             fontSize: FontSize.s14,
             color: Colors.grey[600],
@@ -106,66 +122,111 @@ class ImagePickerWithCropWidget extends StatelessWidget {
         ),
         const SizedBox(height: 4),
         Text(
-          maxSizeText,
+          widget.maxSizeText,
           style: TextStyle(
             fontSize: FontSize.s12,
             color: Colors.grey[500],
           ),
           textAlign: TextAlign.center,
         ),
-        if (enableCrop) ...[
+        if (widget.enableCrop) ...[
           const SizedBox(height: 4),
-          Text(
-            'Image will be cropped to ${aspectRatio == 1.0 ? 'square' : '${aspectRatio.toStringAsFixed(1)}:1'} ratio',
-            style: TextStyle(
-              fontSize: FontSize.s10,
-              color: Colors.blue[600],
-            ),
-            textAlign: TextAlign.center,
-          ),
         ],
       ],
     );
   }
 
   Future<void> _pickImage(BuildContext context) async {
-    final picker = ImagePicker();
+    // Prevent multiple simultaneous image picking operations
+    if (_isPickingImage) {
+      return;
+    }
+    
+    setState(() {
+      _isPickingImage = true;
+    });
+    
     try {
+      final picker = ImagePicker();
       final pickedFile = await picker.pickImage(
         source: ImageSource.gallery,
         maxWidth: 1000,
         maxHeight: 1000,
       );
       
-      if (pickedFile != null) {
-        File imageFile = File(pickedFile.path);
-        
-        if (enableCrop) {
-          // Show cropping interface
-          await _showCropper(context, imageFile.path);
-        } else {
-          onImageSelected(imageFile);
+      if (!mounted) return;
+
+      if (pickedFile == null) {
+        // User cancelled; nothing to do
+        return;
+      }
+
+      // Validate file existence and non-empty size
+      final File imageFile = File(pickedFile.path);
+      final bool exists = await imageFile.exists();
+      if (!exists) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Selected image file not found.')),
+        );
+        return;
+      }
+      try {
+        final int fileLen = await imageFile.length();
+        if (fileLen <= 0) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Selected image file is empty.')),
+          );
+          return;
         }
+      } catch (_) {
+        // If length fails, still attempt to proceed safely
+      }
+
+      if (widget.enableCrop) {
+        // Show cropping interface
+        await _showCropper(context, imageFile.path);
+      } else {
+        widget.onImageSelected(imageFile);
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to pick image: $e')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to pick image: $e')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isPickingImage = false;
+        });
+      }
     }
   }
 
   Future<void> _showCropper(BuildContext context, String imagePath) async {
+    if (!mounted) return;
+    _isNavigatorPopping = false;
     await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) => ImageCropperWidget(
           imagePath: imagePath,
-          aspectRatio: aspectRatio,
+          aspectRatio: widget.aspectRatio,
           onCropComplete: (File croppedFile) {
-            Navigator.of(context).pop();
-            onImageSelected(croppedFile);
+            if (_isNavigatorPopping) return;
+            _isNavigatorPopping = true;
+            if (Navigator.of(context).canPop()) {
+              Navigator.of(context).pop();
+            }
+            if (mounted) {
+              widget.onImageSelected(croppedFile);
+            }
           },
           onCancel: () {
-            Navigator.of(context).pop();
+            if (_isNavigatorPopping) return;
+            _isNavigatorPopping = true;
+            if (Navigator.of(context).canPop()) {
+              Navigator.of(context).pop();
+            }
           },
         ),
       ),

@@ -39,4 +39,6 @@ class DeliveryPartnerEdited extends DeliveryPartnersState {}
 class DeliveryPartnerEditError extends DeliveryPartnersState {
   final String message;
   DeliveryPartnerEditError(this.message);
-} 
+}
+
+class DeliveryPartnerDeleted extends DeliveryPartnersState {} 

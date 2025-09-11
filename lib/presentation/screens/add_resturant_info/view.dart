@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../../../models/food_type_model.dart';
+import 'package:geolocator/geolocator.dart';
 import '../../../models/supercategory_model.dart';
 
 import '../../../ui_components/custom_button_locatin.dart';
@@ -64,9 +64,8 @@ class _RestaurantDetailsBodyState extends State<_RestaurantDetailsBody> {
     final bloc = context.read<RestaurantDetailsBloc>();
     final w = MediaQuery.of(context).size.width;
     final h = MediaQuery.of(context).size.height;
-    final mq = MediaQuery.of(context);
     final sidePad = w * 0.04;
-    final vertPad = h * 0.02;
+    // final vertPad = h * 0.02; // reserved for future spacing use
 
     return Scaffold(
       backgroundColor: ColorManager.background,
@@ -97,7 +96,7 @@ class _RestaurantDetailsBodyState extends State<_RestaurantDetailsBody> {
       ),
       body: SafeArea(
         child: BlocListener<RestaurantDetailsBloc, RestaurantDetailsState>(
-          listener: (context, state) {
+          listener: (context, state) async {
             // Update text controllers when saved data is loaded
             if (state.isDataLoaded) {
               _nameCtrl.text = state.name;
@@ -109,6 +108,36 @@ class _RestaurantDetailsBodyState extends State<_RestaurantDetailsBody> {
             // Update address field when location is fetched
             if (state.address.isNotEmpty && !state.isLocationLoading) {
               _addressCtrl.text = state.address;
+            }
+
+            // Show prompt to enable location services or permissions
+            if (state.shouldPromptEnableLocation) {
+              final bloc = context.read<RestaurantDetailsBloc>();
+              await showDialog(
+                context: context,
+                builder: (ctx) {
+                  return AlertDialog(
+                    title: const Text('Location Access Required'),
+                    content: const Text('Location access is required to use current location. Please enable location services and grant location permission in your device settings.'),
+                    actions: [
+                      TextButton(
+                        onPressed: () {
+                          Navigator.of(ctx).pop();
+                        },
+                        child: const Text('Cancel'),
+                      ),
+                      TextButton(
+                        onPressed: () async {
+                          Navigator.of(ctx).pop();
+                          await Geolocator.openLocationSettings();
+                        },
+                        child: const Text('Open Settings'),
+                      ),
+                    ],
+                  );
+                },
+              );
+              bloc.add(DismissEnableLocationPrompt());
             }
           },
           child: SingleChildScrollView(
@@ -162,7 +191,9 @@ class _RestaurantDetailsBodyState extends State<_RestaurantDetailsBody> {
                   onChanged: (v) => bloc.add(RestaurantNameChanged(v)),
                 ),
                 BlocBuilder<RestaurantDetailsBloc, RestaurantDetailsState>(
-                  buildWhen: (p, c) => p.isAttemptedSubmit != c.isAttemptedSubmit,
+                  buildWhen: (p, c) =>
+                      p.isAttemptedSubmit != c.isAttemptedSubmit ||
+                      p.name != c.name,
                   builder: (context, state) {
                     if (state.name.isEmpty && state.isAttemptedSubmit) {
                       return Padding(
@@ -217,7 +248,9 @@ class _RestaurantDetailsBodyState extends State<_RestaurantDetailsBody> {
                   onChanged: (v) => bloc.add(AddressChanged(v)),
                 ),
                 BlocBuilder<RestaurantDetailsBloc, RestaurantDetailsState>(
-                  buildWhen: (p, c) => p.isAttemptedSubmit != c.isAttemptedSubmit,
+                  buildWhen: (p, c) =>
+                      p.isAttemptedSubmit != c.isAttemptedSubmit ||
+                      p.address != c.address,
                   builder: (context, state) {
                     return state.address.isEmpty && state.isAttemptedSubmit
                         ? Padding(
@@ -288,7 +321,9 @@ class _RestaurantDetailsBodyState extends State<_RestaurantDetailsBody> {
                   onChanged: (v) => bloc.add(EmailChanged(v)),
                 ),
                 BlocBuilder<RestaurantDetailsBloc, RestaurantDetailsState>(
-                  buildWhen: (p, c) => p.isAttemptedSubmit != c.isAttemptedSubmit,
+                  buildWhen: (p, c) =>
+                      p.isAttemptedSubmit != c.isAttemptedSubmit ||
+                      p.email != c.email,
                   builder: (context, state) {
                     if (state.email.isEmpty && state.isAttemptedSubmit) {
                       return Padding(
@@ -406,7 +441,9 @@ class _RestaurantDetailsBodyState extends State<_RestaurantDetailsBody> {
                   },
                 ),
                 BlocBuilder<RestaurantDetailsBloc, RestaurantDetailsState>(
-                  buildWhen: (p, c) => p.isAttemptedSubmit != c.isAttemptedSubmit,
+                  buildWhen: (p, c) =>
+                      p.isAttemptedSubmit != c.isAttemptedSubmit ||
+                      p.selectedSupercategory != c.selectedSupercategory,
                   builder: (context, state) {
                     return state.selectedSupercategory == null && state.isAttemptedSubmit
                         ? Padding(
@@ -511,7 +548,9 @@ class _RestaurantDetailsBodyState extends State<_RestaurantDetailsBody> {
                   },
                 ),
                 BlocBuilder<RestaurantDetailsBloc, RestaurantDetailsState>(
-                  buildWhen: (p, c) => p.isAttemptedSubmit != c.isAttemptedSubmit,
+                  buildWhen: (p, c) =>
+                      p.isAttemptedSubmit != c.isAttemptedSubmit ||
+                      p.selectedRestaurantType != c.selectedRestaurantType,
                   builder: (context, state) {
                     return state.selectedRestaurantType == null && state.isAttemptedSubmit
                         ? Padding(

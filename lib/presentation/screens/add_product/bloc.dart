@@ -14,6 +14,8 @@ import '../../../services/api_service.dart';
 import '../../../services/token_service.dart';
 import 'event.dart';
 import 'state.dart';
+import '../../../utils/time_validation.dart';
+import '../../../utils/validation_utils.dart';
 
 class AddProductBloc extends Bloc<AddProductEvent, AddProductState> {
   AddProductBloc() : super(AddProductInitial()) {
@@ -44,6 +46,7 @@ class AddProductBloc extends Bloc<AddProductEvent, AddProductState> {
     on<ValidatePriceEvent>(_onValidatePrice);
     on<ValidateTagsEvent>(_onValidateTags);
     on<ValidateAllFieldsEvent>(_onValidateAllFields);
+    on<ValidateTimingScheduleEvent>(_onValidateTimingSchedule);
   }
 
   void _onInitialize(AddProductInitEvent event, Emitter<AddProductState> emit) async {
@@ -139,12 +142,7 @@ class AddProductBloc extends Bloc<AddProductEvent, AddProductState> {
   void _onDescriptionChanged(ProductDescriptionChangedEvent event, Emitter<AddProductState> emit) {
     if (state is AddProductFormState) {
       final currentState = state as AddProductFormState;
-      String? descriptionError = currentState.descriptionError;
-      
-      // Clear error if field becomes valid
-      if (event.description.isNotEmpty && event.description.length <= 100) {
-        descriptionError = null;
-      }
+      String? descriptionError = ValidationUtils.validateDescription(event.description);
       
       emit(currentState.copyWith(
         product: currentState.product.copyWith(description: event.description),
@@ -402,8 +400,9 @@ class AddProductBloc extends Bloc<AddProductEvent, AddProductState> {
         return;
       }
       
-      if (currentState.product.description.isEmpty) {
-        emit(currentState.copyWith(errorMessage: 'Product description is required'));
+      final descriptionError = ValidationUtils.validateDescription(currentState.product.description);
+      if (descriptionError != null) {
+        emit(currentState.copyWith(errorMessage: descriptionError));
         return;
       }
       
@@ -415,6 +414,15 @@ class AddProductBloc extends Bloc<AddProductEvent, AddProductState> {
       if (currentState.product.price <= 0) {
         emit(currentState.copyWith(errorMessage: 'Please enter a valid price'));
         return;
+      }
+      
+      // Validate timing schedule if enabled
+      if (currentState.product.timingEnabled) {
+        final timingError = TimeValidationUtils.validateTimingSchedule(currentState.product.timingSchedule);
+        if (timingError != null) {
+          emit(currentState.copyWith(errorMessage: timingError));
+          return;
+        }
       }
       
       // Image is optional - if no image, we'll use JSON POST, if image exists, we'll use MultipartRequest
@@ -440,10 +448,11 @@ class AddProductBloc extends Bloc<AddProductEvent, AddProductState> {
         emit(currentState.copyWith(
           isSubmitting: false,
           errorMessage: 'Failed to add product: ${e.toString()}',
-        ));
-      }
+              ));
     }
   }
+
+}
 
   void _onResetForm(ResetFormEvent event, Emitter<AddProductState> emit) {
     if (state is AddProductFormState) {
@@ -456,6 +465,7 @@ class AddProductBloc extends Bloc<AddProductEvent, AddProductState> {
         descriptionError: null,
         priceError: null,
         tagsError: null,
+        timingError: null,
       ));
     }
   }
@@ -641,13 +651,7 @@ Future<MenuItemResponse> _submitMenuItemToApi(ProductModel product) async {
   void _onValidateDescription(ValidateDescriptionEvent event, Emitter<AddProductState> emit) {
     if (state is AddProductFormState) {
       final currentState = state as AddProductFormState;
-      String? descriptionError;
-      
-      if (event.description.isEmpty) {
-        descriptionError = 'Description is required';
-      } else if (event.description.length > 100) {
-        descriptionError = 'Maximum 100 characters allowed';
-      }
+      String? descriptionError = ValidationUtils.validateDescription(event.description);
       
       emit(currentState.copyWith(descriptionError: descriptionError));
     }
@@ -699,12 +703,7 @@ Future<MenuItemResponse> _submitMenuItemToApi(ProductModel product) async {
       }
       
       // Validate description
-      String? descriptionError;
-      if (currentState.product.description.isEmpty) {
-        descriptionError = 'Description is required';
-      } else if (currentState.product.description.length > 100) {
-        descriptionError = 'Maximum 100 characters allowed';
-      }
+      String? descriptionError = ValidationUtils.validateDescription(currentState.product.description);
       
       // Validate price
       String? priceError;
@@ -720,12 +719,32 @@ Future<MenuItemResponse> _submitMenuItemToApi(ProductModel product) async {
         tagsError = 'Maximum 100 characters allowed';
       }
       
+      // Validate timing schedule if enabled
+      String? timingError;
+      if (currentState.product.timingEnabled) {
+        timingError = TimeValidationUtils.validateTimingSchedule(currentState.product.timingSchedule);
+      }
+      
       emit(currentState.copyWith(
         nameError: nameError,
         descriptionError: descriptionError,
         priceError: priceError,
         tagsError: tagsError,
+        timingError: timingError,
       ));
+    }
+  }
+
+  void _onValidateTimingSchedule(ValidateTimingScheduleEvent event, Emitter<AddProductState> emit) {
+    if (state is AddProductFormState) {
+      final currentState = state as AddProductFormState;
+      String? timingError;
+      
+      if (currentState.product.timingEnabled) {
+        timingError = TimeValidationUtils.validateTimingSchedule(currentState.product.timingSchedule);
+      }
+      
+      emit(currentState.copyWith(timingError: timingError));
     }
   }
 }

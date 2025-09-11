@@ -9,6 +9,7 @@ import '../../resources/colors.dart';
 import '../../resources/font.dart';
 import '../homePage/sidebar/sidebar_drawer.dart';
 import '../../resources/router/router.dart';
+import '../../../main.dart';
 
 class ContactUsView extends StatefulWidget {
   const ContactUsView({Key? key}) : super(key: key);
@@ -68,47 +69,105 @@ class _ContactUsViewState extends State<ContactUsView>
 
   @override
   Widget build(BuildContext context) {
-    return WillPopScope(
-      onWillPop: () async {
-        Navigator.of(context).pushNamedAndRemoveUntil(Routes.homePage, (route) => false);
-        return false;
-      },
-      child: Scaffold(
-        key: _scaffoldKey,
-        backgroundColor: ColorManager.background,
-        drawer: FutureBuilder<Map<String, String>>(
-          future: RestaurantInfoService.getRestaurantInfo(),
-          builder: (context, snapshot) {
-            final info = snapshot.data ?? {};
-            return SidebarDrawer(
-              activePage: 'contact',
-              restaurantName: info['name'],
-              restaurantSlogan: info['slogan'],
-              restaurantImageUrl: info['imageUrl'],
+    return PopScope(
+      canPop: false, // Always prevent default pop behavior
+      onPopInvoked: (didPop) {
+        if (didPop) return;
+        debugPrint('🔄 PopScope triggered on contact us page');
+        
+        // Always navigate to home page when pop is invoked
+        try {
+          debugPrint('🚀 PopScope: Attempting navigation to home page...');
+          
+          // Immediate navigation - no delays
+          if (navigatorKey.currentState != null) {
+            navigatorKey.currentState!.pushReplacementNamed(Routes.homePage);
+            debugPrint('✅ PopScope navigation successful');
+          } else {
+            Navigator.of(context).pushReplacementNamed(Routes.homePage);
+            debugPrint('✅ PopScope fallback navigation successful');
+          }
+        } catch (e) {
+          debugPrint('❌ PopScope navigation failed: $e');
+          // Last resort
+          try {
+            Navigator.of(context).pushNamedAndRemoveUntil(
+              Routes.homePage,
+              (route) => false,
             );
-          },
-        ),
-        body: SafeArea(
-          child: Column(
-            children: [
-              // Custom App Bar
-              _buildCustomAppBar(),
-              // Content
-              Expanded(
-                child: AnimatedBuilder(
-                  animation: _animationController,
-                  builder: (context, child) {
-                    return FadeTransition(
-                      opacity: _fadeAnimation,
-                      child: SlideTransition(
-                        position: _slideAnimation,
-                        child: _buildContent(),
-                      ),
-                    );
-                  },
+            debugPrint('✅ PopScope push and remove until successful');
+          } catch (finalError) {
+            debugPrint('❌ PopScope all methods failed: $finalError');
+          }
+        }
+      },
+      child: WillPopScope(
+        onWillPop: () async {
+          debugPrint('🔄 WillPopScope triggered on contact us page');
+          
+          // Immediate navigation - no delays
+          try {
+            if (navigatorKey.currentState != null) {
+              navigatorKey.currentState!.pushReplacementNamed(Routes.homePage);
+              debugPrint('✅ WillPopScope navigation successful');
+            } else {
+              Navigator.of(context).pushReplacementNamed(Routes.homePage);
+              debugPrint('✅ WillPopScope fallback navigation successful');
+            }
+          } catch (e) {
+            debugPrint('❌ WillPopScope navigation failed: $e');
+            // Last resort
+            try {
+              Navigator.of(context).pushNamedAndRemoveUntil(
+                Routes.homePage,
+                (route) => false,
+              );
+              debugPrint('✅ WillPopScope push and remove until successful');
+            } catch (finalError) {
+              debugPrint('❌ WillPopScope all methods failed: $finalError');
+            }
+          }
+          
+          // Always return false to prevent the default back button behavior
+          return false;
+        },
+        child: Scaffold(
+          key: _scaffoldKey,
+          backgroundColor: ColorManager.background,
+          drawer: FutureBuilder<Map<String, String>>(
+            future: RestaurantInfoService.getRestaurantInfo(),
+            builder: (context, snapshot) {
+              final info = snapshot.data ?? {};
+              return SidebarDrawer(
+                activePage: 'contact',
+                restaurantName: info['name'],
+                restaurantSlogan: info['slogan'],
+                restaurantImageUrl: info['imageUrl'],
+              );
+            },
+          ),
+          body: SafeArea(
+            child: Column(
+              children: [
+                // Custom App Bar
+                _buildCustomAppBar(),
+                // Content
+                Expanded(
+                  child: AnimatedBuilder(
+                    animation: _animationController,
+                    builder: (context, child) {
+                      return FadeTransition(
+                        opacity: _fadeAnimation,
+                        child: SlideTransition(
+                          position: _slideAnimation,
+                          child: _buildContent(),
+                        ),
+                      );
+                    },
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -190,7 +249,7 @@ class _ContactUsViewState extends State<ContactUsView>
           
           const SizedBox(height: 32),
           
-          // Contact methods
+          // How to reach us
           _buildContactMethods(),
                     
           const SizedBox(height: 32),
@@ -285,7 +344,7 @@ class _ContactUsViewState extends State<ContactUsView>
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Contact Methods',
+          'How to Reach Us',
           style: GoogleFonts.poppins(
             fontSize: FontSize.s18,
             fontWeight: FontWeightManager.bold,

@@ -12,6 +12,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'dart:developer' as developer;
 import '../../resources/colors.dart';
 import '../../resources/router/router.dart';
+import '../../../services/currency_service.dart';
 
 class SplashView extends StatefulWidget {
   const SplashView({Key? key}) : super(key: key);
@@ -273,6 +274,21 @@ class _SplashViewState extends State<SplashView> with TickerProviderStateMixin {
       final token = prefs.getString('token');
       final mobileNumber = prefs.getString('mobile');
       
+      // Fetch and cache currency if we have a token
+      if (token != null && token.isNotEmpty) {
+        try {
+          final partnerId = prefs.getString('partner_id');
+          if (partnerId != null) {
+            // Pre-fetch currency to cache it
+            await CurrencyService().getCurrencySymbol();
+            developer.log('✅ Currency fetched and cached successfully', name: 'BirdRestaurant');
+          }
+        } catch (e) {
+          developer.log('⚠️ Error pre-fetching currency: $e', name: 'BirdRestaurant');
+          // Continue with authentication check even if currency fetch fails
+        }
+      }
+      
       // Check for delivery partner authentication
       final isDeliveryPartnerAuthenticated = await DeliveryPartnerAuthService.isDeliveryPartnerAuthenticated();
       
@@ -469,15 +485,15 @@ class _SplashViewState extends State<SplashView> with TickerProviderStateMixin {
                       animation: _glowAnimation,
                       builder: (context, child) {
                         return Container(
-                          width: size.width * 0.3,
-                          height: size.width * 0.3,
+                          width: size.width * 0.4,
+                          height: size.width * 0.4,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
                             boxShadow: [
                               BoxShadow(
                                 color: ColorManager.primary.withOpacity(_glowAnimation.value),
-                                blurRadius: 16,
-                                spreadRadius: 1,
+                                blurRadius: 20,
+                                spreadRadius: 2,
                               ),
                             ],
                           ),
@@ -490,15 +506,15 @@ class _SplashViewState extends State<SplashView> with TickerProviderStateMixin {
                               errorBuilder: (context, error, stackTrace) {
                                 developer.log('❌ Error loading logo image: $error', name: 'BirdRestaurant');
                                 return Container(
-                                  width: size.width * 0.3,
-                                  height: size.width * 0.3,
+                                  width: size.width * 0.4,
+                                  height: size.width * 0.4,
                                   decoration: BoxDecoration(
                                     shape: BoxShape.circle,
                                     color: ColorManager.primary.withOpacity(0.1),
                                   ),
                                   child: Icon(
                                     Icons.restaurant,
-                                    size: size.width * 0.15,
+                                    size: size.width * 0.2,
                                     color: ColorManager.primary,
                                   ),
                                 );

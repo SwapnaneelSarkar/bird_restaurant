@@ -494,10 +494,21 @@ static Map<String, dynamic> getPartnerStatusValidationInfo(String currentStatus,
     try {
       final token = await TokenService.getToken();
       if (token == null) {
+        debugPrint('❌ OrderService.fetchOrderReview: No authentication token found');
         throw Exception('No authentication token found');
       }
       
+      // Debug partnerId value
+      debugPrint('🔄 OrderService.fetchOrderReview: partnerId = "$partnerId" (length: ${partnerId.length})');
+      debugPrint('🔄 OrderService.fetchOrderReview: orderId = "$orderId" (length: ${orderId.length})');
+      
+      if (partnerId.isEmpty) {
+        debugPrint('❌ OrderService.fetchOrderReview: partnerId is empty, cannot fetch review');
+        return null;
+      }
+      
       final url = Uri.parse('$baseUrl/partner/reviews/order/$orderId?partner_id=$partnerId');
+      debugPrint('🔄 OrderService.fetchOrderReview: URL: $url');
       
       final response = await http.get(
         url,
@@ -507,19 +518,27 @@ static Map<String, dynamic> getPartnerStatusValidationInfo(String currentStatus,
         },
       );
       
+      debugPrint('🔄 OrderService.fetchOrderReview: Response status: ${response.statusCode}');
+      debugPrint('🔄 OrderService.fetchOrderReview: Response body: ${response.body}');
+      
       if (response.statusCode == 200) {
         final Map<String, dynamic> responseBody = json.decode(response.body);
         if (responseBody['status'] == 'SUCCESS' && responseBody['data'] != null) {
+          debugPrint('✅ OrderService.fetchOrderReview: Review data found');
           return responseBody['data'];
         } else {
+          debugPrint('❌ OrderService.fetchOrderReview: No review data in response');
           return null;
         }
       } else if (response.statusCode == 404) {
+        debugPrint('❌ OrderService.fetchOrderReview: Review not found (404)');
         return null;
       } else {
+        debugPrint('❌ OrderService.fetchOrderReview: API error ${response.statusCode}');
         return null;
       }
     } catch (e) {
+      debugPrint('❌ OrderService.fetchOrderReview: Error: $e');
       return null;
     }
   }

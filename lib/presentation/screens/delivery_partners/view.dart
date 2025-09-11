@@ -8,15 +8,16 @@ import 'state.dart';
 import '../../../models/delivery_partner_model.dart';
 import '../../../services/token_service.dart';
 import '../../../services/restaurant_info_service.dart';
-import '../../../services/delivery_partners_service.dart';
 import '../../../presentation/resources/colors.dart';
 import '../../../presentation/resources/font.dart';
+import '../../../ui_components/confirmation_dialog.dart';
 import '../homePage/sidebar/sidebar_drawer.dart';
 import 'package:flutter/services.dart';
 import '../../../models/country.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../../presentation/resources/router/router.dart';
 import '../../../utils/build_config.dart';
+import '../../../main.dart';
 
 class DeliveryPartnersView extends StatefulWidget {
   const DeliveryPartnersView({super.key});
@@ -26,7 +27,6 @@ class DeliveryPartnersView extends StatefulWidget {
 }
 
 class _DeliveryPartnersViewState extends State<DeliveryPartnersView> {
-  final ImagePicker _imagePicker = ImagePicker();
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   Map<String, String>? _restaurantInfo;
 
@@ -60,23 +60,16 @@ class _DeliveryPartnersViewState extends State<DeliveryPartnersView> {
 
   @override
   Widget build(BuildContext context) {
-    return WillPopScope(
-      onWillPop: () async {
-        Navigator.of(
-          context,
-        ).pushNamedAndRemoveUntil(Routes.homePage, (route) => false);
-        return false;
-      },
-      child: Scaffold(
-        key: _scaffoldKey,
-        backgroundColor: Colors.grey[50],
-        drawer: SidebarDrawer(
-          activePage: 'deliveryPartners',
-          restaurantName: _restaurantInfo?['name'] ?? 'Delivery Partners',
-          restaurantSlogan:
-              _restaurantInfo?['slogan'] ?? 'Manage your delivery partners',
-          restaurantImageUrl: _restaurantInfo?['imageUrl'],
-        ),
+    return Scaffold(
+          key: _scaffoldKey,
+          backgroundColor: Colors.grey[50],
+          drawer: SidebarDrawer(
+            activePage: 'deliveryPartners',
+            restaurantName: _restaurantInfo?['name'] ?? 'Delivery Partners',
+            restaurantSlogan:
+                _restaurantInfo?['slogan'] ?? 'Manage your delivery partners',
+            restaurantImageUrl: _restaurantInfo?['imageUrl'],
+          ),
         body: SafeArea(
           child: Column(
             children: [
@@ -109,6 +102,13 @@ class _DeliveryPartnersViewState extends State<DeliveryPartnersView> {
                       if (Navigator.canPop(context)) {
                         Navigator.pop(context); // Close modal on success
                       }
+                    } else if (state is DeliveryPartnerDeleted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Delivery partner deleted successfully!'),
+                          backgroundColor: Colors.green,
+                        ),
+                      );
                     } else if (state is DeliveryPartnersError) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
@@ -280,17 +280,55 @@ class _DeliveryPartnersViewState extends State<DeliveryPartnersView> {
                           ),
                         );
                       }
-                    }
-                    // Default case
-                    return const Center(
-                      child: Text(
-                        'No data available',
-                        style: TextStyle(
-                          fontFamily: FontConstants.fontFamily,
-                          fontSize: FontSize.s16,
+                    } else if (state is DeliveryPartnerAdded || state is DeliveryPartnerEdited) {
+                      // Handle success states by showing loading while refresh happens
+                      return Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            CircularProgressIndicator(
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                ColorManager.primary,
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              'Updating delivery partners...',
+                              style: TextStyle(
+                                fontFamily: FontConstants.fontFamily,
+                                fontSize: FontSize.s14,
+                                color: Colors.grey[600],
+                              ),
+                            ),
+                          ],
                         ),
-                      ),
-                    );
+                      );
+                    } else if (state is DeliveryPartnerDeleted) {
+                      // Handle delete state by showing loading while refresh happens
+                      return Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            CircularProgressIndicator(
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                ColorManager.primary,
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              'Updating delivery partners...',
+                              style: TextStyle(
+                                fontFamily: FontConstants.fontFamily,
+                                fontSize: FontSize.s14,
+                                color: Colors.grey[600],
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }
+                    // Default case - show empty state instead of black screen
+                    return _buildPartnersList([]);
                   },
                 ),
               ),
@@ -314,7 +352,6 @@ class _DeliveryPartnersViewState extends State<DeliveryPartnersView> {
           foregroundColor: Colors.white,
           child: const Icon(Icons.add),
         ),
-      ),
     );
   }
 
@@ -344,6 +381,29 @@ class _DeliveryPartnersViewState extends State<DeliveryPartnersView> {
               fontSize: 18,
               fontWeight: FontWeight.bold,
               color: Colors.black87,
+            ),
+          ),
+          const Spacer(),
+          // Add back button as fallback
+          InkWell(
+            borderRadius: BorderRadius.circular(40),
+            onTap: () {
+              debugPrint('🔄 Back button tapped in header');
+              try {
+                navigatorKey.currentState?.pushReplacementNamed(Routes.homePage);
+                debugPrint('✅ Header back button navigation successful');
+              } catch (e) {
+                debugPrint('❌ Header back button navigation failed: $e');
+                Navigator.of(context).pushReplacementNamed(Routes.homePage);
+              }
+            },
+            child: const Padding(
+              padding: EdgeInsets.all(8.0),
+              child: Icon(
+                Icons.arrow_back,
+                color: Colors.black87,
+                size: 24.0,
+              ),
             ),
           ),
         ],
@@ -527,26 +587,16 @@ class _DeliveryPartnersViewState extends State<DeliveryPartnersView> {
                                     onPressed: () async {
                                       final confirm = await showDialog<bool>(
                                         context: context,
-                                        builder: (context) => AlertDialog(
-                                          title: const Text(
-                                            'Delete Delivery Partner',
-                                          ),
-                                          content: Text(
-                                            'Are you sure you want to delete ${partner.name}?',
-                                          ),
-                                          actions: [
-                                            TextButton(
-                                              onPressed: () => Navigator.pop(context, false),
-                                              child: const Text('Cancel'),
-                                            ),
-                                            ElevatedButton(
-                                              style: ElevatedButton.styleFrom(
-                                                backgroundColor: ColorManager.primary,
-                                              ),
-                                              onPressed: () => Navigator.pop(context, true),
-                                              child: const Text('Delete'),
-                                            ),
-                                          ],
+                                        barrierDismissible: false,
+                                        builder: (context) => ConfirmationDialog(
+                                          title: 'Delete Delivery Partner',
+                                          message: 'Are you sure you want to delete ${partner.name}? This action cannot be undone.',
+                                          confirmText: 'Delete',
+                                          cancelText: 'Cancel',
+                                          icon: Icons.delete_outline,
+                                          confirmColor: Colors.red,
+                                          onConfirm: () => Navigator.pop(context, true),
+                                          onCancel: () => Navigator.pop(context, false),
                                         ),
                                       );
                                       if (confirm == true) {
@@ -578,42 +628,8 @@ class _DeliveryPartnersViewState extends State<DeliveryPartnersView> {
     BuildContext context,
     String deliveryPartnerId,
   ) async {
-    try {
-      final token = await TokenService.getToken();
-      if (token == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('No token found. Please login again.'),
-            backgroundColor: Colors.red,
-          ),
-        );
-        return;
-      }
-      final response = await DeliveryPartnersService().deleteDeliveryPartner(
-        deliveryPartnerId,
-        token,
-      );
-      if (response.success) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Delivery partner deleted successfully!'),
-            backgroundColor: Colors.green,
-          ),
-        );
-        context.read<DeliveryPartnersBloc>().add(RefreshDeliveryPartners());
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(response.message ?? 'Failed to delete partner'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
-      );
-    }
+    // Use the bloc event instead of calling service directly
+    context.read<DeliveryPartnersBloc>().add(DeleteDeliveryPartner(deliveryPartnerId: deliveryPartnerId));
   }
 
   void _showAddPartnerModal(
@@ -621,16 +637,6 @@ class _DeliveryPartnersViewState extends State<DeliveryPartnersView> {
     String partnerId,
     DeliveryPartnersBloc bloc,
   ) {
-    final formKey = GlobalKey<FormState>();
-    String name = '';
-    String phone = '';
-    String username = '';
-    String password = '';
-    File? licensePhotoFile;
-    File? vehicleDocumentFile;
-    bool isSubmitting = false;
-    Country selectedCountry = CountryData.countries.first;
-
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -1005,11 +1011,18 @@ class _AddPartnerBottomSheetState extends State<_AddPartnerBottomSheet> {
                     borderSide: BorderSide(color: ColorManager.primary),
                   ),
                 ),
-                validator:
-                    (value) =>
-                        value == null || value.isEmpty
-                            ? 'Name is required'
-                            : null,
+                inputFormatters: [
+                  FilteringTextInputFormatter.deny(RegExp(r'[0-9]')), // Deny any numbers
+                ],
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Name is required';
+                  }
+                  if (RegExp(r'[0-9]').hasMatch(value)) {
+                    return 'Name cannot contain numbers';
+                  }
+                  return null;
+                },
                 onChanged: (value) => name = value,
               ),
               const SizedBox(height: 20),
@@ -1426,17 +1439,28 @@ class _AddPartnerBottomSheetState extends State<_AddPartnerBottomSheet> {
               const SizedBox(height: 8),
               GestureDetector(
                 onTap: () async {
-                  final pickedFile = await _imagePicker.pickImage(
-                    source: ImageSource.gallery,
-                    maxWidth: 1000,
-                    maxHeight: 1000,
-                  );
-                  if (pickedFile != null) {
-                    setState(() {
-                      licensePhotoFile = File(pickedFile.path);
-                      isLicensePhotoValid = true;
-                      print("isLicensePhotoValid :- $isLicensePhotoValid");
-                    });
+                  try {
+                    final pickedFile = await _imagePicker.pickImage(
+                      source: ImageSource.gallery,
+                      maxWidth: 1000,
+                      maxHeight: 1000,
+                    );
+                    if (pickedFile != null && mounted) {
+                      setState(() {
+                        licensePhotoFile = File(pickedFile.path);
+                        isLicensePhotoValid = true;
+                        print("isLicensePhotoValid :- $isLicensePhotoValid");
+                      });
+                    }
+                  } catch (e) {
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Failed to pick image: $e'),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                    }
                   }
                 },
                 child: Container(
@@ -1500,16 +1524,27 @@ class _AddPartnerBottomSheetState extends State<_AddPartnerBottomSheet> {
               const SizedBox(height: 8),
               GestureDetector(
                 onTap: () async {
-                  final pickedFile = await _imagePicker.pickImage(
-                    source: ImageSource.gallery,
-                    maxWidth: 1000,
-                    maxHeight: 1000,
-                  );
-                  if (pickedFile != null) {
-                    setState(() {
-                      vehicleDocumentFile = File(pickedFile.path);
-                      isVehicleDocValid = true;
-                    });
+                  try {
+                    final pickedFile = await _imagePicker.pickImage(
+                      source: ImageSource.gallery,
+                      maxWidth: 1000,
+                      maxHeight: 1000,
+                    );
+                    if (pickedFile != null && mounted) {
+                      setState(() {
+                        vehicleDocumentFile = File(pickedFile.path);
+                        isVehicleDocValid = true;
+                      });
+                    }
+                  } catch (e) {
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Failed to pick image: $e'),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                    }
                   }
                 },
                 child: Container(
@@ -1741,11 +1776,18 @@ class _EditPartnerBottomSheetState extends State<_EditPartnerBottomSheet> {
                     borderSide: BorderSide(color: ColorManager.primary),
                   ),
                 ),
-                validator:
-                    (value) =>
-                        value == null || value.isEmpty
-                            ? 'Name is required'
-                            : null,
+                inputFormatters: [
+                  FilteringTextInputFormatter.deny(RegExp(r'[0-9]')), // Deny any numbers
+                ],
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Name is required';
+                  }
+                  if (RegExp(r'[0-9]').hasMatch(value)) {
+                    return 'Name cannot contain numbers';
+                  }
+                  return null;
+                },
                 onChanged: (value) => name = value,
               ),
               const SizedBox(height: 20),

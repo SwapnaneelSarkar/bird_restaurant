@@ -178,74 +178,83 @@ class _OrderActionViewState extends State<OrderActionView> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: ColorManager.background,
-      appBar: AppBar(
-        backgroundColor: ColorManager.primary,
-        elevation: 0,
-        title: Text(
-          'Order Action Required',
-          style: GoogleFonts.poppins(
-            color: Colors.white,
-            fontWeight: FontWeightManager.semiBold,
+    return WillPopScope(
+      onWillPop: () async {
+        Navigator.of(context).pushNamedAndRemoveUntil(
+          Routes.homePage,
+          (route) => false,
+        );
+        return false;
+      },
+      child: Scaffold(
+        backgroundColor: ColorManager.background,
+        appBar: AppBar(
+          backgroundColor: ColorManager.primary,
+          elevation: 0,
+          title: Text(
+            'Order Action Required',
+            style: GoogleFonts.poppins(
+              color: Colors.white,
+              fontWeight: FontWeightManager.semiBold,
+            ),
+          ),
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back, color: Colors.white),
+            onPressed: () => _navigateToOrders(),
           ),
         ),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () => _navigateToOrders(),
-        ),
+        body: _isLoading
+            ? const Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    CircularProgressIndicator(),
+                    SizedBox(height: 16),
+                    Text('Loading order details...'),
+                  ],
+                ),
+              )
+            : _errorMessage != null
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.error, size: 64, color: Colors.red),
+                        const SizedBox(height: 16),
+                        Text(
+                          'Error',
+                          style: GoogleFonts.poppins(
+                            fontSize: 20,
+                            fontWeight: FontWeightManager.semiBold,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 32),
+                          child: Text(
+                            _errorMessage!,
+                            textAlign: TextAlign.center,
+                            style: GoogleFonts.poppins(fontSize: 14),
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                        ElevatedButton(
+                          onPressed: _loadOrderDetails,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: ColorManager.primary,
+                          ),
+                          child: Text(
+                            'Retry',
+                            style: GoogleFonts.poppins(color: Colors.white),
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                : _order == null
+                    ? const Center(child: Text('Order not found'))
+                    : _buildOrderActionContent(),
       ),
-      body: _isLoading
-          ? const Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  CircularProgressIndicator(),
-                  SizedBox(height: 16),
-                  Text('Loading order details...'),
-                ],
-              ),
-            )
-          : _errorMessage != null
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.error, size: 64, color: Colors.red),
-                      const SizedBox(height: 16),
-                      Text(
-                        'Error',
-                        style: GoogleFonts.poppins(
-                          fontSize: 20,
-                          fontWeight: FontWeightManager.semiBold,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 32),
-                        child: Text(
-                          _errorMessage!,
-                          textAlign: TextAlign.center,
-                          style: GoogleFonts.poppins(fontSize: 14),
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                      ElevatedButton(
-                        onPressed: _loadOrderDetails,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: ColorManager.primary,
-                        ),
-                        child: Text(
-                          'Retry',
-                          style: GoogleFonts.poppins(color: Colors.white),
-                        ),
-                      ),
-                    ],
-                  ),
-                )
-              : _order == null
-                  ? const Center(child: Text('Order not found'))
-                  : _buildOrderActionContent(),
     );
   }
 

@@ -177,12 +177,16 @@ class RestaurantCategoryState extends Equatable {
   }
 
   bool get canProceed {
-    // If supercategory is Food (ID: "7acc47a2fa5a4eeb906a753b3"), require cuisine selection
+    // Require at least one operational day enabled for all supercategories
+    final hasAtLeastOneEnabledDay = days.any((day) => day.enabled);
+
+    // If supercategory is Food (ID: "7acc47a2fa5a4eeb906a753b3"), also require at least one cuisine
     if (selectedSupercategoryId == "7acc47a2fa5a4eeb906a753b3") {
-      return selected.isNotEmpty;
+      return selected.isNotEmpty && hasAtLeastOneEnabledDay;
     }
-    // For other supercategories, only require operational hours
-    return true;
+
+    // For other supercategories, only require at least one operational day
+    return hasAtLeastOneEnabledDay;
   }
 
   bool get shouldShowCuisineTypes {

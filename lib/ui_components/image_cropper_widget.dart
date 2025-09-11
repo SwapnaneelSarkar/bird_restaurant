@@ -5,7 +5,8 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:flutter/rendering.dart';
-import '../presentation/resources/colors.dart';
+import 'package:path_provider/path_provider.dart';
+// import '../presentation/resources/colors.dart';
 
 class ImageCropperWidget extends StatefulWidget {
   final String imagePath;
@@ -31,6 +32,7 @@ class _ImageCropperWidgetState extends State<ImageCropperWidget> {
   ui.Image? _image;
   Size _imageSize = Size.zero;
   Size _screenSize = Size.zero;
+  bool _isDialogOpen = false;
   
   // Crop area state
   Offset _cropOffset = Offset.zero;
@@ -46,13 +48,28 @@ class _ImageCropperWidgetState extends State<ImageCropperWidget> {
   Size _displayedImageSize = Size.zero;
   Offset _displayedImageOffset = Offset.zero;
   
-  // Store the actual image widget bounds for accurate coordinate mapping
-  Rect _imageWidgetBounds = Rect.zero;
+  // Store the actual image widget bounds for accurate coordinate mapping (unused)
+  // Rect _imageWidgetBounds = Rect.zero;
+  
+  // Flag to prevent multiple simultaneous crop operations
+  bool _isCropping = false;
 
   @override
   void initState() {
     super.initState();
     _loadImage();
+  }
+
+  @override
+  void dispose() {
+    // Ensure any open dialog is closed to avoid Navigator errors
+    if (_isDialogOpen && mounted) {
+      try {
+        Navigator.of(context, rootNavigator: true).pop();
+      } catch (_) {}
+      _isDialogOpen = false;
+    }
+    super.dispose();
   }
 
   @override
@@ -133,6 +150,11 @@ class _ImageCropperWidgetState extends State<ImageCropperWidget> {
         }
       }
       
+      // Guard against invalid sizes
+      if (!cropWidth.isFinite || !cropHeight.isFinite || cropWidth <= 0 || cropHeight <= 0) {
+        cropWidth = _screenSize.width * 0.8;
+        cropHeight = cropWidth / (widget.aspectRatio == 0 ? 1.0 : widget.aspectRatio);
+      }
       _cropSize = Size(cropWidth, cropHeight);
       _cropOffset = Offset(
         safeArea.left + (availableWidth - cropWidth) / 2,
@@ -149,7 +171,12 @@ class _ImageCropperWidgetState extends State<ImageCropperWidget> {
     
     // Calculate the actual display size of the image widget
     // This is the key fix - we need to account for the actual widget bounds
-    final double screenAspectRatio = _screenSize.width / _screenSize.height;
+    if (_screenSize.width <= 0 || _screenSize.height <= 0) {
+      _screenSize = MediaQuery.of(context).size;
+    }
+    final double screenAspectRatio = _screenSize.width <= 0 || _screenSize.height <= 0
+        ? 1.0
+        : _screenSize.width / _screenSize.height;
     final double imageAspectRatio = _imageSize.width / _imageSize.height;
     
     double displayedImageWidth, displayedImageHeight;
@@ -172,6 +199,11 @@ class _ImageCropperWidgetState extends State<ImageCropperWidget> {
       );
     }
     
+    if (!displayedImageWidth.isFinite || !displayedImageHeight.isFinite ||
+        displayedImageWidth <= 0 || displayedImageHeight <= 0) {
+      displayedImageWidth = _imageSize.width;
+      displayedImageHeight = _imageSize.height;
+    }
     _displayedImageSize = Size(displayedImageWidth, displayedImageHeight);
     
     // Ensure displayed image size is not zero
@@ -180,13 +212,13 @@ class _ImageCropperWidgetState extends State<ImageCropperWidget> {
       _displayedImageOffset = Offset.zero;
     }
     
-    // Store the actual image widget bounds for coordinate mapping
-    _imageWidgetBounds = Rect.fromLTWH(
-      _displayedImageOffset.dx,
-      _displayedImageOffset.dy,
-      _displayedImageSize.width,
-      _displayedImageSize.height,
-    );
+    // If needed later: bounds of image widget for mapping coordinates
+    // _imageWidgetBounds = Rect.fromLTWH(
+    //   _displayedImageOffset.dx,
+    //   _displayedImageOffset.dy,
+    //   _displayedImageSize.width,
+    //   _displayedImageSize.height,
+    // );
   }
 
   @override
@@ -205,11 +237,20 @@ class _ImageCropperWidgetState extends State<ImageCropperWidget> {
         ),
         actions: [
           TextButton(
-            onPressed: _cropImage,
-            child: Text(
-              'Done',
-              style: TextStyle(color: Colors.white, fontSize: 16),
-            ),
+            onPressed: _isCropping ? null : _cropImage,
+            child: _isCropping 
+              ? SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                  ),
+                )
+              : Text(
+                  'Done',
+                  style: TextStyle(color: Colors.white, fontSize: 16),
+                ),
           ),
         ],
       ),
@@ -257,10 +298,10 @@ class _ImageCropperWidgetState extends State<ImageCropperWidget> {
         children: [
           // Background image with proper positioning
           Positioned(
-            left: _displayedImageOffset.dx,
-            top: _displayedImageOffset.dy,
-            width: _displayedImageSize.width,
-            height: _displayedImageSize.height,
+            left: _displayedImageOffset.dx.isFinite ? _displayedImageOffset.dx : 0,
+            top: _displayedImageOffset.dy.isFinite ? _displayedImageOffset.dy : 0,
+            width: _displayedImageSize.width.isFinite && _displayedImageSize.width > 0 ? _displayedImageSize.width : _imageSize.width,
+            height: _displayedImageSize.height.isFinite && _displayedImageSize.height > 0 ? _displayedImageSize.height : _imageSize.height,
             child: Transform.scale(
               scale: _scale,
               child: Transform.translate(
@@ -268,8 +309,8 @@ class _ImageCropperWidgetState extends State<ImageCropperWidget> {
                 child: Image.file(
                   File(widget.imagePath),
                   fit: BoxFit.cover,
-                  width: _displayedImageSize.width,
-                  height: _displayedImageSize.height,
+                  width: _displayedImageSize.width.isFinite && _displayedImageSize.width > 0 ? _displayedImageSize.width : _imageSize.width,
+                  height: _displayedImageSize.height.isFinite && _displayedImageSize.height > 0 ? _displayedImageSize.height : _imageSize.height,
                 ),
               ),
             ),
@@ -321,11 +362,11 @@ class _ImageCropperWidgetState extends State<ImageCropperWidget> {
           
           // Crop area border
           Positioned(
-            left: _cropOffset.dx,
-            top: _cropOffset.dy,
+            left: _cropOffset.dx.isFinite ? _cropOffset.dx : 0,
+            top: _cropOffset.dy.isFinite ? _cropOffset.dy : 0,
             child: Container(
-              width: _cropSize.width,
-              height: _cropSize.height,
+              width: _cropSize.width.isFinite && _cropSize.width > 0 ? _cropSize.width : 200,
+              height: _cropSize.height.isFinite && _cropSize.height > 0 ? _cropSize.height : 200,
               decoration: BoxDecoration(
                 border: Border.all(color: Colors.white, width: 2),
                 color: Colors.transparent,
@@ -398,7 +439,19 @@ class _ImageCropperWidgetState extends State<ImageCropperWidget> {
   }
 
   Future<void> _cropImage() async {
+    // Prevent multiple simultaneous crop operations
+    if (_isCropping) {
+      return;
+    }
+    
+    setState(() {
+      _isCropping = true;
+    });
+
     try {
+      // Check if widget is still mounted before showing dialog
+      if (!mounted) return;
+      
       // Show loading indicator
       showDialog(
         context: context,
@@ -424,6 +477,7 @@ class _ImageCropperWidgetState extends State<ImageCropperWidget> {
           ),
         ),
       );
+      _isDialogOpen = true;
 
       // FIXED COORDINATE TRANSFORMATION LOGIC
       
@@ -458,6 +512,13 @@ class _ImageCropperWidgetState extends State<ImageCropperWidget> {
       final double cropImageY = cropInImageTop.clamp(0.0, _imageSize.height);
       final double cropImageWidth = (cropInImageRight - cropInImageLeft).clamp(0.0, _imageSize.width - cropImageX);
       final double cropImageHeight = (cropInImageBottom - cropInImageTop).clamp(0.0, _imageSize.height - cropImageY);
+      
+      // Additional validation for crop dimensions
+      debugPrint('🔍 Crop validation:');
+      debugPrint('  - cropImageX: $cropImageX (0 to ${_imageSize.width})');
+      debugPrint('  - cropImageY: $cropImageY (0 to ${_imageSize.height})');
+      debugPrint('  - cropImageWidth: $cropImageWidth (0 to ${_imageSize.width - cropImageX})');
+      debugPrint('  - cropImageHeight: $cropImageHeight (0 to ${_imageSize.height - cropImageY})');
       
       // Additional safety checks
       if (cropImageWidth <= 0 || cropImageHeight <= 0) {
@@ -522,46 +583,75 @@ class _ImageCropperWidgetState extends State<ImageCropperWidget> {
         rotate: 0,
       );
 
-      // Close loading dialog
-      Navigator.of(context).pop();
+      // Close loading dialog if still open
+      if (mounted && _isDialogOpen) {
+        Navigator.of(context, rootNavigator: true).pop();
+        _isDialogOpen = false;
+      }
 
       if (compressedBytes != null) {
-        // Create a temporary file with the cropped image
-        final String tempPath = '${widget.imagePath}_cropped.jpg';
+        // Create a temporary file with the cropped image in proper temp directory
+        final Directory tempDir = await getTemporaryDirectory();
+        final String fileName = 'cropped_${DateTime.now().millisecondsSinceEpoch}.jpg';
+        final String tempPath = '${tempDir.path}/$fileName';
         final File croppedFile = File(tempPath);
         await croppedFile.writeAsBytes(compressedBytes);
         
-        // Show success message
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Image cropped successfully!'),
-            backgroundColor: Colors.green,
-            duration: Duration(seconds: 2),
-          ),
-        );
+        // Show success message if widget is still mounted
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Image cropped successfully!'),
+              backgroundColor: Colors.green,
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
         
-        widget.onCropComplete(croppedFile);
+        debugPrint('✅ Cropped image saved to: $tempPath');
+        debugPrint('✅ Cropped file exists: ${await croppedFile.exists()}');
+        debugPrint('✅ Cropped file size: ${await croppedFile.length()} bytes');
+        
+        if (mounted) {
+          widget.onCropComplete(croppedFile);
+        }
       } else {
         // Fallback to original image
-        widget.onCropComplete(File(widget.imagePath));
+        if (mounted) {
+          widget.onCropComplete(File(widget.imagePath));
+        }
       }
     } catch (e) {
-      // Close loading dialog
-      Navigator.of(context).pop();
+      // Close loading dialog if still open
+      if (mounted && _isDialogOpen) {
+        Navigator.of(context, rootNavigator: true).pop();
+        _isDialogOpen = false;
+      }
       
       debugPrint('Error cropping image: $e');
       
-      // Show error message
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to crop image. Using original.'),
-          backgroundColor: Colors.orange,
-          duration: Duration(seconds: 3),
-        ),
-      );
+      // Show error message if widget is still mounted
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to crop image. Using original.'),
+            backgroundColor: Colors.orange,
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
       
       // Fallback to original image
-      widget.onCropComplete(File(widget.imagePath));
+      if (mounted) {
+        widget.onCropComplete(File(widget.imagePath));
+      }
+    } finally {
+      // Reset the cropping flag
+      if (mounted) {
+        setState(() {
+          _isCropping = false;
+        });
+      }
     }
   }
 } 

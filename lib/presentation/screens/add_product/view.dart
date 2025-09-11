@@ -220,6 +220,9 @@ class _AddProductScreenState extends State<AddProductScreen> {
             maxLength: _nameMaxLength,
             errorText: state.nameError,
             counterText: '${_nameController.text.length}/$_nameMaxLength',
+            inputFormatters: [
+              FilteringTextInputFormatter.deny(RegExp(r'^[0-9\s]+$')), // Deny only numbers and spaces
+            ],
             onChanged: (value) {
               context.read<AddProductBloc>().add(ProductNameChangedEvent(value));
               // Also validate on change for immediate feedback
@@ -235,12 +238,15 @@ class _AddProductScreenState extends State<AddProductScreen> {
           _buildFormLabel('Short Description *'),
           const SizedBox(height: 8),
           CustomTextField(
-            hintText: 'Enter product description (required, upto 100 characters)',
+            hintText: 'Enter product description (required, upto 100 characters, must contain at least one alphabet character)',
             controller: _descriptionController,
             maxLines: 3,
             maxLength: _descriptionMaxLength,
             errorText: state.descriptionError,
             counterText: '${_descriptionController.text.length}/$_descriptionMaxLength',
+            inputFormatters: [
+              FilteringTextInputFormatter.deny(RegExp(r'^[0-9\s]+$')), // Deny only numbers and spaces
+            ],
             onChanged: (value) {
               context.read<AddProductBloc>().add(ProductDescriptionChangedEvent(value));
               // Also validate on change for immediate feedback
@@ -271,8 +277,13 @@ class _AddProductScreenState extends State<AddProductScreen> {
             timingSchedule: state.product.timingSchedule,
             timingEnabled: state.product.timingEnabled,
             timezone: state.product.timezone,
+            timingError: state.timingError,
             onTimingEnabledChanged: (enabled) {
               context.read<AddProductBloc>().add(ToggleTimingEnabledEvent(enabled));
+              // Trigger timing validation after toggle
+              Future.delayed(const Duration(milliseconds: 100), () {
+                context.read<AddProductBloc>().add(const ValidateTimingScheduleEvent());
+              });
             },
             onDayScheduleChanged: (day, enabled, start, end) {
               context.read<AddProductBloc>().add(UpdateDayScheduleEvent(
@@ -281,9 +292,17 @@ class _AddProductScreenState extends State<AddProductScreen> {
                 start: start,
                 end: end,
               ));
+              // Trigger timing validation after update
+              Future.delayed(const Duration(milliseconds: 100), () {
+                context.read<AddProductBloc>().add(const ValidateTimingScheduleEvent());
+              });
             },
             onTimezoneChanged: (timezone) {
               context.read<AddProductBloc>().add(UpdateTimezoneEvent(timezone));
+              // Trigger timing validation after timezone change
+              Future.delayed(const Duration(milliseconds: 100), () {
+                context.read<AddProductBloc>().add(const ValidateTimingScheduleEvent());
+              });
             },
           ),
           const SizedBox(height: 16),

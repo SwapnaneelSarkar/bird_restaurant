@@ -29,6 +29,7 @@ import '../../../ui_components/cuisine_grid.dart';
 import '../../../models/cuisine_model.dart';
 import '../../../services/cuisine_service.dart';
 import '../../../ui_components/country_picker.dart';
+import '../../../ui_components/radius_map_widget.dart';
 
 class RestaurantProfileView extends StatelessWidget {
   const RestaurantProfileView({Key? key}) : super(key: key);
@@ -226,12 +227,14 @@ class _BodyState extends State<_Body> {
     final side = w * 0.04;
     final vert = h * 0.02;
 
-    return WillPopScope(
-      onWillPop: () async {
-        Navigator.of(
-          context,
-        ).pushNamedAndRemoveUntil(Routes.homePage, (route) => false);
-        return false;
+    return PopScope(
+      canPop: false,
+      onPopInvoked: (didPop) async {
+        if (!didPop) {
+          Navigator.of(
+            context,
+          ).pushNamedAndRemoveUntil(Routes.homePage, (route) => false);
+        }
       },
       child: Scaffold(
         key: _scaffoldKey,
@@ -775,7 +778,8 @@ class _BodyState extends State<_Body> {
                           label: 'Store Name',
                           hintText: 'Enter store name (max 30 characters)',
                           maxLength: 30,
-                          counterText: '${_restNameCtrl.text.length}/30',
+                          counterText: '${st.restaurantName.length}/30',
+                          errorText: st.restaurantNameError,
                           onChanged: (v) {
                             // Capitalize first letter of each word
                             final capitalized = v.split(' ').map((word) {
@@ -784,6 +788,32 @@ class _BodyState extends State<_Body> {
                             }).join(' ');
                             bloc.add(RestaurantNameChanged(capitalized));
                           },
+                        ),
+                        // Real-time character counter
+                        SizedBox(height: vert * 0.3),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'Characters: ${st.restaurantName.length}',
+                              style: TextStyle(
+                                fontSize: FontSize.s12,
+                                color: st.restaurantName.length >= 30 
+                                    ? Colors.red.shade600 
+                                    : Colors.grey.shade600,
+                              ),
+                            ),
+                            Text(
+                              '${st.restaurantName.length}/30',
+                              style: TextStyle(
+                                fontSize: FontSize.s12,
+                                color: st.restaurantName.length >= 30 
+                                    ? Colors.red.shade600 
+                                    : Colors.grey.shade600,
+                                fontWeight: FontWeightManager.medium,
+                              ),
+                            ),
+                          ],
                         ),
                         SizedBox(height: vert * .8),
                         CustomTextField(
@@ -825,31 +855,64 @@ class _BodyState extends State<_Body> {
                         SizedBox(height: vert * .8),
                         ],
 
-                        // 👈 NEW DELIVERY RADIUS FIELD ADDED
-                        CustomTextField(
-                          controller: _deliveryRadiusCtrl,
-                          label: 'Delivery Radius (km)',
-                          hintText: 'Enter delivery radius in kilometers (limited to 2 digits, max 99)',
-                          keyboardType: TextInputType.number,
-                          maxLength: 2,
-                          counterText: '${_deliveryRadiusCtrl.text.length}/2',
-                          inputFormatters: [
-                            FilteringTextInputFormatter.digitsOnly,
-                            LengthLimitingTextInputFormatter(2),
+                        // 👈 NEW DELIVERY RADIUS MAP WIDGET ADDED
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Delivery Radius',
+                              style: TextStyle(
+                                fontFamily: FontConstants.fontFamily,
+                                fontSize: FontSize.s14,
+                                fontWeight: FontWeightManager.medium,
+                                color: Colors.grey.shade800,
+                              ),
+                            ),
+                            SizedBox(height: 8),
+                            Text(
+                              'Set your delivery area by adjusting the radius on the map below',
+                              style: TextStyle(
+                                fontFamily: FontConstants.fontFamily,
+                                fontSize: FontSize.s12,
+                                color: Colors.grey.shade600,
+                              ),
+                            ),
+                            SizedBox(height: 12),
+                            RadiusMapWidget(
+                              initialRadius: double.tryParse(st.deliveryRadius) ?? 5.0,
+                              initialLatitude: double.tryParse(st.latitude) ?? 28.6139, // Default to Delhi
+                              initialLongitude: double.tryParse(st.longitude) ?? 77.2090,
+                              onRadiusChanged: (radius, latitude, longitude) {
+                                bloc.add(DeliveryRadiusChanged(radius.toStringAsFixed(1)));
+                                bloc.add(LatitudeChanged(latitude.toString()));
+                                bloc.add(LongitudeChanged(longitude.toString()));
+                              },
+                            ),
+                            SizedBox(height: 8),
+                            Container(
+                              padding: EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Colors.blue.shade50,
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: Colors.blue.shade200),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(Icons.info_outline, color: Colors.blue.shade700, size: 16),
+                                  SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      'Current radius: ${st.deliveryRadius} km • Move the map to adjust your restaurant location',
+                                      style: TextStyle(
+                                        fontSize: FontSize.s12,
+                                        color: Colors.blue.shade800,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
                           ],
-                          onChanged: (v) {
-                            // Ensure value is within 1-99 range
-                            final intValue = int.tryParse(v);
-                            if (intValue != null && intValue > 99) {
-                              _deliveryRadiusCtrl.text = '99';
-                              _deliveryRadiusCtrl.selection = TextSelection.fromPosition(
-                                TextPosition(offset: 2),
-                              );
-                              bloc.add(DeliveryRadiusChanged('99'));
-                            } else {
-                              bloc.add(DeliveryRadiusChanged(v));
-                            }
-                          },
                         ),
                         SizedBox(height: vert * 1.2),
 
@@ -1104,6 +1167,15 @@ class _BodyState extends State<_Body> {
   Widget _buildRestaurantImage(RestaurantProfileState state) {
     // Local file takes precedence over remote URL
     if (state.imagePath != null) {
+      debugPrint('🖼️ Displaying local image: ${state.imagePath}');
+      final File imageFile = File(state.imagePath!);
+      final bool fileExists = imageFile.existsSync();
+      debugPrint('🖼️ Image file exists: $fileExists');
+      if (fileExists) {
+        final int fileSize = imageFile.lengthSync();
+        debugPrint('🖼️ Image file size: $fileSize bytes');
+      }
+      
       return ClipRRect(
         borderRadius: BorderRadius.circular(8),
         child: Image.file(
@@ -1111,6 +1183,15 @@ class _BodyState extends State<_Body> {
           fit: BoxFit.cover,
           width: double.infinity,
           height: double.infinity,
+          errorBuilder: (context, error, stackTrace) {
+            debugPrint('❌ Error loading local image: $error');
+            debugPrint('❌ Image path: ${state.imagePath}');
+            return Icon(
+              Icons.error_outline,
+              size: 72,
+              color: Colors.red,
+            );
+          },
         ),
       );
     }
